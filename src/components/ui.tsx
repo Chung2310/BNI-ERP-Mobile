@@ -173,12 +173,14 @@ export function LoadingState({ label = "Đang tải dữ liệu..." }: { label?:
 
 export function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <Card style={styles.state}>
-      <CircleAlert color={colors.danger} size={30} strokeWidth={1.8} />
-      <Text style={styles.stateTitle}>Không thể tải dữ liệu</Text>
-      <Text style={styles.stateMessage}>{message}</Text>
-      <Button tone="secondary" style={styles.retryButton} textStyle={styles.retryText} onPress={onRetry}>Thử lại</Button>
-    </Card>
+    <View style={styles.errorArea}>
+      <Card style={styles.state}>
+        <CircleAlert color={colors.danger} size={30} strokeWidth={1.8} />
+        <Text style={styles.stateTitle}>Không thể tải dữ liệu</Text>
+        <Text style={styles.stateMessage}>{message}</Text>
+        <Button tone="secondary" style={styles.retryButton} textStyle={styles.retryText} onPress={onRetry}>Thử lại</Button>
+      </Card>
+    </View>
   );
 }
 
@@ -231,6 +233,7 @@ const styles = StyleSheet.create({
   },
   sectionTitleText: { color: colors.text, fontSize: 13.5, fontWeight: "700" },
   state: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xl },
+  errorArea: { flexGrow: 1, justifyContent: "center" },
   stateTitle: { color: colors.text, fontSize: 15, fontWeight: "800" },
   stateMessage: { color: colors.muted, fontSize: 12.5, lineHeight: 18, textAlign: "center" },
   retryButton: { backgroundColor: "#FFFFFF", borderWidth: 0 },

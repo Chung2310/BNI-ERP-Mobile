@@ -235,7 +235,7 @@ export default function MembersScreen() {
           <LoadingState />
         </View>
       ) : error ? (
-        <View style={styles.stateContainer}>
+        <View style={[styles.stateContainer, styles.errorContainer]}>
           <ErrorState message={error} onRetry={reload} />
         </View>
       ) : members.length === 0 ? (
@@ -340,6 +340,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
   },
+  errorContainer: { flexGrow: 1 },
   loadMoreContainer: {
     paddingVertical: spacing.lg,
     alignItems: "center",
