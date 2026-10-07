@@ -176,7 +176,7 @@ export function MeetingRemoteControl({ id }: { id: string }) {
           {panel === "speaker" ? <>
             <Card style={styles.section}>
               <View style={styles.summaryRow}><Text style={styles.sectionHeading}>Đang phát biểu</Text><Text style={styles.muted}>{meeting.status === "paused" ? "Tạm dừng" : currentSpeaker ? `Lượt ${meeting.currentIndex + 1}/${meeting.speakers.length}` : "Chưa bắt đầu"}</Text></View>
-              <Text style={styles.personName}>{currentSpeaker?.name || "Chưa có người phát biểu"}</Text>
+              <Text style={[styles.personName, currentSpeaker && (meeting.status === "live" || meeting.status === "paused") && styles.activeSpeakerName]}>{currentSpeaker?.name || "Chưa có người phát biểu"}</Text>
               {meeting.status === "scheduled" ? <View style={styles.compactGrid}><CompactAction icon={Play} label="Bắt đầu họp" accessibilityLabel="Bắt đầu cuộc họp" columns={2} primary disabled={disabled} onPress={() => control("start")} /></View> : null}
               {(meeting.status === "live" || meeting.status === "paused") && currentSpeaker ? <View style={styles.compactGrid}>
                 {meeting.status === "paused" ? <CompactAction icon={Play} label="Tiếp tục" accessibilityLabel="Tiếp tục và chiếu" columns={4} primary disabled={disabled} onPress={() => void run((current) => meetingService.presentation(id, current.speakers[current.currentIndex].id, meetingVersion(current)))} />
@@ -192,10 +192,10 @@ export function MeetingRemoteControl({ id }: { id: string }) {
               <Text style={styles.muted}>Chạm tên để trình chiếu · icon bên phải để đưa xuống cuối lượt</Text>
               {!meeting.speakers.length ? <Text style={styles.muted}>Chưa có người check-in.</Text> : <View style={styles.people}>
                 {meeting.speakers.map((person, index) => {
-                  const isCurrent = view === "speaker" && index === meeting.currentIndex;
+                  const isCurrent = (meeting.status === "live" || meeting.status === "paused") && index === meeting.currentIndex;
                   const cannotDefer = disabled || index < Math.max(0, meeting.currentIndex) || index === meeting.speakers.length - 1;
                   return <View key={person.id} style={[styles.personRow, isCurrent && styles.personRowActive]}>
-                    <Pressable accessibilityRole="button" accessibilityLabel={`Chiếu slide của ${person.name}`} accessibilityState={{ disabled, selected: isCurrent }} disabled={disabled} onPress={() => void run((current) => meetingService.presentation(id, person.id, meetingVersion(current)))} style={styles.personMain}><Text style={styles.personIndex}>{index + 1}</Text><Text numberOfLines={1} style={styles.personRowName}>{person.name}</Text>{isCurrent ? <Text style={styles.currentLabel}>Đang chiếu</Text> : <Play color={colors.muted} size={17} />}</Pressable>
+                    <Pressable accessibilityRole="button" accessibilityLabel={`Chiếu slide của ${person.name}`} accessibilityState={{ disabled, selected: isCurrent }} disabled={disabled} onPress={() => void run((current) => meetingService.presentation(id, person.id, meetingVersion(current)))} style={styles.personMain}><Text style={styles.personIndex}>{index + 1}</Text><Text numberOfLines={1} style={[styles.personRowName, isCurrent && styles.activeSpeakerName]}>{person.name}</Text>{isCurrent ? <Text style={styles.currentLabel}>{meeting.status === "paused" ? "Tạm dừng" : "Đang phát biểu"}</Text> : <Play color={colors.muted} size={17} />}</Pressable>
                     <Pressable accessibilityRole="button" accessibilityLabel={`Đưa ${person.name} xuống cuối lượt`} accessibilityState={{ disabled: cannotDefer }} disabled={cannotDefer} onPress={() => void run((current) => meetingService.deferSpeaker(id, person.id, meetingVersion(current)))} style={[styles.deferButton, cannotDefer && styles.disabled]}><ListOrdered color={colors.text} size={19} /></Pressable>
                   </View>;
                 })}
@@ -312,6 +312,7 @@ const styles = StyleSheet.create({
   sectionHeading: { color: colors.text, fontSize: 13, fontWeight: "600" },
   summaryRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
   personName: { color: colors.text, fontSize: 15, fontWeight: "600" },
+  activeSpeakerName: { color: brandBlue },
   muted: { color: colors.muted, fontSize: 12, lineHeight: 17 },
   compactGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   compactAction: { minHeight: 52, alignItems: "center", justifyContent: "center", gap: 2, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: colors.surface, paddingHorizontal: 2 },
