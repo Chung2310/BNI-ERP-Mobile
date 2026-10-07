@@ -143,7 +143,7 @@ export default function MeetingGamesScreen() {
   const rotate = rotation.interpolate({ inputRange: [0, 360], outputRange: ["0deg", "360deg"], extrapolate: "extend" });
 
   return <Screen style={styles.screen} scrollViewProps={{ keyboardShouldPersistTaps: "handled" }}>
-    <BackHeader title="Trò quay thưởng" subtitle={meeting?.title} />
+    <BackHeader title="Quay thưởng" subtitle={meeting?.title} />
     {loading && !meeting ? <LoadingState /> : !meeting ? <ErrorState message={error || "Không tìm thấy cuộc họp."} onRetry={() => void refresh()} /> : <>
       <View style={styles.tabs}>{(["wheel", "bingo"] as const).map((option) => <Pressable key={option} accessibilityRole="tab" accessibilityState={{ selected: game === option }} onPress={() => { if (!busy) { setGame(option); setWinner(null); rotation.setValue(0); angleRef.current = 0; } }} style={[styles.tab, game === option && styles.tabActive]}><Text style={[styles.tabText, game === option && styles.tabTextActive]}>{gameNames[option]}</Text></Pressable>)}</View>
       {error ? <Card style={styles.error}><Text style={styles.errorText}>{error}</Text><Button tone="secondary" icon={RefreshCw} onPress={() => { setError(""); void refresh(); }}>Làm mới</Button></Card> : null}

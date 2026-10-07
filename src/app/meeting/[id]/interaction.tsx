@@ -12,7 +12,7 @@ export default function InteractionScreen() {
   const { id, section, readOnly } = useLocalSearchParams<{ id: string; section?: string; readOnly?: string }>();
   const { user } = useAuth();
   const drawMode = section === "luckyDraw";
-  const title = drawMode ? "Vòng quay may mắn" : "Thu ý kiến";
+  const title = drawMode ? "Bốc thăm giải thưởng" : "Thu ý kiến";
   const { data, error, isLoading, reload } = useAsyncData<
     { kind: "luckyDraw"; draw: LuckyDraw } | { kind: "interaction"; interaction: MeetingInteraction }
   >(

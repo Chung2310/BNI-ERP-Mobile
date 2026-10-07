@@ -80,7 +80,7 @@ export function LuckyDrawManager({ meetingId, initial, canManage, reload }: Prop
   ]);
 
   return <Screen>
-    <BackHeader title="Quay thưởng" subtitle={`${initial.attendeesCount} người tham dự đủ điều kiện`} />
+    <BackHeader title="Bốc thăm giải thưởng" subtitle={`${initial.attendeesCount} người tham dự đủ điều kiện`} />
     {!initial.meetingStarted ? <Card style={s.notice}><Clock3 color={colors.warning} size={22} /><Text style={s.noticeText}>Cuộc họp cần được bắt đầu trước khi quay thưởng.</Text></Card> : null}
     {winner ? <Card style={s.winner}><Trophy color={colors.warning} size={38} /><Text style={s.winnerLabel}>NGƯỜI TRÚNG GIẢI</Text><Text style={s.winnerName}>{winner.name || `Số ${winner.ticketNumber}`}</Text><Text style={s.meta}>{winner.prizeName}</Text></Card> : null}
     {canManage ? <Card>
