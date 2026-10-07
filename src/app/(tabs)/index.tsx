@@ -139,7 +139,11 @@ export default function HomeScreen() {
               </Pressable>
             ) : null}
 
-            {/* Lịch cuộc họp - Hiển thị ngay khi mở app */}
+            {/* Tiện ích */}
+            <SectionTitle>Tiện ích</SectionTitle>
+            <DashboardQuickActions user={user} />
+
+            {/* Lịch cuộc họp */}
             <SectionTitle
               action={
                 <Pressable
@@ -167,10 +171,6 @@ export default function HomeScreen() {
                 setCalendarDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))
               }
             />
-
-            {/* Thao tác nhanh */}
-            <SectionTitle>Thao tác nhanh</SectionTitle>
-            <DashboardQuickActions user={user} />
 
             {/* Biểu đồ tổng quan */}
             <SectionTitle>Biểu đồ tổng quan</SectionTitle>
