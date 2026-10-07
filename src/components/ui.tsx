@@ -142,11 +142,11 @@ export const textStyles: Record<string, TextStyle> = {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
-  screenContent: { flexGrow: 1, gap: spacing.md, padding: spacing.lg, paddingBottom: spacing.xxl },
+  screenContent: { flexGrow: 1, gap: spacing.md, paddingHorizontal: 12, paddingVertical: spacing.md, paddingBottom: spacing.xxl },
   header: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.xs },
   headerTitle: { color: colors.text, fontSize: 22, fontWeight: "900" },
   caption: { color: colors.muted, fontSize: 12, lineHeight: 17 },
-  card: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, padding: spacing.lg, ...shadow },
+  card: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, padding: spacing.md, ...shadow },
   avatar: { alignItems: "center", justifyContent: "center", backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: "#B9E7EE" },
   avatarText: { color: colors.primaryDark, fontWeight: "900" },
   badge: { alignSelf: "flex-start", borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 4, backgroundColor: "#EDF3F5" },

@@ -7,9 +7,9 @@ import Svg, { Circle } from 'react-native-svg';
 import { Card } from '@/components/ui';
 
 const palette = {
-  present: colors.primary,
-  guest: '#F59E0B',
-  absent: '#F06A7D',
+  present: '#00AECA', // Brand primary jade cyan
+  guest: '#5EE2F6',   // Lighter brand cyan
+  absent: '#CDEAF1',  // Soft pale ice cyan tint
 };
 
 function absent(meeting: Meeting, members: number) {

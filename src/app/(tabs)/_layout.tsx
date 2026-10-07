@@ -1,5 +1,6 @@
 import { Redirect, Tabs } from "expo-router";
 import { CalendarDays, Home, MessageCircle, MoreHorizontal, Users, type LucideIcon } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/context/AuthContext";
 import { colors } from "@/theme/tokens";
 
@@ -7,14 +8,22 @@ const icons: Record<string, LucideIcon> = { index: Home, meetings: CalendarDays,
 
 export default function TabsLayout() {
   const { isLoading, token } = useAuth();
+  const insets = useSafeAreaInsets();
   if (!isLoading && !token) return <Redirect href="/login" />;
+  const bottomPadding = Math.max(insets.bottom, 10);
   return (
     <Tabs
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: colors.primaryDark,
         tabBarInactiveTintColor: colors.muted,
-        tabBarStyle: { minHeight: 66, paddingTop: 7, paddingBottom: 7, borderTopColor: colors.border, backgroundColor: colors.surface },
+        tabBarStyle: {
+          height: 54 + bottomPadding,
+          paddingTop: 6,
+          paddingBottom: bottomPadding,
+          borderTopColor: colors.border,
+          backgroundColor: colors.surface,
+        },
         tabBarLabelStyle: { fontSize: 11, fontWeight: "700" },
         tabBarIcon: ({ color, size }) => { const Icon = icons[route.name] || MoreHorizontal; return <Icon color={color} size={size} strokeWidth={2.1} />; },
       })}
