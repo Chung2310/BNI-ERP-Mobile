@@ -13,19 +13,22 @@ import {
   Pencil,
   Presentation,
   Search,
+  Settings,
   Settings2,
   Timer,
   Trash2,
+  X,
   XCircle,
   type LucideIcon,
 } from "lucide-react-native";
-import { Alert, Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Image, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BackHeader } from "@/components/BackHeader";
 import { Avatar, Badge, Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionTitle } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { meetingService, meetingVersion, type Meeting } from "@/services/meeting";
-import { colors, radius, spacing } from "@/theme/tokens";
+import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 import { hasPermission } from "@/utils/permissions";
 
 const statusMeta: Record<Meeting["status"], { label: string; tone: "primary" | "danger" | "warning" | "default" }> = {
@@ -44,6 +47,7 @@ const initials = (name: string) => name.split(" ").filter(Boolean).map((part) =>
 export default function MeetingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const { data: meeting, setData, error, isLoading, reload } = useAsyncData(() => meetingService.get(id), id);
   const hasFocused = useRef(false);
   useFocusEffect(useCallback(() => {
@@ -52,6 +56,10 @@ export default function MeetingDetailScreen() {
   }, [reload]));
   const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<"cancel" | "remove" | null>(null);
+  const [actionError, setActionError] = useState("");
+  const actionPending = useRef(false);
   const manage = hasPermission(user, "meetings:manage", "access:manage");
 
   const filteredSpeakers = useMemo(() => {
@@ -84,48 +92,47 @@ export default function MeetingDetailScreen() {
     }
   };
 
-  const cancelMeeting = () => Alert.alert(
-    "Hủy lịch họp?",
-    "Buổi họp này sẽ được đánh dấu đã hủy. Các buổi khác trong chuỗi không thay đổi.",
-    [
-      { text: "Giữ lịch", style: "cancel" },
-      { text: "Hủy lịch", style: "destructive", onPress: async () => {
-        if (busy) return;
-        setBusy(true);
-        try {
-          setData(await meetingService.control(id, "cancel", meetingVersion(meeting)));
-        } catch (cause) {
-          Alert.alert("Không thể hủy lịch", cause instanceof Error ? cause.message : "Vui lòng thử lại.");
-        } finally {
-          setBusy(false);
-        }
-      } },
-    ],
-  );
+  const closeSettings = () => {
+    if (actionPending.current) return;
+    setSettingsOpen(false);
+    setConfirmAction(null);
+    setActionError("");
+  };
 
-  const removeMeeting = () => Alert.alert(
-    "Xóa lịch họp?",
-    "Cuộc họp cùng danh sách check-in và dữ liệu quay thưởng sẽ bị xóa vĩnh viễn.",
-    [
-      { text: "Giữ lịch", style: "cancel" },
-      { text: "Xóa vĩnh viễn", style: "destructive", onPress: async () => {
-        if (busy) return;
-        setBusy(true);
-        try {
-          await meetingService.remove(id);
-          router.replace("/meetings");
-        } catch (cause) {
-          Alert.alert("Không thể xóa lịch", cause instanceof Error ? cause.message : "Vui lòng thử lại.");
-        } finally {
-          setBusy(false);
-        }
-      } },
-    ],
-  );
+  const confirmChange = async () => {
+    if (actionPending.current || !manage || !confirmAction) return;
+    if (confirmAction === "cancel" && meeting.status !== "scheduled") {
+      setActionError("Chỉ có thể hủy cuộc họp chưa diễn ra.");
+      return;
+    }
+    actionPending.current = true;
+    setBusy(true);
+    setActionError("");
+    try {
+      if (confirmAction === "cancel") {
+        setData(await meetingService.control(id, "cancel", meetingVersion(meeting)));
+        closeSettingsAfterChange();
+      } else {
+        await meetingService.remove(id);
+        closeSettingsAfterChange();
+        router.replace("/meetings");
+      }
+    } catch (cause) {
+      setActionError(cause instanceof Error ? cause.message : "Không thể cập nhật lịch họp. Vui lòng thử lại.");
+    } finally {
+      actionPending.current = false;
+      setBusy(false);
+    }
+  };
+
+  const closeSettingsAfterChange = () => {
+    setSettingsOpen(false);
+    setConfirmAction(null);
+  };
 
   return (
     <Screen style={styles.detailScreen}>
-      <BackHeader title="Chi tiết cuộc họp" compact />
+      <BackHeader title="Chi tiết cuộc họp" compact action={manage ? <Pressable accessibilityRole="button" accessibilityLabel="Tùy chỉnh cuộc họp" onPress={() => setSettingsOpen(true)} style={styles.settingsButton}><Settings color={colors.primaryDark} size={22} /></Pressable> : undefined} />
       <Card style={styles.summary}>
         <View style={styles.summaryRow}>
           <View style={styles.grow}>
@@ -136,12 +143,6 @@ export default function MeetingDetailScreen() {
         </View>
         <View style={styles.summaryMeta}><Clock3 color={colors.primaryDark} size={16} /><Text style={styles.summaryMetaText}>{dateTime(meeting.startsAt)}</Text></View>
         <View style={styles.summaryMeta}><MapPin color={colors.primaryDark} size={16} /><Text style={styles.summaryMetaText}>{meeting.location || "Chưa cập nhật địa điểm"}</Text></View>
-        {manage ? <View style={styles.scheduleRow}>
-          <ScheduleAction icon={Pencil} label="Sửa lịch" disabled={busy || !meetingOpen} onPress={() => router.push({ pathname: "/meeting/[id]/edit", params: { id } })} />
-          <ScheduleAction icon={CalendarClock} label="Dời lịch" disabled={busy || meeting.status !== "scheduled"} onPress={() => router.push({ pathname: "/meeting/[id]/reschedule", params: { id } })} />
-          <ScheduleAction icon={XCircle} label="Hủy lịch" disabled={busy || meeting.status !== "scheduled"} onPress={cancelMeeting} />
-          <ScheduleAction icon={Trash2} label="Xóa lịch" disabled={busy} danger onPress={removeMeeting} />
-        </View> : null}
       </Card>
 
       <View style={styles.metrics}>
@@ -213,6 +214,29 @@ export default function MeetingDetailScreen() {
           })}
         </Card>
       ) : <EmptyState title="Chưa có người check-in" message="Danh sách sẽ cập nhật khi thành viên hoặc khách mời điểm danh." />}
+      <Modal visible={settingsOpen} transparent animationType="slide" statusBarTranslucent onRequestClose={closeSettings}>
+        <View style={styles.sheetOverlay}>
+          <Pressable accessibilityLabel="Đóng tùy chỉnh cuộc họp" style={styles.sheetBackdrop} onPress={closeSettings} />
+          <View style={[styles.sheetContent, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>{confirmAction === "cancel" ? "Hủy lịch họp?" : confirmAction === "remove" ? "Xóa lịch họp?" : "Tùy chỉnh cuộc họp"}</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Đóng" disabled={busy} onPress={closeSettings} style={styles.sheetClose}><X color={colors.muted} size={20} /></Pressable>
+            </View>
+            {confirmAction ? <View style={styles.confirmContent}>
+              <Text style={styles.confirmText}>{confirmAction === "cancel" ? "Buổi họp sẽ được đánh dấu đã hủy. Các buổi khác trong chuỗi không thay đổi." : "Cuộc họp cùng danh sách check-in và dữ liệu quay thưởng sẽ bị xóa vĩnh viễn."}</Text>
+              {actionError ? <Text style={styles.sheetError}>{actionError}</Text> : null}
+              <Button tone="danger" fullWidth disabled={busy} onPress={() => void confirmChange()}>{busy ? "Đang xử lý…" : confirmAction === "cancel" ? "Xác nhận hủy lịch" : "Xóa vĩnh viễn"}</Button>
+              <Button tone="secondary" fullWidth disabled={busy} onPress={() => { setConfirmAction(null); setActionError(""); }}>Quay lại</Button>
+            </View> : <>
+              <SheetAction icon={Pencil} label="Sửa thông tin lịch" detail={meetingOpen ? "Tên, địa điểm và thiết lập" : "Cuộc họp đã đóng, không thể sửa"} disabled={busy || !meetingOpen} onPress={() => { closeSettings(); router.push({ pathname: "/meeting/[id]/edit", params: { id } }); }} />
+              <SheetAction icon={CalendarClock} label="Dời ngày giờ họp" detail={meeting.status === "scheduled" ? "Chọn thời gian mới cho buổi này" : "Chỉ dời buổi chưa diễn ra"} disabled={busy || meeting.status !== "scheduled"} onPress={() => { closeSettings(); router.push({ pathname: "/meeting/[id]/reschedule", params: { id } }); }} />
+              <SheetAction icon={XCircle} label="Hủy lịch họp" detail={meeting.status === "scheduled" ? "Giữ lịch sử, chỉ hủy buổi này" : "Chỉ hủy buổi chưa diễn ra"} disabled={busy || meeting.status !== "scheduled"} onPress={() => setConfirmAction("cancel")} />
+              <SheetAction icon={Trash2} label="Xóa lịch họp" detail="Xóa vĩnh viễn cả dữ liệu liên quan" disabled={busy} danger onPress={() => setConfirmAction("remove")} />
+            </>}
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -221,10 +245,11 @@ function Metric({ label, value }: { label: string; value: string }) {
   return <Card style={styles.metric}><Text style={styles.metricLabel}>{label}</Text><Text style={styles.metricValue}>{value}</Text></Card>;
 }
 
-function ScheduleAction({ icon: Icon, label, disabled, danger = false, onPress }: { icon: LucideIcon; label: string; disabled: boolean; danger?: boolean; onPress: () => void }) {
-  return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.scheduleAction, disabled && styles.scheduleDisabled, pressed && styles.processPressed]}>
-    <View style={[styles.scheduleIcon, danger && styles.scheduleIconDanger]}><Icon size={20} color={danger ? colors.danger : colors.primaryDark} /></View>
-    <Text numberOfLines={1} style={[styles.scheduleLabel, danger && styles.scheduleLabelDanger]}>{label}</Text>
+function SheetAction({ icon: Icon, label, detail, disabled, danger = false, onPress }: { icon: LucideIcon; label: string; detail: string; disabled: boolean; danger?: boolean; onPress: () => void }) {
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.sheetAction, disabled && styles.sheetDisabled, pressed && styles.processPressed]}>
+    <View style={[styles.sheetActionIcon, danger && styles.sheetActionIconDanger]}><Icon size={20} color={danger ? colors.danger : colors.primaryDark} /></View>
+    <View style={styles.grow}><Text style={[styles.sheetActionLabel, danger && styles.sheetActionLabelDanger]}>{label}</Text><Text style={styles.sheetActionDetail}>{detail}</Text></View>
+    <ChevronRight color={colors.muted} size={18} />
   </Pressable>;
 }
 
@@ -242,13 +267,24 @@ function ProcessRow({ icon: Icon, label, detail, onPress }: { icon: typeof Clock
 
 const styles = StyleSheet.create({
   detailScreen: { gap: spacing.xs },
-  scheduleRow: { flexDirection: "row", borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingTop: spacing.xs },
-  scheduleAction: { flex: 1, minWidth: 0, minHeight: 68, alignItems: "center", justifyContent: "center", gap: spacing.xs },
-  scheduleDisabled: { opacity: 0.38 },
-  scheduleIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: colors.primarySoft },
-  scheduleIconDanger: { backgroundColor: "#FFF0F2" },
-  scheduleLabel: { color: colors.primaryDark, fontSize: 11, fontWeight: "700" },
-  scheduleLabelDanger: { color: colors.danger },
+  settingsButton: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.primarySoft },
+  sheetOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.overlay },
+  sheetBackdrop: { ...StyleSheet.absoluteFill },
+  sheetContent: { backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, paddingTop: spacing.sm, paddingHorizontal: spacing.lg },
+  sheetHandle: { width: 36, height: 4, alignSelf: "center", borderRadius: radius.pill, backgroundColor: colors.border, marginBottom: spacing.md },
+  sheetHeader: { minHeight: touchTarget, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.xs },
+  sheetTitle: { color: colors.text, fontSize: 17, fontWeight: "800" },
+  sheetClose: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center" },
+  sheetAction: { minHeight: 66, flexDirection: "row", alignItems: "center", gap: spacing.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingVertical: spacing.sm },
+  sheetDisabled: { opacity: 0.4 },
+  sheetActionIcon: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: radius.md, backgroundColor: colors.primarySoft },
+  sheetActionIconDanger: { backgroundColor: "#FFF0F2" },
+  sheetActionLabel: { color: colors.text, fontSize: 14, fontWeight: "700" },
+  sheetActionLabelDanger: { color: colors.danger },
+  sheetActionDetail: { marginTop: 2, color: colors.muted, fontSize: 12 },
+  confirmContent: { gap: spacing.md, paddingTop: spacing.sm },
+  confirmText: { color: colors.muted, fontSize: 14, lineHeight: 21 },
+  sheetError: { color: colors.danger, fontSize: 13, lineHeight: 18 },
   processCard: { paddingVertical: 0, paddingHorizontal: spacing.sm },
   processRow: { minHeight: 64, flexDirection: "row", alignItems: "center", gap: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, paddingHorizontal: spacing.xs, paddingVertical: spacing.sm },
   processPressed: { opacity: 0.6 },
