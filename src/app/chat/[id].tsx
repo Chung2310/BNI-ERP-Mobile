@@ -14,6 +14,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -51,6 +52,8 @@ export default function ChatRoomScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList<ChatMessage>>(null);
+  const { height: windowHeight } = useWindowDimensions();
+  const [isFocused, setIsFocused] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [message, setMessage] = useState('');
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
@@ -81,7 +84,11 @@ export default function ChatRoomScreen() {
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
     const showSub = Keyboard.addListener(showEvent, (e) => {
-      setKeyboardHeight(e.endCoordinates.height);
+      const h = e?.endCoordinates?.height || 0;
+      if (h > 100) {
+        setKeyboardHeight(h);
+      }
+      setIsFocused(true);
       setTimeout(() => {
         listRef.current?.scrollToEnd({ animated: true });
       }, 100);
@@ -89,6 +96,7 @@ export default function ChatRoomScreen() {
 
     const hideSub = Keyboard.addListener(hideEvent, () => {
       setKeyboardHeight(0);
+      setIsFocused(false);
     });
 
     return () => {
@@ -202,10 +210,13 @@ export default function ChatRoomScreen() {
     );
   };
 
+  const isKeyboardActive = isFocused || keyboardHeight > 100;
+  const activeKeyboardHeight = keyboardHeight > 100 ? keyboardHeight + 4 : Math.round(windowHeight * 0.40);
+
   const containerBottomPadding =
     Platform.OS === 'android'
-      ? keyboardHeight > 0
-        ? keyboardHeight + 4
+      ? isKeyboardActive
+        ? activeKeyboardHeight
         : Math.max(insets.bottom, spacing.sm)
       : keyboardHeight > 0
         ? 0
@@ -236,6 +247,12 @@ export default function ChatRoomScreen() {
               contentContainerStyle={[styles.messages, !messages.length && styles.emptyMessages]}
               keyboardShouldPersistTaps='handled'
               keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+              onScrollBeginDrag={() => {
+                if (isFocused) {
+                  Keyboard.dismiss();
+                  setIsFocused(false);
+                }
+              }}
               onLayout={() => messages.length > 0 && listRef.current?.scrollToEnd({ animated: false })}
               onContentSizeChange={() => messages.length > 0 && listRef.current?.scrollToEnd({ animated: false })}
               ListEmptyComponent={<EmptyState title='Chưa có tin nhắn' message='Hãy bắt đầu cuộc trò chuyện.' />}
@@ -266,7 +283,11 @@ export default function ChatRoomScreen() {
                 multiline
                 maxLength={4000}
                 onFocus={() => {
-                  setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+                  setIsFocused(true);
+                  setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 120);
+                }}
+                onBlur={() => {
+                  setIsFocused(false);
                 }}
                 style={styles.input}
               />
