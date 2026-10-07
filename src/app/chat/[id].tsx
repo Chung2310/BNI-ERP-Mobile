@@ -1,3 +1,4 @@
+import { Alert } from "@/components/AppAlert";
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
@@ -9,7 +10,7 @@ import { io, type Socket } from 'socket.io-client';
 import { Check, ChevronRight, FileText, Mic, Paperclip, Pause, Pin, Play, Search, Send, Settings2, Smile, Reply, X } from 'lucide-react-native';
 import {
   ActivityIndicator,
-  Alert,
+
   FlatList,
   Image,
   Keyboard,

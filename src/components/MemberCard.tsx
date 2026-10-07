@@ -1,7 +1,8 @@
+import { Alert } from "@/components/AppAlert";
 import { useState } from "react";
 import { router } from "expo-router";
 import { MessageCircle, Phone } from "lucide-react-native";
-import { ActivityIndicator, Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator,  Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { Avatar } from "@/components/ui";
 import { chatService, type ChatRoom } from "@/services/chat";
 import { colors, radius, spacing } from "@/theme/tokens";

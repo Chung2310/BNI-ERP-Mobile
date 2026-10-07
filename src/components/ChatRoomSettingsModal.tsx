@@ -1,6 +1,7 @@
+import { Alert } from "@/components/AppAlert";
 import { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View, Alert, ActivityIndicator } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View,  ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardResponsiveView } from '@/components/KeyboardResponsiveView';
 import { Check, X } from 'lucide-react-native';

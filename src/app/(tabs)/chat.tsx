@@ -1,7 +1,8 @@
+import { Alert } from "@/components/AppAlert";
 import { useCallback, useMemo, useState } from 'react';
 import { router, useFocusEffect } from 'expo-router';
 import { MessageCircleMore, Pin, Search, Users } from 'lucide-react-native';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {  Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { NewChatModal } from '@/components/NewChatModal';
 import { BackHeader } from '@/components/BackHeader';
 import { HeaderAddButton } from '@/components/HeaderAddButton';

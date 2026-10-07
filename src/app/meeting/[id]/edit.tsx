@@ -1,9 +1,10 @@
+import { Alert } from "@/components/AppAlert";
 import { useMemo, useState, type ReactNode } from "react";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import { router, useLocalSearchParams } from "expo-router";
 import { ImagePlus, MapPin, Plus, Save, Trash2, Upload } from "lucide-react-native";
-import { Alert, Image, Pressable, StyleSheet, Switch, Text, TextInput, View, type TextInputProps } from "react-native";
+import {  Image, Pressable, StyleSheet, Switch, Text, TextInput, View, type TextInputProps } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { DateTimeField } from "@/components/DateTimeField";
 import { Button, Card, ErrorState, LoadingState, Screen } from "@/components/ui";

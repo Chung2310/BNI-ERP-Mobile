@@ -1,6 +1,7 @@
+import { Alert } from "@/components/AppAlert";
 import { useState } from "react";
 import * as ImagePicker from "expo-image-picker";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import { RoundedDateTimePicker } from "@/components/RoundedDateTimePicker";
 import {
   CalendarDays,
   Camera,
@@ -13,7 +14,7 @@ import {
 } from "lucide-react-native";
 import {
   ActivityIndicator,
-  Alert,
+
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -554,15 +555,13 @@ export function AddMemberModal({ visible, onClose, onCreated }: Props) {
               </Pressable>
 
               {showDatePicker ? (
-                <DateTimePicker
+                <RoundedDateTimePicker
+                  visible
                   value={birthDate || new Date(1990, 0, 1)}
                   mode="date"
-                  display={Platform.OS === "ios" ? "spinner" : "default"}
                   maximumDate={new Date()}
-                  onChange={(_, selectedDate) => {
-                    setShowDatePicker(Platform.OS === "ios");
-                    if (selectedDate) setBirthDate(selectedDate);
-                  }}
+                  onCancel={() => setShowDatePicker(false)}
+                  onConfirm={(selectedDate) => { setBirthDate(selectedDate); setShowDatePicker(false); }}
                 />
               ) : null}
             </View>

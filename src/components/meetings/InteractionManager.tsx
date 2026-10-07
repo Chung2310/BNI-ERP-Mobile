@@ -1,6 +1,7 @@
+import { Alert } from "@/components/AppAlert";
 import { useEffect, useState } from "react";
 import { Check, ChevronRight, Clock3, Eye, EyeOff, MessageCircle, Play, Plus, RefreshCw, Save, Settings2, Share2, Square, Trash2, X, type LucideIcon } from "lucide-react-native";
-import { Alert, Pressable, Share, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import {  Pressable, Share, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { Badge, Button, Card, EmptyState, Screen } from "@/components/ui";
 import { meetingService, type MeetingInteraction, type MeetingInteractionInput, type MeetingInteractionResponseStatus } from "@/services/meeting";

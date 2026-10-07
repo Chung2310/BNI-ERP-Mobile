@@ -1,7 +1,8 @@
+import { Alert } from "@/components/AppAlert";
 import { useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { CalendarClock } from "lucide-react-native";
-import { Alert, StyleSheet, Text } from "react-native";
+import {  StyleSheet, Text } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { DateTimeField } from "@/components/DateTimeField";
 import { Button, Card, ErrorState, LoadingState, Screen } from "@/components/ui";

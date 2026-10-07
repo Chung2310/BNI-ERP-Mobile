@@ -1,7 +1,8 @@
+import { Alert } from "@/components/AppAlert";
 import { useCallback, useRef, useState } from "react";
 import { router, useFocusEffect } from "expo-router";
 import { io } from "socket.io-client";
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View, useWindowDimensions } from "react-native";
+import {  Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   CalendarCheck, CircleStop, Clock3, Gift, ListOrdered, MessageCircle,

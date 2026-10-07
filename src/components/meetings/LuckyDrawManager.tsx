@@ -1,6 +1,7 @@
+import { Alert } from "@/components/AppAlert";
 import { useMemo, useState } from "react";
 import { ChevronRight, Clock3, Gift, Pencil, Plus, RefreshCw, RotateCcw, Save, Settings2, Trash2, Trophy, X } from "lucide-react-native";
-import { Alert, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import {  Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { Button, Card, EmptyState, Screen } from "@/components/ui";
 import { meetingService, type LuckyDraw, type LuckyDrawConfig, type LuckyDrawPrize, type LuckyDrawWinner } from "@/services/meeting";

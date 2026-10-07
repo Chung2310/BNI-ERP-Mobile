@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "@/context/AuthContext";
+import { AppAlertHost } from "@/components/AppAlert";
 import { colors } from "@/theme/tokens";
 
 export default function RootLayout() {
@@ -35,6 +36,7 @@ export default function RootLayout() {
           <Stack.Screen name="admin/users" />
           <Stack.Screen name="admin/roles" />
         </Stack>
+        <AppAlertHost />
       </AuthProvider>
     </SafeAreaProvider>
   );

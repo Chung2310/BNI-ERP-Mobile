@@ -1,8 +1,9 @@
+import { Alert } from "@/components/AppAlert";
 import { useState, type ComponentProps } from "react";
 import { Eye, EyeOff, X } from "lucide-react-native";
 import {
   ActivityIndicator,
-  Alert,
+
   KeyboardAvoidingView,
   Modal,
   Platform,
