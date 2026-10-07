@@ -43,6 +43,17 @@ export type Meeting = {
   speakers: Speaker[];
   luckyDraw?: LuckyDrawConfig;
   gameWinners?: LuckyDrawWinner[];
+  presentation?: MeetingPresentationState;
+};
+
+export type PresentationView = "checkin" | "speaker" | "luckyDraw" | "activeMembers" | "waiting";
+export type MeetingPresentationState = {
+  view: PresentationView;
+  autoAdvance: boolean;
+  autoAdvanceDelay: number;
+  drawWinnerId?: string;
+  drawStartedAt?: string;
+  drawRevealsAt?: string;
 };
 
 export type LuckyDrawWinner = {
@@ -105,6 +116,8 @@ export type ProfileSlide = {
   galleryImages?: string[];
 };
 export type SlideDeck = { slides: ProfileSlide[]; version: number };
+export type MeetingLiveSnapshot = { meeting: Meeting; slides: ProfileSlide[]; serverNow: number };
+export type MeetingLiveState = { meeting: Meeting; serverNow: number };
 
 export type MeetingInteractionStatus = "draft" | "open" | "closed";
 export type MeetingInteractionResponseStatus = "pending" | "approved" | "hidden" | "rejected";
@@ -187,6 +200,14 @@ export const meetingService = {
   history: () => apiRequest<{ data: Meeting[] }>("/api/v1/meetings?history=all").then(unwrap),
   get: (id: string) => apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}`).then(unwrap),
   slides: (id: string) => apiRequest<{ data: SlideDeck }>(`/api/v1/meetings/${encodeURIComponent(id)}/slides`).then(unwrap),
+  live: (id: string) => apiRequest<{ data: MeetingLiveSnapshot }>(`/api/v1/meetings/${encodeURIComponent(id)}/live`).then(unwrap),
+  liveState: (id: string) => apiRequest<{ data: MeetingLiveState }>(`/api/v1/meetings/${encodeURIComponent(id)}/live/state`).then(unwrap),
+  presentation: (id: string, speakerId: string, version: number) =>
+    apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}/presentation`, { method: "POST", body: JSON.stringify({ speakerId, version }) }).then(unwrap),
+  presentationState: (id: string, changes: Partial<Pick<MeetingPresentationState, "view" | "autoAdvance" | "autoAdvanceDelay">>, version: number) =>
+    apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}/presentation-state`, { method: "PATCH", body: JSON.stringify({ ...changes, version }) }).then(unwrap),
+  presentationDraw: (id: string, prizeId: string, version: number) =>
+    apiRequest<{ data: { winner: LuckyDrawWinner; prize: LuckyDrawPrize } }>(`/api/v1/meetings/${encodeURIComponent(id)}/presentation-draw`, { method: "POST", body: JSON.stringify({ prizeId, version }) }).then(unwrap),
   checkIn: (id: string, payload?: { latitude?: number; longitude?: number; name?: string; email?: string }) =>
     apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}/checkin`, { method: "POST", body: JSON.stringify(payload || {}) }).then(unwrap),
   control: (id: string, action: "start" | "pause" | "resume" | "next" | "previous" | "finish" | "cancel" | "start_speaker" | "reset_speaker", version: number) =>

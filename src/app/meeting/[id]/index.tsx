@@ -105,14 +105,12 @@ export default function MeetingDetailScreen() {
       <Card style={styles.processCard}>
         <ProcessRow icon={MapPin} label="Check-in" detail={`${meeting.speakers.length} người đã điểm danh`} onPress={() => router.push({ pathname: "/meeting/[id]/attendees", params: { id } })} />
         <ProcessRow icon={Gift} label="Trò quay thưởng" detail="Vòng quay may mắn và Lồng cầu bingo" onPress={() => router.push({ pathname: "/meeting/[id]/game-results", params: { id } })} />
-        <ProcessRow icon={Gift} label="Bốc thăm giải thưởng" detail="Giải thưởng và lịch sử bốc thăm" onPress={() => router.push({ pathname: "/meeting/[id]/interaction", params: { id, section: "luckyDraw" } })} />
-        <ProcessRow icon={MessageCircle} label="Thu ý kiến" detail="Câu hỏi và phản hồi của người tham dự" onPress={() => router.push({ pathname: "/meeting/[id]/interaction", params: { id, section: "interaction" } })} />
+        <ProcessRow icon={Gift} label="Bốc thăm giải thưởng" detail="Giải thưởng và lịch sử bốc thăm" onPress={() => router.push({ pathname: "/meeting/[id]/interaction", params: { id, section: "luckyDraw", readOnly: "1" } })} />
+        <ProcessRow icon={MessageCircle} label="Thu ý kiến" detail="Câu hỏi và phản hồi của người tham dự" onPress={() => router.push({ pathname: "/meeting/[id]/interaction", params: { id, section: "interaction", readOnly: "1" } })} />
         <ProcessRow icon={Presentation} label="Thuyết trình" detail="Danh sách slide của người trình bày" onPress={() => router.push({ pathname: "/meeting/[id]/slides", params: { id } })} />
       </Card>
 
-      <Button icon={Settings2} tone="secondary" fullWidth onPress={() => router.push({ pathname: "/meeting/[id]/control", params: { id } })}>
-        {manage ? "Điều khiển cuộc họp" : "Chức năng cuộc họp"}
-      </Button>
+      {manage && meetingOpen ? <Button icon={Settings2} fullWidth onPress={() => router.push({ pathname: "/meeting/[id]/live", params: { id } })}>Mở bảng điều khiển trình chiếu</Button> : null}
 
       <SectionTitle>Thông tin cuộc họp</SectionTitle>
       <Card style={styles.infoCard}>
