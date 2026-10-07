@@ -81,7 +81,6 @@ export function MonthCalendar({
                   hasEvent && styles.dayCircleEvent,
                   isLive && styles.dayCircleLive,
                   isCancelled && styles.dayCircleCancelled,
-                  isSelected && styles.dayCircleSelected,
                 ]}
               >
                 <Text
@@ -168,7 +167,6 @@ const styles = StyleSheet.create({
     width: 29,
     height: 29,
     borderRadius: 14.5,
-    overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -176,21 +174,17 @@ const styles = StyleSheet.create({
     borderWidth: 1.2,
     borderColor: "#00AECA",
     borderRadius: 14.5,
-    overflow: "hidden",
     backgroundColor: "#F2FCFE",
   },
   dayCircleLive: {
     backgroundColor: "#00AECA",
     borderRadius: 14.5,
-    overflow: "hidden",
     borderWidth: 0,
   },
   dayCircleCancelled: {
     backgroundColor: "#FBE5E9",
     borderRadius: 14.5,
-    overflow: "hidden",
   },
-  dayCircleSelected: { borderWidth: 2, borderColor: colors.primaryDark },
   dayOutside: {
     opacity: 0.25,
   },
