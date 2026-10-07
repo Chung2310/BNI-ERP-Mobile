@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { router, useFocusEffect } from "expo-router";
+import { io } from "socket.io-client";
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -9,9 +10,11 @@ import {
 } from "lucide-react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { ProfileSlideCanvas } from "@/components/meetings/ProfileSlideCanvas";
+import { MeetingWheelPreview } from "@/components/meetings/MeetingWheelPreview";
 import { Button, Card, ErrorState, LoadingState, Screen, SectionTitle } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { meetingService, meetingVersion, type Meeting, type MeetingLiveSnapshot, type PresentationView } from "@/services/meeting";
+import { apiConfig } from "@/services/api";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 import { hasPermission } from "@/utils/permissions";
 
@@ -25,13 +28,14 @@ const views: { value: PresentationView; label: string; icon: LucideIcon }[] = [
 type Panel = "speaker" | "draw" | "tools";
 
 export function MeetingRemoteControl({ id }: { id: string }) {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const insets = useSafeAreaInsets();
   const canManage = hasPermission(user, "meetings:manage", "access:manage");
   const [snapshot, setSnapshot] = useState<MeetingLiveSnapshot | null>(null);
   const snapshotRef = useRef<MeetingLiveSnapshot | null>(null);
   const activeRef = useRef(false);
   const pollingRef = useRef(false);
+  const queuedRefreshRef = useRef(false);
   const clockOffsetRef = useRef(0);
   const [loading, setLoading] = useState(true);
   const [syncError, setSyncError] = useState("");
@@ -49,20 +53,28 @@ export function MeetingRemoteControl({ id }: { id: string }) {
     clockOffsetRef.current = next.serverNow - Date.now();
     snapshotRef.current = next;
     setSnapshot(next);
+    setNow(next.serverNow);
     setSyncError("");
     setLoading(false);
   }, [id]);
 
   const refresh = useCallback(async (full = false) => {
-    if (pollingRef.current) return;
+    if (pollingRef.current) {
+      if (full) queuedRefreshRef.current = true;
+      return;
+    }
     pollingRef.current = true;
     try {
-      const current = snapshotRef.current;
-      const state = !full && current ? await meetingService.liveState(id) : null;
-      const next = !state || !current || meetingVersion(state.meeting) !== meetingVersion(current.meeting)
-        ? await meetingService.live(id)
-        : { ...current, meeting: state.meeting, serverNow: state.serverNow };
-      applySnapshot(next);
+      do {
+        queuedRefreshRef.current = false;
+        const current = snapshotRef.current;
+        const state = !full && current ? await meetingService.liveState(id) : null;
+        const next = !state || !current || meetingVersion(state.meeting) !== meetingVersion(current.meeting)
+          ? await meetingService.live(id)
+          : { ...current, meeting: state.meeting, serverNow: state.serverNow };
+        applySnapshot(next);
+        full = queuedRefreshRef.current;
+      } while (full && activeRef.current);
     } catch (cause) {
       if (activeRef.current) {
         setSyncError(cause instanceof Error ? cause.message : "Không thể đồng bộ màn trình chiếu.");
@@ -76,14 +88,23 @@ export function MeetingRemoteControl({ id }: { id: string }) {
   useFocusEffect(useCallback(() => {
     activeRef.current = true;
     void refresh(true);
+    const socket = token ? io(apiConfig.baseUrl, { auth: { token }, transports: ["websocket", "polling"], reconnection: true }) : null;
+    socket?.on("connect", () => void refresh(true));
+    socket?.on("meeting_updated", (event: { id?: string; meetingId?: string; version?: number }) => {
+      if (event.id !== id && event.meetingId !== id) return;
+      if (event.version !== undefined && snapshotRef.current && event.version < meetingVersion(snapshotRef.current.meeting)) return;
+      void refresh(true);
+    });
     const poll = setInterval(() => { if (!busyRef.current) void refresh(); }, 5000);
     const tick = setInterval(() => setNow(Date.now() + clockOffsetRef.current), 1000);
     return () => {
       activeRef.current = false;
+      queuedRefreshRef.current = false;
+      socket?.disconnect();
       clearInterval(poll);
       clearInterval(tick);
     };
-  }, [refresh]));
+  }, [id, refresh, token]));
 
   const run = async (task: (meeting: Meeting) => Promise<unknown>) => {
     const current = snapshotRef.current?.meeting;
@@ -219,15 +240,13 @@ function StagePreview({ snapshot, now }: { snapshot: MeetingLiveSnapshot; now: n
   const elapsed = Math.max(0, meeting.elapsedSeconds || 0) + (meeting.status === "live" && meeting.speakerStartedAt ? Math.max(0, (now - Date.parse(meeting.speakerStartedAt)) / 1000) : 0);
   const remaining = speaker ? Math.max(0, Math.floor(speaker.seconds - elapsed)) : 0;
   const time = speaker && elapsed >= speaker.seconds ? "Hết giờ" : `${String(Math.floor(remaining / 60)).padStart(2, "0")}:${String(remaining % 60).padStart(2, "0")}`;
-  const winner = meeting.luckyDraw?.prizes.flatMap((prize) => prize.winners).find((item) => item.id === meeting.presentation?.drawWinnerId);
-  const drawing = meeting.presentation?.drawRevealsAt && Date.parse(meeting.presentation.drawRevealsAt) > now;
   if (meeting.status === "ended" || meeting.status === "cancelled") return <View style={styles.stage}><Text style={styles.stageTitle}>{meeting.title}</Text><Text style={styles.stageMessage}>Cuộc họp đã {meeting.status === "ended" ? "kết thúc" : "hủy"}</Text></View>;
   if (view === "speaker") return slide ? <View style={styles.stageSlide}>
     <ProfileSlideCanvas key={slide.id} slide={slide} width={screenWidth - 18} />
     {speaker ? <View style={styles.stageTimerOverlay}><Clock3 color={colors.primaryDark} size={13} /><Text style={styles.stageTime}>{time}</Text></View> : null}
   </View> : <View style={styles.stage}><Presentation color="#FFFFFF" size={32} /><Text style={styles.stageTitle}>Chờ slide thuyết trình</Text></View>;
   if (view === "checkin") return <View style={[styles.stage, styles.checkinStage]}><View style={styles.qrBox}><QrCode color={colors.primaryDark} size={56} /></View><View style={styles.grow}><Text style={styles.stageEyebrow}>QR CHECK-IN</Text><Text numberOfLines={2} style={styles.stageName}>{meeting.title}</Text><Text style={styles.stageCompany}>{meeting.speakers.length} người đã điểm danh</Text></View></View>;
-  if (view === "luckyDraw") return <View style={styles.stage}><Gift color="#FBBF24" size={32} /><Text style={styles.stageEyebrow}>QUAY THƯỞNG</Text><Text numberOfLines={2} style={styles.stageTitle}>{drawing ? "Đang quay…" : winner?.name || "Chờ bắt đầu quay"}</Text><Text style={styles.stageSub}>{drawing ? "Kết quả sẽ hiện trên laptop" : winner?.prizeName || ""}</Text></View>;
+  if (view === "luckyDraw") return <MeetingWheelPreview meeting={meeting} now={now} />;
   if (view === "activeMembers") return <View style={styles.stage}><Trophy color="#FBBF24" size={34} /><Text style={styles.stageTitle}>Xếp hạng thành viên tích cực</Text><Text style={styles.stageSub}>Đang chiếu trên laptop</Text></View>;
   return <View style={styles.stage}><Monitor color="#7DD3FC" size={34} /><Text style={styles.stageTitle}>{meeting.title}</Text><Text style={styles.stageSub}>Vui lòng chờ</Text></View>;
 }
