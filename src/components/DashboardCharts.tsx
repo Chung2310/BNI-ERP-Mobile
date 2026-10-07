@@ -145,7 +145,9 @@ function MeetingSelector({
           onPress={() => setIsSheetVisible(true)}
         >
           <View style={s.triggerLeft}>
-            <Filter color={colors.primaryDark} size={15} strokeWidth={2.2} />
+            <View style={s.funnelCircle}>
+              <Filter color={colors.primaryDark} size={13} strokeWidth={2.4} />
+            </View>
             <Text style={s.triggerText} numberOfLines={1}>
               {selectedLabel}
             </Text>
@@ -339,13 +341,21 @@ const s = StyleSheet.create({
     backgroundColor: '#F4F9FA',
     borderWidth: 1,
     borderColor: '#D4EBF0',
-    borderRadius: radius.md,
-    paddingVertical: 9,
+    borderRadius: radius.pill,
+    paddingVertical: 7,
     paddingHorizontal: 12,
   },
   triggerPressed: { opacity: 0.85 },
   triggerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, marginRight: 8 },
-  triggerText: { color: colors.text, fontSize: 12.5, fontWeight: '700' },
+  funnelCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#E2F4F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  triggerText: { color: colors.text, fontSize: 12.5, fontWeight: '700', flex: 1 },
   triggerRight: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   triggerActionText: { color: colors.primaryDark, fontSize: 11.5, fontWeight: '700' },
   sheetOverlay: {
