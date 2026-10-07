@@ -16,7 +16,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { colors, radius, shadow, spacing, touchTarget } from "@/theme/tokens";
+import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 
 export function Screen({
   children,
@@ -167,10 +167,10 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry: () 
 }
 
 export const textStyles: Record<string, TextStyle> = {
-  title: { color: colors.text, fontSize: 20, fontWeight: "800" },
-  subtitle: { color: colors.text, fontSize: 15, fontWeight: "700" },
-  body: { color: colors.text, fontSize: 14, lineHeight: 20 },
-  caption: { color: colors.muted, fontSize: 12, lineHeight: 17 },
+  title: { color: colors.text, fontSize: 18, fontWeight: "800" },
+  subtitle: { color: colors.text, fontSize: 14, fontWeight: "700" },
+  body: { color: colors.text, fontSize: 13.5, lineHeight: 19 },
+  caption: { color: colors.muted, fontSize: 11.5, lineHeight: 16 },
 };
 
 const styles = StyleSheet.create({
@@ -178,9 +178,9 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   screenContent: { flexGrow: 1, gap: 10, paddingHorizontal: 8, paddingVertical: spacing.sm, paddingBottom: spacing.xxl },
   header: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: 2 },
-  headerTitle: { color: colors.text, fontSize: 22, fontWeight: "900" },
-  caption: { color: colors.muted, fontSize: 12, lineHeight: 17 },
-  card: { borderWidth: 0, borderRadius: radius.lg, backgroundColor: colors.surface, padding: spacing.md, ...shadow },
+  headerTitle: { color: colors.text, fontSize: 18, fontWeight: "800" },
+  caption: { color: colors.muted, fontSize: 11.5, lineHeight: 16 },
+  card: { borderWidth: 0, borderRadius: radius.lg, backgroundColor: colors.surface, padding: spacing.md },
   avatar: { alignItems: "center", justifyContent: "center", backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: "#B9E7EE" },
   avatarText: { color: colors.primaryDark, fontWeight: "900" },
   badge: { alignSelf: "flex-start", borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 4, backgroundColor: "#EDF3F5" },
@@ -205,11 +205,11 @@ const styles = StyleSheet.create({
   fullWidth: { width: "100%" },
   disabled: { opacity: 0.5 },
   pressed: { opacity: 0.8, transform: [{ scale: 0.99 }] },
-  sectionTitle: { minHeight: 28, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
-  sectionTitleText: { color: colors.text, fontSize: 15, fontWeight: "800" },
+  sectionTitle: { minHeight: 22, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+  sectionTitleText: { color: colors.text, fontSize: 13.5, fontWeight: "700" },
   state: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xl },
-  stateTitle: { color: colors.text, fontSize: 16, fontWeight: "800" },
-  stateMessage: { color: colors.muted, fontSize: 13, lineHeight: 19, textAlign: "center" },
+  stateTitle: { color: colors.text, fontSize: 15, fontWeight: "800" },
+  stateMessage: { color: colors.muted, fontSize: 12.5, lineHeight: 18, textAlign: "center" },
   loading: { flex: 1, minHeight: 180, alignItems: "center", justifyContent: "center", gap: spacing.md },
 });
 

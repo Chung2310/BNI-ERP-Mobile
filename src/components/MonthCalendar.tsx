@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
-import { colors, radius, shadow, spacing } from "@/theme/tokens";
+import { colors, radius, spacing } from "@/theme/tokens";
 
 export function MonthCalendar({
   date,
@@ -111,9 +111,8 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     borderRadius: radius.lg,
     backgroundColor: colors.surface,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 6,
-    ...shadow,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
   },
   monthHeader: {
     minHeight: 32,
@@ -122,7 +121,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: spacing.xs,
   },
-  month: { color: colors.text, fontSize: 14, fontWeight: "800" },
+  month: { color: colors.text, fontSize: 13.5, fontWeight: "700" },
   arrow: {
     width: 28,
     height: 28,
@@ -135,21 +134,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: "#EDF3F5",
-    paddingBottom: 2,
-    marginBottom: 2,
+    paddingBottom: 3,
+    marginBottom: 3,
   },
   grid: { flexDirection: "row", flexWrap: "wrap" },
   weekday: {
     width: "14.2857%",
     paddingVertical: 1,
     color: colors.muted,
-    fontSize: 10,
-    fontWeight: "800",
+    fontSize: 10.5,
+    fontWeight: "700",
     textAlign: "center",
   },
   dayCell: {
     width: "14.2857%",
-    height: 28,
+    height: 33, // Khoảng cách thoáng đãng, các ô tròn không bị chạm vào nhau
     alignItems: "center",
     justifyContent: "center",
   },
@@ -173,10 +172,6 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     overflow: "hidden",
     borderWidth: 0,
-    shadowColor: "#00AECA",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3,
     elevation: 2,
   },
   dayOutside: {
@@ -207,9 +202,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "flex-end",
     gap: spacing.md,
-    paddingTop: 3,
+    paddingTop: 4,
     paddingRight: spacing.xs,
-    marginTop: 2,
+    marginTop: 4,
     borderTopWidth: 1,
     borderTopColor: "#EDF3F5",
   },
@@ -233,7 +228,7 @@ const styles = StyleSheet.create({
   },
   legendText: {
     color: colors.muted,
-    fontSize: 9,
+    fontSize: 9.5,
     fontWeight: "600",
   },
 });

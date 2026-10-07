@@ -275,7 +275,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: colors.surface,
     borderWidth: 0,
-    ...shadow,
   },
   dot: {
     position: "absolute",
@@ -296,7 +295,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     gap: spacing.xs,
     borderWidth: 0,
-    ...shadow,
   },
   pressed: {
     opacity: 0.88,
@@ -325,8 +323,8 @@ const styles = StyleSheet.create({
   },
   heroTitleCompact: {
     color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "800",
+    fontSize: 12.5,
+    fontWeight: "700",
   },
   heroMetaCompact: {
     color: "#E0F7FA",
@@ -341,11 +339,6 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 9,
     gap: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
-    elevation: 2,
   },
   heroActionBtnText: {
     color: "#00AECA",
@@ -354,8 +347,8 @@ const styles = StyleSheet.create({
   },
   link: {
     color: colors.primaryDark,
-    fontSize: 12,
-    fontWeight: "800",
+    fontSize: 11.5,
+    fontWeight: "700",
   },
 
   /* Bottom sheet styles */

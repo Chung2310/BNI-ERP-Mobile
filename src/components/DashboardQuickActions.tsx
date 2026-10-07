@@ -12,7 +12,7 @@ import {
 } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { UserProfile } from '@/types';
-import { colors, radius, shadow, spacing } from '@/theme/tokens';
+import { colors, radius, spacing } from '@/theme/tokens';
 import { hasPermission } from '@/utils/permissions';
 
 interface QuickActionDef {
@@ -133,7 +133,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     paddingVertical: spacing.xs,
     paddingHorizontal: 2,
-    ...shadow,
   },
   grid: {
     flexDirection: 'row',
