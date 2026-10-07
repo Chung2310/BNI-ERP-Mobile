@@ -21,7 +21,7 @@ export default function MeetingSlidesScreen() {
   const previewWidth = Math.min(screenWidth - 42, 760);
 
   return <Screen style={styles.screen}>
-    <BackHeader title="Slide thuyết trình" subtitle={deck ? `${deck.slides.length} người trình bày` : undefined} />
+    <BackHeader title="Slide thuyết trình" subtitle={deck ? `${deck.slides.length} người trình bày` : undefined} compact />
     {isLoading && !deck ? <LoadingState /> : error && !deck ? <ErrorState message={error} onRetry={reload} /> : !deck ? null : !deck.slides.length ? (
       <EmptyState title="Chưa có slide" message="Slide sẽ xuất hiện khi có người tham gia check-in." />
     ) : <>

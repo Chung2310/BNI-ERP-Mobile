@@ -71,7 +71,7 @@ export function InteractionManager({ meetingId, initial, canManage, reload }: Pr
   const labels: Record<MeetingInteractionResponseStatus, string> = { pending: "Chờ duyệt", approved: "Đang hiển thị", hidden: "Đã ẩn", rejected: "Đã từ chối" };
 
   return <Screen>
-    <BackHeader title="Tương tác" subtitle="Câu hỏi và phản hồi trực tiếp" />
+    <BackHeader title="Tương tác" subtitle="Câu hỏi và phản hồi trực tiếp" compact />
     <Card>
       <View style={s.between}><View style={s.row}><MessageCircle color={colors.primaryDark} size={22} /><Text style={s.heading}>Câu hỏi tương tác</Text></View>{state.session ? <Badge tone={state.session.status === "open" ? "primary" : "default"}>{state.session.status === "open" ? "ĐANG MỞ" : state.session.status === "closed" ? "ĐÃ ĐÓNG" : "BẢN NHÁP"}</Badge> : null}</View>
       {state.session ? <View style={s.list}>

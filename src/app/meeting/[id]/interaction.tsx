@@ -22,8 +22,8 @@ export default function InteractionScreen() {
     `${id}:${section || "interaction"}`,
   );
 
-  if (isLoading) return <Screen><BackHeader title={title} /><LoadingState /></Screen>;
-  if (error || !data) return <Screen><BackHeader title={title} /><ErrorState message={error || "Không tải được dữ liệu."} onRetry={reload} /></Screen>;
+  if (isLoading) return <Screen><BackHeader title={title} compact /><LoadingState /></Screen>;
+  if (error || !data) return <Screen><BackHeader title={title} compact /><ErrorState message={error || "Không tải được dữ liệu."} onRetry={reload} /></Screen>;
 
   const canManage = readOnly !== "1" && hasPermission(user, "meetings:manage", "access:manage");
   return data.kind === "luckyDraw"

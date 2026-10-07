@@ -24,7 +24,7 @@ export default function MeetingAttendeesScreen() {
   }, [meeting?.speakers, search]);
 
   return <Screen>
-    <BackHeader title="Danh sách check-in" subtitle={meeting ? `${meeting.speakers.length} người đã điểm danh` : undefined} />
+    <BackHeader title="Danh sách check-in" subtitle={meeting ? `${meeting.speakers.length} người đã điểm danh` : undefined} compact />
     {isLoading && !meeting ? <LoadingState /> : error && !meeting ? <ErrorState message={error} onRetry={reload} /> : !meeting ? null : (
       <>
         <Card style={styles.searchBox}>
