@@ -7,26 +7,22 @@ import { useAsyncData } from "@/hooks/useAsyncData";
 import { meetingService, type LuckyDrawWinner } from "@/services/meeting";
 import { colors, spacing } from "@/theme/tokens";
 
-const games = [
-  { source: "wheel", title: "Vòng quay may mắn" },
-  { source: "bingo", title: "Lồng cầu bingo" },
-] as const;
+const titles = { wheel: "Vòng quay may mắn", bingo: "Lồng cầu bingo" } as const;
 const initials = (name: string) => name.split(" ").filter(Boolean).map((part) => part[0]).slice(-2).join("").toUpperCase();
 
 export default function MeetingGameResultsScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, source } = useLocalSearchParams<{ id: string; source?: string }>();
   const { data: meeting, error, isLoading, reload } = useAsyncData(() => meetingService.get(id), id);
+  const game = source === "bingo" ? "bingo" : "wheel";
+  const winners = (meeting?.gameWinners || []).filter((winner) => winner.source === game).slice().reverse();
 
   return <Screen>
-    <BackHeader title="Trò quay thưởng" subtitle={meeting?.title} />
-    {isLoading && !meeting ? <LoadingState /> : error && !meeting ? <ErrorState message={error} onRetry={reload} /> : !meeting ? null : games.map((game) => {
-      const winners = (meeting.gameWinners || []).filter((winner) => winner.source === game.source);
-      return <View key={game.source}>
-        <SectionTitle>{game.title} · {winners.length} kết quả</SectionTitle>
-        {winners.length ? <Card style={styles.list}>{winners.map((winner) => <WinnerRow key={winner.id} winner={winner} />)}</Card>
-          : <EmptyState title="Chưa có kết quả" message={`Kết quả ${game.title.toLocaleLowerCase("vi")} sẽ xuất hiện tại đây.`} />}
-      </View>;
-    })}
+    <BackHeader title={`Kết quả ${titles[game]}`} subtitle={meeting?.title} />
+    {isLoading && !meeting ? <LoadingState /> : error && !meeting ? <ErrorState message={error} onRetry={reload} /> : !meeting ? null : <>
+      <SectionTitle>{titles[game]} · {winners.length} kết quả</SectionTitle>
+      {winners.length ? <Card style={styles.list}>{winners.map((winner) => <WinnerRow key={winner.id} winner={winner} />)}</Card>
+        : <EmptyState title="Chưa có kết quả" message={`Kết quả ${titles[game].toLocaleLowerCase("vi")} sẽ xuất hiện tại đây.`} />}
+    </>}
     {meeting ? <Button tone="secondary" icon={RefreshCw} onPress={reload}>Làm mới kết quả</Button> : null}
   </Screen>;
 }

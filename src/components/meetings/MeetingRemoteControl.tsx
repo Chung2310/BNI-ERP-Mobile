@@ -198,7 +198,8 @@ export function MeetingRemoteControl({ id }: { id: string }) {
             <Text style={styles.sectionHeading}>Quy trình khác</Text>
             <ToolRow icon={CalendarCheck} label="Danh sách check-in" onPress={() => router.push({ pathname: "/meeting/[id]/attendees", params: { id } })} />
             <ToolRow icon={MessageCircle} label="Thu ý kiến" onPress={() => router.push({ pathname: "/meeting/[id]/interaction", params: { id, section: "interaction" } })} />
-            <ToolRow icon={Trophy} label="Xem kết quả hai trò quay" onPress={() => router.push({ pathname: "/meeting/[id]/game-results", params: { id } })} />
+            <ToolRow icon={Trophy} label="Kết quả Vòng quay may mắn" onPress={() => router.push({ pathname: "/meeting/[id]/game-results", params: { id, source: "wheel" } })} />
+            <ToolRow icon={Trophy} label="Kết quả Lồng cầu bingo" onPress={() => router.push({ pathname: "/meeting/[id]/game-results", params: { id, source: "bingo" } })} />
             <ToolRow icon={ListOrdered} label="Quản lý cuộc họp" onPress={() => router.push({ pathname: "/meeting/[id]/control", params: { id } })} />
           </Card> : null}
 

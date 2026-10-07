@@ -48,7 +48,7 @@ function wheelPath(index: number, count: number) {
 }
 
 export default function MeetingGamesScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, game: initialGame } = useLocalSearchParams<{ id: string; game?: string }>();
   const { user } = useAuth();
   const canManage = hasPermission(user, "meetings:manage", "access:manage");
   const { width } = useWindowDimensions();
@@ -56,7 +56,7 @@ export default function MeetingGamesScreen() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [game, setGame] = useState<Game>("wheel");
+  const [game, setGame] = useState<Game>(initialGame === "bingo" ? "bingo" : "wheel");
   const [category, setCategory] = useState<Category>("all");
   const [excluded, setExcluded] = useState<string[]>([]);
   const [customGuests, setCustomGuests] = useState<Player[]>([]);
@@ -144,7 +144,7 @@ export default function MeetingGamesScreen() {
 
   return <Screen style={styles.screen} scrollViewProps={{ keyboardShouldPersistTaps: "handled" }}>
     <BackHeader title="Trò quay thưởng" subtitle={meeting?.title} />
-    {!canManage ? <ErrorState message="Bạn cần quyền quản lý cuộc họp để quay thưởng." onRetry={() => router.back()} /> : loading && !meeting ? <LoadingState /> : !meeting ? <ErrorState message={error || "Không tìm thấy cuộc họp."} onRetry={() => void refresh()} /> : <>
+    {loading && !meeting ? <LoadingState /> : !meeting ? <ErrorState message={error || "Không tìm thấy cuộc họp."} onRetry={() => void refresh()} /> : <>
       <View style={styles.tabs}>{(["wheel", "bingo"] as const).map((option) => <Pressable key={option} accessibilityRole="tab" accessibilityState={{ selected: game === option }} onPress={() => { if (!busy) { setGame(option); setWinner(null); rotation.setValue(0); angleRef.current = 0; } }} style={[styles.tab, game === option && styles.tabActive]}><Text style={[styles.tabText, game === option && styles.tabTextActive]}>{gameNames[option]}</Text></Pressable>)}</View>
       {error ? <Card style={styles.error}><Text style={styles.errorText}>{error}</Text><Button tone="secondary" icon={RefreshCw} onPress={() => { setError(""); void refresh(); }}>Làm mới</Button></Card> : null}
       <Card style={styles.stage}>
@@ -173,11 +173,12 @@ export default function MeetingGamesScreen() {
           </Animated.View>
           {game === "wheel" ? <View style={styles.pointer} /> : <View style={styles.bingoLabel}><Text style={styles.bingoLabelText}>BINGO</Text></View>}
         </View>
-        {winner ? <View style={styles.winner}><Trophy color="#C08313" size={24} /><Text style={styles.winnerTitle}>{winner.name}</Text><Text style={styles.muted}>{winner.prizeName}{winner.ticketNumber ? ` · Số ${winner.ticketNumber}` : ""}</Text></View> : <Text style={styles.muted}>{busy ? "Đang quay..." : "Chọn người tham gia và bắt đầu quay"}</Text>}
+        {winner ? <View style={styles.winner}><Trophy color="#C08313" size={24} /><Text style={styles.winnerTitle}>{winner.name}</Text><Text style={styles.muted}>{winner.prizeName}{winner.ticketNumber ? ` · Số ${winner.ticketNumber}` : ""}</Text></View> : <Text style={styles.muted}>{busy ? "Đang quay..." : canManage ? "Chọn người tham gia và bắt đầu quay" : "Người quản lý cuộc họp có thể bắt đầu quay"}</Text>}
         {meeting.status === "ended" || meeting.status === "cancelled" ? <Text style={styles.errorText}>Cuộc họp đã đóng, không thể quay tiếp.</Text> : null}
-        <Button icon={Gift} fullWidth disabled={busy || !eligible.length || !prizeName.trim() || meeting.status === "ended" || meeting.status === "cancelled"} onPress={() => void spin()}>{busy ? "Đang quay..." : game === "wheel" ? "Quay vòng may mắn" : "Quay lồng cầu bingo"}</Button>
+        {canManage ? <Button icon={Gift} fullWidth disabled={busy || !eligible.length || !prizeName.trim() || meeting.status === "ended" || meeting.status === "cancelled"} onPress={() => void spin()}>{busy ? "Đang quay..." : game === "wheel" ? "Quay vòng may mắn" : "Quay lồng cầu bingo"}</Button> : null}
       </Card>
 
+      {canManage ? <>
       <SectionTitle>Thiết lập lượt quay</SectionTitle>
       <Card style={styles.options}>
         <Text style={styles.label}>Tên giải thưởng</Text>
@@ -193,7 +194,7 @@ export default function MeetingGamesScreen() {
         <View style={styles.addGuest}><TextInput value={guestName} onChangeText={setGuestName} editable={!busy} maxLength={150} placeholder="Tên khách mời" style={[styles.input, styles.flex]} /><Button tone="secondary" disabled={busy || !guestName.trim()} onPress={() => { const name = guestName.trim(); if (name) { setCustomGuests((old) => [...old, { id: `custom-${Date.now()}-${old.length}`, name, category: "guest" }]); setGuestName(""); } }}>Thêm</Button></View>
         <View style={styles.chips}><Button tone="secondary" disabled={busy || !filtered.length} onPress={() => setExcluded((old) => old.filter((item) => !filtered.some((player) => player.id === item)))}>Chọn tất cả</Button><Button tone="secondary" disabled={busy || !filtered.length} onPress={() => setExcluded((old) => [...new Set([...old, ...filtered.map((player) => player.id)])])}>Bỏ chọn</Button></View>
       </Card>
-      <Card style={styles.players}>{filtered.length ? filtered.map((player, index) => {
+      <Card style={styles.players}>{filtered.length ? filtered.map((player) => {
         const won = !meeting.luckyDraw?.allowRepeatWinners && alreadyWon.has(player.id);
         const selected = !excluded.includes(player.id) && !won;
         return <Pressable key={player.id} accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: busy || won }} disabled={busy || won} onPress={() => setExcluded((old) => selected ? [...old, player.id] : old.filter((item) => item !== player.id))} style={styles.player}>
@@ -203,10 +204,8 @@ export default function MeetingGamesScreen() {
           {game === "bingo" ? <Text style={styles.ticket}>#{players.findIndex((item) => item.id === player.id) + 1}</Text> : null}
         </Pressable>;
       }) : <Text style={styles.muted}>Chưa có người tham gia trong nhóm này.</Text>}</Card>
-
-      <SectionTitle>Kết quả {gameNames[game].toLocaleLowerCase("vi")} · {history.length}</SectionTitle>
-      <Card style={styles.players}>{history.length ? history.map((entry) => <View key={entry.id} style={styles.player}><Trophy color={colors.primaryDark} size={20} /><View style={styles.flex}><Text style={styles.playerName}>{entry.name}</Text><Text style={styles.muted}>{entry.prizeName}{entry.ticketNumber ? ` · Số ${entry.ticketNumber}` : ""}</Text></View></View>) : <Text style={styles.muted}>Chưa có kết quả.</Text>}</Card>
-      <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/meeting/[id]/game-results", params: { id } })} style={styles.resultsLink}><Text style={styles.linkText}>Xem tất cả kết quả</Text><ChevronRight color={colors.primaryDark} size={18} /></Pressable>
+      </> : null}
+      <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/meeting/[id]/game-results", params: { id, source: game } })} style={styles.resultsLink}><Text style={styles.linkText}>Xem kết quả {gameNames[game].toLocaleLowerCase("vi")} ({history.length})</Text><ChevronRight color={colors.primaryDark} size={18} /></Pressable>
     </>}
   </Screen>;
 }
