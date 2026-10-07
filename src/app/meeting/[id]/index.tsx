@@ -133,16 +133,16 @@ export default function MeetingDetailScreen() {
   return (
     <Screen style={styles.detailScreen}>
       <BackHeader title="Chi tiết cuộc họp" compact action={manage ? <Pressable accessibilityRole="button" accessibilityLabel="Tùy chỉnh cuộc họp" onPress={() => setSettingsOpen(true)} style={styles.settingsButton}><Settings color={colors.primaryDark} size={22} /></Pressable> : undefined} />
-      <Card style={styles.summary}>
+      <Card style={[styles.summary, meeting.coverImage && styles.summaryWithCover]}>
+        {meeting.coverImage ? <><Image source={{ uri: meeting.coverImage }} style={styles.summaryCover} resizeMode="cover" /><View style={styles.summaryShade} /></> : null}
         <View style={styles.summaryRow}>
           <View style={styles.grow}>
             <Badge tone={statusMeta[meeting.status].tone}>{statusMeta[meeting.status].label.toUpperCase()}</Badge>
-            <Text style={styles.title}>{meeting.title}</Text>
+            <Text style={[styles.title, meeting.coverImage && styles.titleOnCover]}>{meeting.title}</Text>
           </View>
-          {meeting.coverImage ? <Image source={{ uri: meeting.coverImage }} style={styles.cover} /> : null}
         </View>
-        <View style={styles.summaryMeta}><Clock3 color={colors.primaryDark} size={16} /><Text style={styles.summaryMetaText}>{dateTime(meeting.startsAt)}</Text></View>
-        <View style={styles.summaryMeta}><MapPin color={colors.primaryDark} size={16} /><Text style={styles.summaryMetaText}>{meeting.location || "Chưa cập nhật địa điểm"}</Text></View>
+        <View style={styles.summaryMeta}><Clock3 color={meeting.coverImage ? "#FFFFFF" : colors.primaryDark} size={16} /><Text style={[styles.summaryMetaText, meeting.coverImage && styles.summaryMetaOnCover]}>{dateTime(meeting.startsAt)}</Text></View>
+        <View style={styles.summaryMeta}><MapPin color={meeting.coverImage ? "#FFFFFF" : colors.primaryDark} size={16} /><Text style={[styles.summaryMetaText, meeting.coverImage && styles.summaryMetaOnCover]}>{meeting.location || "Chưa cập nhật địa điểm"}</Text></View>
       </Card>
 
       <View style={styles.metrics}>
@@ -291,11 +291,15 @@ const styles = StyleSheet.create({
   processLabel: { color: colors.text, fontSize: 13, fontWeight: "800" },
   processDetail: { marginTop: 3, color: colors.muted, fontSize: 11, lineHeight: 16 },
   summary: { gap: spacing.sm, padding: spacing.md, paddingTop: spacing.sm },
+  summaryWithCover: { minHeight: 150, justifyContent: "flex-end", overflow: "hidden" },
+  summaryCover: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
+  summaryShade: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(7, 22, 36, 0.60)" },
   summaryRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   title: { marginTop: spacing.xs, color: colors.text, fontSize: 19, lineHeight: 24, fontWeight: "900" },
-  cover: { width: 70, height: 70, borderRadius: radius.md, backgroundColor: colors.background },
+  titleOnCover: { color: "#FFFFFF" },
   summaryMeta: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   summaryMetaText: { flex: 1, color: colors.muted, fontSize: 12, lineHeight: 17 },
+  summaryMetaOnCover: { color: "#FFFFFF" },
   metrics: { flexDirection: "row", gap: spacing.xs },
   metric: { flex: 1, minWidth: 0, padding: spacing.sm },
   metricLabel: { color: colors.muted, fontSize: 9, fontWeight: "800" },
