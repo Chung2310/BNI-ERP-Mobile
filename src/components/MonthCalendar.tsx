@@ -165,46 +165,46 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   dayCircleEvent: {
-    borderWidth: 2,
-    borderColor: "#00AECA", // Khoanh tròn màu xanh thương hiệu
-    backgroundColor: "#E6F8FB", // Nền xanh nhạt thương hiệu
+    borderWidth: 1,
+    borderColor: "#00AECA", // Viền tròn mỏng màu xanh thương hiệu
+    backgroundColor: "#F2FCFE",
   },
   dayCircleLive: {
     backgroundColor: "#00AECA", // Tô kín màu xanh thương hiệu khi đang diễn ra
     borderWidth: 0,
     shadowColor: "#00AECA",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 2,
   },
   dayCircleToday: {
-    borderWidth: 1.5,
-    borderColor: "#94A3B8",
-    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    backgroundColor: "transparent",
   },
   dayCircleSelected: {
     backgroundColor: colors.primarySoft,
   },
   dayOutside: {
-    opacity: 0.28,
+    opacity: 0.25,
   },
   dayText: {
     color: colors.text,
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "400", // Không in đậm
   },
   dayTextEvent: {
-    color: "#008EA6",
-    fontWeight: "900",
+    color: "#00AECA",
+    fontWeight: "500", // Chữ thanh mảnh, không in đậm
   },
   dayTextLive: {
     color: "#FFFFFF",
-    fontWeight: "900",
+    fontWeight: "600",
   },
   dayTextToday: {
     color: colors.text,
-    fontWeight: "800",
+    fontWeight: "500",
   },
   dayTextOutside: {
     color: colors.muted,
@@ -234,14 +234,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#00AECA",
   },
   legendCircleEvent: {
-    borderWidth: 1.8,
+    borderWidth: 1,
     borderColor: "#00AECA",
-    backgroundColor: "#E6F8FB",
+    backgroundColor: "#F2FCFE",
   },
   legendCircleToday: {
-    borderWidth: 1.2,
-    borderColor: "#94A3B8",
-    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    backgroundColor: "transparent",
   },
   legendText: {
     color: colors.muted,
