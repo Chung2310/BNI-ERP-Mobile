@@ -93,15 +93,8 @@ export function MonthCalendar({
                 >
                   {day.getDate()}
                 </Text>
-                {isCancelled ? (
-                  <LucideX
-                    color={colors.danger}
-                    size={20}
-                    strokeWidth={2.8}
-                    style={styles.cancelledIcon}
-                  />
-                ) : null}
               </View>
+              {isCancelled ? <LucideX color={colors.danger} size={11} strokeWidth={1.3} style={styles.cancelledIcon} /> : null}
             </Pressable>
           );
         })}
@@ -118,7 +111,7 @@ export function MonthCalendar({
           <Text style={styles.legendText}>Có cuộc họp</Text>
         </View>
         <View style={styles.legendItem}>
-          <LucideX color={colors.danger} size={11} strokeWidth={2.6} />
+          <LucideX color={colors.danger} size={11} strokeWidth={1.3} />
           <Text style={styles.legendText}>Bị hủy</Text>
         </View>
       </View>
@@ -201,7 +194,8 @@ const styles = StyleSheet.create({
   },
   cancelledIcon: {
     position: "absolute",
-    alignSelf: "center",
+    top: 1,
+    right: 1,
   },
   dayOutside: {
     opacity: 0.25,

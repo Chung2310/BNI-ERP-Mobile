@@ -37,53 +37,62 @@ export default function MeetingsScreen() {
   const [search, setSearch] = useState("");
   const [visibleCount, setVisibleCount] = useState(pageSize);
   const canCreateMeeting = hasPermission(user, "meetings:manage");
+  const monthKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`;
   const { data, error, isLoading, reload } = useAsyncData(async () => {
     const results = await Promise.allSettled([meetingService.list(), meetingService.history()]);
     if (results[0].status === "rejected" && results[1].status === "rejected") throw results[0].reason;
     const combined = results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
     return [...new Map(combined.map((meeting) => [meeting._id, meeting])).values()];
   });
+  const { data: monthData, reload: reloadMonth } = useAsyncData(() => meetingService.list(monthKey), monthKey);
   const hasFocused = useRef(false);
   useFocusEffect(useCallback(() => {
     setReferenceDate(new Date());
-    if (hasFocused.current) void reload();
+    if (hasFocused.current) {
+      void reload();
+      void reloadMonth();
+    }
     else hasFocused.current = true;
-  }, [reload]));
+  }, [reload, reloadMonth]));
 
   const meetings = useMemo(() => data || [], [data]);
-  const { calendarEventDates, calendarCancelledDates } = useMemo(() => {
-    const monthMeetings = meetings.filter((meeting) => {
+  const { calendarEventDates, calendarLiveDates, calendarCancelledDates } = useMemo(() => {
+    const calendarMeetings = [...new Map([...meetings, ...(monthData || [])].map((meeting) => [meeting._id, meeting])).values()];
+    const monthMeetings = calendarMeetings.filter((meeting) => {
       const date = new Date(meeting.startsAt);
       return date.getFullYear() === month.getFullYear() && date.getMonth() === month.getMonth();
     });
 
-    const map = new Map<string, { hasActive: boolean; hasCancelled: boolean; sampleDate: string }>();
+    const map = new Map<string, { hasActive: boolean; hasLive: boolean; hasCancelled: boolean; sampleDate: string }>();
     for (const m of monthMeetings) {
       const key = new Date(m.startsAt).toDateString();
       let entry = map.get(key);
       if (!entry) {
-        entry = { hasActive: false, hasCancelled: false, sampleDate: m.startsAt };
+        entry = { hasActive: false, hasLive: false, hasCancelled: false, sampleDate: m.startsAt };
         map.set(key, entry);
       }
       if (m.status === "cancelled") {
         entry.hasCancelled = true;
       } else {
         entry.hasActive = true;
+        if (m.status === "live" || m.status === "paused") entry.hasLive = true;
       }
     }
 
     const events: string[] = [];
+    const lives: string[] = [];
     const cancelled: string[] = [];
     for (const entry of map.values()) {
       if (entry.hasActive) {
         events.push(entry.sampleDate);
+        if (entry.hasLive) lives.push(entry.sampleDate);
       } else if (entry.hasCancelled) {
         cancelled.push(entry.sampleDate);
       }
     }
 
-    return { calendarEventDates: events, calendarCancelledDates: cancelled };
-  }, [meetings, month]);
+    return { calendarEventDates: events, calendarLiveDates: lives, calendarCancelledDates: cancelled };
+  }, [meetings, monthData, month]);
   const filteredMeetings = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("vi");
     const start = new Date(referenceDate);
@@ -144,6 +153,7 @@ export default function MeetingsScreen() {
       <MonthCalendar
         date={month}
         eventDates={calendarEventDates}
+        liveDates={calendarLiveDates}
         cancelledDates={calendarCancelledDates}
         onPrevious={() => changeMonth(-1)}
         onNext={() => changeMonth(1)}
