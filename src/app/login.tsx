@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { router } from "expo-router";
-import { Eye, EyeOff, Fingerprint, LogIn, X } from "lucide-react-native";
+import { Eye, EyeOff, Fingerprint, X } from "lucide-react-native";
 import {
   Image,
   ImageBackground,
@@ -103,12 +103,10 @@ export default function LoginScreen() {
         {/* Footer with primary login button */}
         <View style={styles.footerContainer}>
           <Button
-            icon={LogIn}
-            iconColor="#0844A6"
-            textStyle={styles.loginButtonText}
             fullWidth
             onPress={openSheet}
             style={styles.mainLoginButton}
+            textStyle={styles.loginButtonText}
           >
             Đăng nhập
           </Button>
@@ -139,7 +137,14 @@ export default function LoginScreen() {
               </View>
 
               <View style={styles.sheetHeader}>
-                <Text style={styles.sheetTitle}>Đăng nhập</Text>
+                <View style={styles.sheetHeaderLeft}>
+                  <Image
+                    source={require("../../assets/images/igen-connect-transparent.png")}
+                    style={styles.sheetLogo}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.sheetTitle}>Đăng nhập</Text>
+                </View>
                 <Pressable
                   accessibilityLabel="Đóng"
                   accessibilityRole="button"
@@ -153,7 +158,7 @@ export default function LoginScreen() {
 
               <View style={styles.form}>
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.label}>SỐ ĐIỆN THOẠI HOẶC EMAIL</Text>
+                  <Text style={styles.label}>Số điện thoại hoặc email</Text>
                   <TextInput
                     autoCapitalize="none"
                     autoComplete="email"
@@ -169,7 +174,7 @@ export default function LoginScreen() {
                 </View>
 
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.label}>MẬT KHẨU</Text>
+                  <Text style={styles.label}>Mật khẩu</Text>
                   <View style={styles.passwordWrapper}>
                     <TextInput
                       ref={passwordInputRef}
@@ -206,13 +211,11 @@ export default function LoginScreen() {
                 ) : null}
 
                 <Button
-                  icon={LogIn}
-                  iconColor="#0844A6"
-                  textStyle={styles.loginButtonText}
                   fullWidth
                   disabled={submitting}
                   onPress={submit}
                   style={styles.submitButton}
+                  textStyle={styles.loginButtonText}
                 >
                   {submitting ? "Đang đăng nhập..." : "Đăng nhập"}
                 </Button>
@@ -266,14 +269,14 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === "ios" ? spacing.sm : spacing.lg,
   },
   mainLoginButton: {
-    backgroundColor: "#6ADBFD",
+    backgroundColor: "#00BAE8",
     minHeight: 52,
-    borderRadius: 16,
-    shadowColor: "#6ADBFD",
+    borderRadius: radius.pill,
+    shadowColor: "#00BAE8",
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.5,
-    shadowRadius: 14,
-    elevation: 5,
+    shadowOpacity: 0.55,
+    shadowRadius: 16,
+    elevation: 6,
   },
   modalOverlay: {
     flex: 1,
@@ -288,11 +291,11 @@ const styles = StyleSheet.create({
   },
   sheetCard: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xs,
-    paddingBottom: Platform.OS === "ios" ? 34 : spacing.xl,
+    paddingBottom: Platform.OS === "ios" ? 44 : 36,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.12,
@@ -316,9 +319,18 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xs,
     paddingBottom: spacing.sm,
   },
+  sheetHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  sheetLogo: {
+    width: 76,
+    height: 38,
+  },
   sheetTitle: {
     color: colors.text,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "900",
   },
   closeButton: {
@@ -336,10 +348,9 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   label: {
-    color: colors.muted,
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 0.3,
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: "600",
   },
   input: {
     minHeight: touchTarget,
@@ -380,29 +391,29 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   submitButton: {
-    backgroundColor: "#6ADBFD",
-    minHeight: 48,
-    borderRadius: 16,
-    marginTop: 2,
-    shadowColor: "#6ADBFD",
+    backgroundColor: "#00BAE8",
+    minHeight: 50,
+    borderRadius: radius.pill,
+    marginTop: 4,
+    shadowColor: "#00BAE8",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
+    shadowOpacity: 0.45,
+    shadowRadius: 12,
     elevation: 4,
   },
   biometricButton: {
     minHeight: 44,
-    borderRadius: 14,
+    borderRadius: radius.pill,
   },
   loginButtonText: {
-    color: "#0844A6",
-    fontSize: 15,
+    color: "#FFFFFF",
+    fontSize: 16,
     fontWeight: "800",
   },
   legal: {
     color: colors.muted,
     fontSize: 11,
     textAlign: "center",
-    marginTop: 4,
+    marginTop: 6,
   },
 });
