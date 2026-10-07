@@ -99,6 +99,11 @@ export type LuckyDraw = {
   speakers: Speaker[];
   luckyDraw: LuckyDrawConfig;
 };
+export type GameWinnerInput = Pick<LuckyDrawWinner, "id" | "winnerId" | "name" | "prizeName" | "wonAt"> & {
+  source: "wheel" | "bingo";
+  photoURL?: string;
+  ticketNumber?: number;
+};
 
 export type ProfileSlide = {
   id: string;
@@ -247,6 +252,8 @@ export const meetingService = {
     apiRequest<{ data: Meeting[] }>(`/api/v1/meetings/${encodeURIComponent(id)}/series`, { method: "PUT", body: JSON.stringify({ meetingIds, changes }) }).then(unwrap),
   luckyDraw: (id: string) => apiRequest<{ data: LuckyDraw }>(`/api/v1/meetings/${encodeURIComponent(id)}/lucky-draw`).then(unwrap),
   spin: (id: string, prizeId: string) => apiRequest<{ data: { winner: LuckyDrawWinner; prize: LuckyDrawPrize } }>(`/api/v1/meetings/${encodeURIComponent(id)}/lucky-draw/spin`, { method: "POST", body: JSON.stringify({ prizeId }) }).then(unwrap),
+  recordGameWinner: (id: string, input: GameWinnerInput) =>
+    apiRequest<{ data: LuckyDrawWinner }>(`/api/v1/meetings/${encodeURIComponent(id)}/lucky-draw/results`, { method: "POST", body: JSON.stringify(input) }).then(unwrap),
   updateLuckyDrawConfig: (id: string, input: Partial<Omit<LuckyDrawConfig, "prizes">>) =>
     apiRequest<{ data: LuckyDrawConfig }>(`/api/v1/meetings/${encodeURIComponent(id)}/lucky-draw/config`, { method: "PUT", body: JSON.stringify(input) }).then(unwrap),
   savePrize: (id: string, input: Partial<LuckyDrawPrize>) =>
