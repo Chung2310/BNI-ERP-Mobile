@@ -57,7 +57,6 @@ export function MonthCalendar({
           const isToday = day.toDateString() === today;
           const isLive = liveEvents.has(day.toDateString()) && !outside;
           const hasEvent = events.has(day.toDateString()) && !outside;
-          const isSelected = selectedDate && selectedDate.toDateString() === day.toDateString();
 
           return (
             <Pressable
@@ -71,8 +70,6 @@ export function MonthCalendar({
                   styles.dayCircle,
                   hasEvent && styles.dayCircleEvent,
                   isLive && styles.dayCircleLive,
-                  isToday && !isLive && !hasEvent && styles.dayCircleToday,
-                  isSelected && !isLive && !hasEvent && styles.dayCircleSelected,
                 ]}
               >
                 <Text
@@ -101,10 +98,6 @@ export function MonthCalendar({
         <View style={styles.legendItem}>
           <View style={[styles.legendCircle, styles.legendCircleEvent]} />
           <Text style={styles.legendText}>Có cuộc họp</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendCircle, styles.legendCircleToday]} />
-          <Text style={styles.legendText}>Hôm nay</Text>
         </View>
       </View>
     </View>
@@ -178,14 +171,6 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
-  dayCircleToday: {
-    borderWidth: 1,
-    borderColor: "#CBD5E1",
-    backgroundColor: "transparent",
-  },
-  dayCircleSelected: {
-    backgroundColor: colors.primarySoft,
-  },
   dayOutside: {
     opacity: 0.25,
   },
@@ -203,8 +188,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   dayTextToday: {
-    color: colors.text,
-    fontWeight: "500",
+    color: colors.primaryDark,
+    fontWeight: "700",
   },
   dayTextOutside: {
     color: colors.muted,
@@ -237,11 +222,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#00AECA",
     backgroundColor: "#F2FCFE",
-  },
-  legendCircleToday: {
-    borderWidth: 1,
-    borderColor: "#CBD5E1",
-    backgroundColor: "transparent",
   },
   legendText: {
     color: colors.muted,
