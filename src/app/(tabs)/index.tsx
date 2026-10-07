@@ -4,9 +4,6 @@ import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import {
   AppHeader,
-  Badge,
-  Button,
-  Card,
   EmptyState,
   ErrorState,
   LoadingState,
@@ -100,30 +97,37 @@ export default function HomeScreen() {
         <ErrorState message={error} onRetry={reload} />
       ) : (
         <>
-          {/* Live Meeting Hero */}
+          {/* Live Meeting Compact Banner */}
           {liveMeeting ? (
-            <Card style={styles.hero}>
-              <View style={styles.heroTopRow}>
-                <Badge tone="danger">🔴 ĐANG DIỄN RA</Badge>
-                <Text style={styles.heroLiveBadge}>Live Chapter</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Vào cuộc họp: ${liveMeeting.title}`}
+              style={({ pressed }) => [styles.heroCompact, pressed && styles.pressed]}
+              onPress={() =>
+                router.push({
+                  pathname: "/meeting/[id]/live",
+                  params: { id: liveMeeting._id },
+                })
+              }
+            >
+              <View style={styles.heroLeft}>
+                <View style={styles.heroTagRow}>
+                  <View style={styles.livePulseDot} />
+                  <Text style={styles.heroTagText}>ĐANG DIỄN RA</Text>
+                </View>
+                <Text style={styles.heroTitleCompact} numberOfLines={1}>
+                  {liveMeeting.title}
+                </Text>
+                <Text style={styles.heroMetaCompact} numberOfLines={1}>
+                  {liveMeeting.speakers.length} check-in · {liveMeeting.location || "Trực tiếp"}
+                </Text>
               </View>
-              <Text style={styles.heroTitle}>{liveMeeting.title}</Text>
-              <Text style={styles.heroMeta}>
-                {liveMeeting.speakers.length} người check-in · {liveMeeting.location || "Chưa cập nhật địa điểm"}
-              </Text>
-              <Button
-                icon={ArrowRight}
-                tone="secondary"
-                onPress={() =>
-                  router.push({
-                    pathname: "/meeting/[id]/live",
-                    params: { id: liveMeeting._id },
-                  })
-                }
-              >
-                Vào phòng họp ngay
-              </Button>
-            </Card>
+
+              <View style={styles.heroActionBtn}>
+                <Text style={styles.heroActionBtnText}>Vào họp</Text>
+                <ArrowRight color="#00AECA" size={14} strokeWidth={2.6} />
+              </View>
+            </Pressable>
           ) : null}
 
           {/* Lịch cuộc họp - Hiển thị ngay khi mở app */}
@@ -224,31 +228,70 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: colors.danger,
   },
-  hero: {
-    gap: spacing.sm,
-    backgroundColor: "#00AECA", // Brand jade cyan
-    borderWidth: 0,
-    ...shadow,
-  },
-  heroTopRow: {
+  heroCompact: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    backgroundColor: "#00AECA", // Brand jade cyan
+    borderRadius: radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: spacing.sm,
+    ...shadow,
   },
-  heroLiveBadge: {
-    color: "#E2F9FC",
-    fontSize: 11,
-    fontWeight: "700",
+  pressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.99 }],
   },
-  heroTitle: {
+  heroLeft: {
+    flex: 1,
+    gap: 2,
+  },
+  heroTagRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  livePulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#FFFFFF",
+  },
+  heroTagText: {
     color: "#FFFFFF",
-    fontSize: 17,
+    fontSize: 10,
     fontWeight: "900",
+    letterSpacing: 0.4,
   },
-  heroMeta: {
-    color: "#D6F6FA",
+  heroTitleCompact: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  heroMetaCompact: {
+    color: "#E0F7FA",
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  heroActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: radius.pill,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    gap: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  heroActionBtnText: {
+    color: "#00AECA",
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "800",
   },
   link: {
     color: colors.primaryDark,
