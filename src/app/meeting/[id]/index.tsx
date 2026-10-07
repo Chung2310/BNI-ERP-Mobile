@@ -4,14 +4,18 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
   Bell,
   CalendarClock,
+  ChevronRight,
   Clock3,
+  Gift,
   MapPin,
+  MessageCircle,
   Navigation,
+  Presentation,
   Search,
   Settings2,
   Timer,
 } from "lucide-react-native";
-import { Alert, Image, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { Avatar, Badge, Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionTitle } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
@@ -97,6 +101,15 @@ export default function MeetingDetailScreen() {
         <Metric label="CÒN LẠI" value={String(meeting.speakers.filter((speaker) => !(speaker.spokenSeconds || 0)).length)} />
       </View>
 
+      <SectionTitle>Quy trình cuộc họp</SectionTitle>
+      <Card style={styles.processCard}>
+        <ProcessRow icon={MapPin} label="Check-in" detail={`${meeting.speakers.length} người đã điểm danh`} onPress={() => router.push({ pathname: "/meeting/[id]/attendees", params: { id } })} />
+        <ProcessRow icon={Gift} label="Trò quay thưởng" detail="Vòng quay may mắn và Lồng cầu bingo" onPress={() => router.push({ pathname: "/meeting/[id]/game-results", params: { id } })} />
+        <ProcessRow icon={Gift} label="Bốc thăm giải thưởng" detail="Giải thưởng và lịch sử bốc thăm" onPress={() => router.push({ pathname: "/meeting/[id]/interaction", params: { id, section: "luckyDraw" } })} />
+        <ProcessRow icon={MessageCircle} label="Thu ý kiến" detail="Câu hỏi và phản hồi của người tham dự" onPress={() => router.push({ pathname: "/meeting/[id]/interaction", params: { id, section: "interaction" } })} />
+        <ProcessRow icon={Presentation} label="Thuyết trình" detail="Danh sách slide của người trình bày" onPress={() => router.push({ pathname: "/meeting/[id]/slides", params: { id } })} />
+      </Card>
+
       <Button icon={Settings2} tone="secondary" fullWidth onPress={() => router.push({ pathname: "/meeting/[id]/control", params: { id } })}>
         {manage ? "Điều khiển cuộc họp" : "Chức năng cuộc họp"}
       </Button>
@@ -165,8 +178,21 @@ function InfoRow({ icon: Icon, label, value }: { icon: typeof Clock3; label: str
   return <View style={styles.infoRow}><Icon color={colors.primaryDark} size={20} /><View style={styles.grow}><Text style={styles.infoLabel}>{label}</Text><Text style={styles.infoValue}>{value}</Text></View></View>;
 }
 
+function ProcessRow({ icon: Icon, label, detail, onPress }: { icon: typeof Clock3; label: string; detail: string; onPress: () => void }) {
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={({ pressed }) => [styles.processRow, pressed && styles.processPressed]}>
+    <Icon color={colors.primaryDark} size={21} />
+    <View style={styles.grow}><Text style={styles.processLabel}>{label}</Text><Text style={styles.processDetail}>{detail}</Text></View>
+    <ChevronRight color={colors.muted} size={19} />
+  </Pressable>;
+}
+
 const styles = StyleSheet.create({
   detailScreen: { gap: spacing.xs },
+  processCard: { paddingVertical: 0, paddingHorizontal: spacing.sm },
+  processRow: { minHeight: 64, flexDirection: "row", alignItems: "center", gap: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, paddingHorizontal: spacing.xs, paddingVertical: spacing.sm },
+  processPressed: { opacity: 0.6 },
+  processLabel: { color: colors.text, fontSize: 13, fontWeight: "800" },
+  processDetail: { marginTop: 3, color: colors.muted, fontSize: 11, lineHeight: 16 },
   summary: { gap: spacing.sm, padding: spacing.md, paddingTop: spacing.sm },
   summaryRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   title: { marginTop: spacing.xs, color: colors.text, fontSize: 19, lineHeight: 24, fontWeight: "900" },

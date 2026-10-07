@@ -47,6 +47,7 @@ export type Meeting = {
 
 export type LuckyDrawWinner = {
   id: string;
+  source?: "wheel" | "bingo" | "draw";
   prizeId: string;
   prizeName: string;
   winnerId: string;
@@ -87,6 +88,23 @@ export type LuckyDraw = {
   speakers: Speaker[];
   luckyDraw: LuckyDrawConfig;
 };
+
+export type ProfileSlide = {
+  id: string;
+  kind: "member" | "guest";
+  name: string;
+  company: string;
+  photoURL: string;
+  coverImage: string;
+  phone: string;
+  email?: string;
+  industry: string;
+  bio: string;
+  address?: string;
+  targetMarket?: string;
+  galleryImages?: string[];
+};
+export type SlideDeck = { slides: ProfileSlide[]; version: number };
 
 export type MeetingInteractionStatus = "draft" | "open" | "closed";
 export type MeetingInteractionResponseStatus = "pending" | "approved" | "hidden" | "rejected";
@@ -168,6 +186,7 @@ export const meetingService = {
   list: (month?: string) => apiRequest<{ data: Meeting[] }>(`/api/v1/meetings${month ? `?month=${month}` : ""}`).then(unwrap),
   history: () => apiRequest<{ data: Meeting[] }>("/api/v1/meetings?history=all").then(unwrap),
   get: (id: string) => apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}`).then(unwrap),
+  slides: (id: string) => apiRequest<{ data: SlideDeck }>(`/api/v1/meetings/${encodeURIComponent(id)}/slides`).then(unwrap),
   checkIn: (id: string, payload?: { latitude?: number; longitude?: number; name?: string; email?: string }) =>
     apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}/checkin`, { method: "POST", body: JSON.stringify(payload || {}) }).then(unwrap),
   control: (id: string, action: "start" | "pause" | "resume" | "next" | "previous" | "finish" | "cancel" | "start_speaker" | "reset_speaker", version: number) =>

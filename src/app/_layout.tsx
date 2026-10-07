@@ -14,6 +14,9 @@ export default function RootLayout() {
           <Stack.Screen name="login" />
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="meeting/[id]/index" />
+          <Stack.Screen name="meeting/[id]/attendees" />
+          <Stack.Screen name="meeting/[id]/game-results" />
+          <Stack.Screen name="meeting/[id]/slides" />
           <Stack.Screen name="meeting/[id]/edit" />
           <Stack.Screen name="meeting/create" />
           <Stack.Screen name="meeting/[id]/check-in" />

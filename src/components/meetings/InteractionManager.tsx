@@ -79,7 +79,7 @@ export function InteractionManager({ meetingId, initial, canManage, reload }: Pr
         {state.session.questions.map((item) => {
           const active = item.id === state.session?.activeQuestionId;
           return <View key={item.id} style={[s.questionRow, active && s.active]}>
-            <Pressable disabled={Boolean(busy)} onPress={() => !active && void run("select", () => meetingService.selectInteractionQuestion(meetingId, item.id))} style={s.questionPress}>
+            <Pressable disabled={!canManage || Boolean(busy)} onPress={() => !active && void run("select", () => meetingService.selectInteractionQuestion(meetingId, item.id))} style={s.questionPress}>
               <View style={[s.order, active && s.orderActive]}><Text style={[s.orderText, active && s.orderTextActive]}>{item.order}</Text></View>
               <View style={s.grow}><Text style={s.question}>{item.text}</Text><Text style={s.meta}>{item.responseCount} phản hồi{active ? " · Đang chọn" : ""}</Text></View>
               {!active ? <ChevronRight color={colors.muted} size={18} /> : null}
