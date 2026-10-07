@@ -8,7 +8,6 @@ import {
   Image,
   Keyboard,
   KeyboardAvoidingView,
-  LayoutChangeEvent,
   Linking,
   Platform,
   Pressable,
@@ -52,8 +51,6 @@ export default function ChatRoomScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList<ChatMessage>>(null);
-  const initialHeightRef = useRef(0);
-  const [windowDidResize, setWindowDidResize] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [message, setMessage] = useState('');
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
@@ -87,12 +84,11 @@ export default function ChatRoomScreen() {
       setKeyboardHeight(e.endCoordinates.height);
       setTimeout(() => {
         listRef.current?.scrollToEnd({ animated: true });
-      }, 80);
+      }, 100);
     });
 
     const hideSub = Keyboard.addListener(hideEvent, () => {
       setKeyboardHeight(0);
-      setWindowDidResize(false);
     });
 
     return () => {
@@ -100,16 +96,6 @@ export default function ChatRoomScreen() {
       hideSub.remove();
     };
   }, []);
-
-  const handleRootLayout = (event: LayoutChangeEvent) => {
-    const { height } = event.nativeEvent.layout;
-    if (height > initialHeightRef.current) {
-      initialHeightRef.current = height;
-    }
-    if (initialHeightRef.current > 0) {
-      setWindowDidResize(initialHeightRef.current - height > 100);
-    }
-  };
 
   const send = async () => {
     const content = message.trim();
@@ -216,27 +202,25 @@ export default function ChatRoomScreen() {
     );
   };
 
-  const bottomPadding =
+  const containerBottomPadding =
     Platform.OS === 'android'
       ? keyboardHeight > 0
-        ? windowDidResize
-          ? spacing.xs
-          : keyboardHeight + spacing.xs
+        ? keyboardHeight + 4
         : Math.max(insets.bottom, spacing.sm)
       : keyboardHeight > 0
-        ? spacing.xs
+        ? 0
         : Math.max(insets.bottom, spacing.sm);
 
   return (
     <Screen scroll={false} style={styles.screen}>
-      <View onLayout={handleRootLayout} style={styles.rootContainer}>
+      <View style={styles.rootContainer}>
         <View style={styles.headerContainer}>
           <BackHeader title={name || 'Trò chuyện'} subtitle='Tin nhắn nội bộ' />
         </View>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={0}
-          style={styles.flex}
+          style={[styles.flex, { paddingBottom: containerBottomPadding }]}
         >
           {isLoading && !data ? (
             <LoadingState />
@@ -248,6 +232,7 @@ export default function ChatRoomScreen() {
               data={messages}
               keyExtractor={(item) => item._id}
               renderItem={renderMessage}
+              style={styles.flex}
               contentContainerStyle={[styles.messages, !messages.length && styles.emptyMessages]}
               keyboardShouldPersistTaps='handled'
               keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
@@ -270,7 +255,7 @@ export default function ChatRoomScreen() {
             </View>
           ) : null}
 
-          <View style={[styles.composerContainer, { paddingBottom: bottomPadding }]}>
+          <View style={styles.composerContainer}>
             {sendError ? <Text style={styles.sendError}>{sendError}</Text> : null}
             <View style={styles.composer}>
               <TextInput
