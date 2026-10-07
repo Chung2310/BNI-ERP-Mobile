@@ -20,9 +20,6 @@ import type { UserProfile, UserRole } from "@/types";
 
 const roles: { value: UserRole; label: string }[] = [
   { value: "user", label: "Thành viên" },
-  { value: "teacher", label: "Giảng viên" },
-  { value: "manager", label: "Quản lý" },
-  { value: "branch_owner", label: "Chủ chi nhánh" },
   { value: "admin", label: "Quản trị viên" },
 ];
 
