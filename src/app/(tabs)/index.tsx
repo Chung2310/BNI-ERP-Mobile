@@ -134,7 +134,7 @@ export default function HomeScreen() {
 
                 <View style={styles.heroActionBtn}>
                   <Text style={styles.heroActionBtnText}>Vào họp</Text>
-                  <ArrowRight color="#00AECA" size={13} strokeWidth={2.6} />
+                  <ArrowRight color="#00AECA" size={14} strokeWidth={2.6} />
                 </View>
               </Pressable>
             ) : null}
@@ -291,9 +291,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     backgroundColor: "#00AECA", // Brand jade cyan
     borderRadius: radius.md,
-    paddingVertical: 7,
-    paddingHorizontal: 10,
-    gap: spacing.xs,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    gap: spacing.sm,
     borderWidth: 0,
   },
   pressed: {
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   },
   heroLeft: {
     flex: 1,
-    gap: 1,
+    gap: 3,
   },
   heroTagRow: {
     flexDirection: "row",
@@ -310,25 +310,25 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   livePulseDot: {
-    width: 5,
-    height: 5,
+    width: 6,
+    height: 6,
     borderRadius: 3,
     backgroundColor: "#FFFFFF",
   },
   heroTagText: {
     color: "#FFFFFF",
-    fontSize: 9,
+    fontSize: 9.5,
     fontWeight: "900",
     letterSpacing: 0.4,
   },
   heroTitleCompact: {
     color: "#FFFFFF",
-    fontSize: 12.5,
+    fontSize: 13.5,
     fontWeight: "700",
   },
   heroMetaCompact: {
     color: "#E0F7FA",
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "500",
   },
   heroActionBtn: {
@@ -336,13 +336,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#FFFFFF",
     borderRadius: radius.pill,
-    paddingVertical: 5,
-    paddingHorizontal: 9,
-    gap: 3,
+    paddingVertical: 7,
+    paddingHorizontal: 11,
+    gap: 4,
   },
   heroActionBtnText: {
     color: "#00AECA",
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "800",
   },
   link: {

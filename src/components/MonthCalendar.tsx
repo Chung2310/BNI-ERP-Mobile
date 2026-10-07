@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
   },
   dayCell: {
     width: "14.2857%",
-    height: 37,
+    height: 38,
     alignItems: "center",
     justifyContent: "center",
   },
