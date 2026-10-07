@@ -3,11 +3,11 @@ import {
   Bell,
   CalendarPlus,
   FolderOpen,
+  HandCoins,
   Settings,
   ShieldCheck,
   Trophy,
   UserCog,
-  WalletCards,
   type LucideIcon,
 } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -66,7 +66,7 @@ export function DashboardQuickActions({
 
   actions.push(
     {
-      icon: WalletCards,
+      icon: HandCoins,
       title: 'Hội phí',
       href: '/fees',
       color: '#D97706',
