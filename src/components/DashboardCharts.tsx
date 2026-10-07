@@ -6,6 +6,7 @@ import { colors, radius } from "@/theme/tokens";
 
 import Svg, { Circle } from 'react-native-svg';
 import { Card } from '@/components/ui';
+import { KeyboardResponsiveView } from '@/components/KeyboardResponsiveView';
 
 const palette = {
   present: '#00AECA', // Brand primary jade cyan
@@ -169,6 +170,7 @@ function MeetingSelector({
         }}
         statusBarTranslucent
       >
+        <KeyboardResponsiveView>
         <View style={s.sheetOverlay}>
           <Pressable
             style={s.sheetBackdrop}
@@ -285,6 +287,7 @@ function MeetingSelector({
             </ScrollView>
           </View>
         </View>
+        </KeyboardResponsiveView>
       </Modal>
     </>
   );

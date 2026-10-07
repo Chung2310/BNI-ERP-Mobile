@@ -10,6 +10,7 @@ import { MeetingCard } from "@/components/MeetingCard";
 import { MonthCalendar } from "@/components/MonthCalendar";
 import { useAuth } from "@/context/AuthContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
+import { useRevealSearch } from "@/hooks/useRevealSearch";
 import { applyMeetingChange, meetingService, subscribeMeetingChanges } from "@/services/meeting";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 import { hasPermission } from "@/utils/permissions";
@@ -36,6 +37,7 @@ export default function MeetingsScreen() {
   const [filter, setFilter] = useState<MeetingFilter>("today");
   const [filterSheetVisible, setFilterSheetVisible] = useState(false);
   const [search, setSearch] = useState("");
+  const { scrollRef, onSearchLayout, onSearchFocus, onSearchBlur } = useRevealSearch();
   const [visibleCount, setVisibleCount] = useState(pageSize);
   const canCreateMeeting = hasPermission(user, "meetings:manage");
   const monthKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`;
@@ -144,7 +146,7 @@ export default function MeetingsScreen() {
   };
 
   return (
-    <Screen>
+    <Screen scrollRef={scrollRef}>
       <BackHeader
         title="Cuộc họp"
         compact
@@ -170,13 +172,15 @@ export default function MeetingsScreen() {
       <SectionTitle action={selectedDate ? <Pressable accessibilityRole="button" accessibilityLabel="Bỏ chọn ngày" hitSlop={8} onPress={() => setSelectedDate(null)}><Text style={styles.clearDate}>Bỏ chọn ngày</Text></Pressable> : undefined}>
         {selectedDate ? `Lịch ngày ${selectedDate.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })} (${selectedDateMeetings.length})` : `Cuộc họp (${filteredMeetings.length})`}
       </SectionTitle>
-      {!selectedDate ? <View style={styles.toolbar}>
+      {!selectedDate ? <View style={styles.toolbar} onLayout={onSearchLayout}>
         <View style={styles.searchBox}>
           <Search color={colors.muted} size={16} />
           <TextInput
             accessibilityLabel="Tìm kiếm cuộc họp"
             value={search}
             onChangeText={(value) => { setSearch(value); setVisibleCount(pageSize); }}
+            onFocus={onSearchFocus}
+            onBlur={onSearchBlur}
             placeholder="Tìm kiếm cuộc họp"
             placeholderTextColor={colors.muted}
             returnKeyType="search"

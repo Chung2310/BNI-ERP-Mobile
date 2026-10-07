@@ -16,6 +16,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { KeyboardResponsiveView } from "@/components/KeyboardResponsiveView";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 
 export function Screen({
@@ -37,7 +38,9 @@ export function Screen({
   ) : (
     <View style={[styles.screenContent, styles.flex, style]}>{children}</View>
   );
-  return <SafeAreaView edges={["top"]} style={styles.safe}>{body}</SafeAreaView>;
+  return <SafeAreaView edges={["top"]} style={styles.safe}>
+    <KeyboardResponsiveView>{body}</KeyboardResponsiveView>
+  </SafeAreaView>;
 }
 
 export function AppHeader({

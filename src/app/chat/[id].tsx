@@ -27,6 +27,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackHeader } from '@/components/BackHeader';
 import { ChatRoomSettingsModal } from '@/components/ChatRoomSettingsModal';
+import { KeyboardResponsiveView } from '@/components/KeyboardResponsiveView';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
 import { useAsyncData } from '@/hooks/useAsyncData';
@@ -489,7 +490,7 @@ export default function ChatRoomScreen() {
       <View
         ref={rootRef}
         onLayout={() => { if (keyboardTopRef.current !== null) updateKeyboardInset(); }}
-        style={[styles.rootContainer, { paddingBottom: Math.max(bottomInset, keyboardInset) }]}
+        style={[styles.rootContainer, { paddingBottom: Math.max(bottomInset, keyboardInset) + (isFocused ? spacing.md : 0) }]}
       >
         <View style={styles.headerContainer}>
           <BackHeader title={room?.name || name || 'Trò chuyện'} subtitle={typingNames.length ? `${typingNames.join(', ')} đang nhập...` : 'Tin nhắn nội bộ'} action={<View style={styles.headerActions}><Pressable accessibilityLabel='Tìm trong cuộc trò chuyện' onPress={() => { Keyboard.dismiss(); setShowSearch(true); }} style={styles.headerAction}><Search color={colors.primaryDark} size={21} /></Pressable><Pressable accessibilityLabel='Cài đặt cuộc trò chuyện' onPress={() => { Keyboard.dismiss(); setShowSettings(true); }} style={styles.headerAction}><Settings2 color={colors.primaryDark} size={21} /></Pressable></View>} />
@@ -622,7 +623,9 @@ export default function ChatRoomScreen() {
       <View style={styles.sheetOverlay}><Pressable style={styles.sheetBackdrop} onPress={() => setSharingMessage(null)} /><View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}><Text style={styles.sheetTitle}>Chia sẻ tin nhắn</Text><Text numberOfLines={2} style={styles.sheetHint}>{sharingMessage?.content || 'Tệp đính kèm'}</Text><ScrollView style={styles.sheetScroll}>{shareRooms.map((target) => <SheetAction key={target._id} label={target.name || target.members.find((member) => member.userId._id !== user?.uid)?.userId.displayName || 'Cuộc trò chuyện'} disabled={shareBusy} onPress={() => void shareMessage(target._id)} />)}</ScrollView></View></View>
     </Modal>
     <Modal visible={showSearch} transparent animationType='slide' onRequestClose={() => setShowSearch(false)}>
+      <KeyboardResponsiveView>
       <View style={styles.sheetOverlay}><Pressable style={styles.sheetBackdrop} onPress={() => setShowSearch(false)} /><View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}><Text style={styles.sheetTitle}>Tìm trong cuộc trò chuyện</Text><View style={styles.searchRow}><TextInput value={searchQuery} onChangeText={setSearchQuery} placeholder='Từ khóa tin nhắn' style={styles.searchInput} returnKeyType='search' onSubmitEditing={() => void searchMessages()} /><Pressable accessibilityLabel='Tìm' onPress={() => void searchMessages()} style={styles.headerAction}><Search color={colors.primaryDark} size={20} /></Pressable></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.searchTypes}>{searchTypes.map((type) => <Pressable key={type.id} onPress={() => setSearchType(type.id)} style={[styles.searchType, searchType === type.id && styles.searchTypeSelected]}><Text style={[styles.searchTypeText, searchType === type.id && styles.searchTypeTextSelected]}>{type.label}</Text></Pressable>)}</ScrollView>{searching ? <LoadingState /> : <ScrollView style={styles.sheetScroll}>{searchResults.map((item) => <Pressable key={item._id} onPress={() => void jumpToMessage(item)} style={styles.searchResult}><Text style={styles.searchResultTitle}>{item.senderName} · {formatDay(item.createdAt)}</Text><Text numberOfLines={3} style={styles.sheetHint}>{item.content || item.attachments?.[0]?.name || 'Tệp đính kèm'}</Text></Pressable>)}</ScrollView>}</View></View>
+      </KeyboardResponsiveView>
     </Modal>
     {showSettings && room ? <ChatRoomSettingsModal room={room} currentUserId={user?.uid} onClose={() => setShowSettings(false)} onUpdated={setRoom} onExit={() => { setShowSettings(false); router.replace('/(tabs)/chat'); }} /> : null}
     <Modal visible={Boolean(previewAttachment)} transparent animationType='fade' onRequestClose={() => setPreviewAttachment(null)}><View style={styles.imagePreview}><Pressable accessibilityLabel='Đóng ảnh' onPress={() => setPreviewAttachment(null)} style={styles.imagePreviewClose}><X color='#FFFFFF' size={26} /></Pressable>{previewAttachment ? <Image source={{ uri: previewAttachment.url }} style={styles.imagePreviewContent} resizeMode='contain' /> : null}</View></Modal>

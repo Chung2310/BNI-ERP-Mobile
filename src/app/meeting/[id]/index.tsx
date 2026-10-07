@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
   Bell,
@@ -20,12 +20,13 @@ import {
   XCircle,
   type LucideIcon,
 } from "lucide-react-native";
-import { Image, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Image, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BackHeader } from "@/components/BackHeader";
 import { Avatar, Badge, Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionTitle } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
+import { useRevealSearch } from "@/hooks/useRevealSearch";
 import { meetingService, meetingVersion, type Meeting } from "@/services/meeting";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 import { hasPermission } from "@/utils/permissions";
@@ -55,25 +56,12 @@ export default function MeetingDetailScreen() {
   }, [reload]));
   const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState("");
-  const scrollRef = useRef<ScrollView>(null);
-  const searchOffsetRef = useRef(0);
-  const searchFocusedRef = useRef(false);
+  const { scrollRef, onSearchLayout, onSearchFocus, onSearchBlur } = useRevealSearch();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<"cancel" | "remove" | null>(null);
   const [actionError, setActionError] = useState("");
   const actionPending = useRef(false);
   const manage = hasPermission(user, "meetings:manage", "access:manage");
-
-  const revealSearch = useCallback(() => {
-    scrollRef.current?.scrollTo({ y: Math.max(0, searchOffsetRef.current - spacing.lg), animated: true });
-  }, []);
-
-  useEffect(() => {
-    const subscription = Keyboard.addListener("keyboardDidShow", () => {
-      if (searchFocusedRef.current) requestAnimationFrame(revealSearch);
-    });
-    return () => subscription.remove();
-  }, [revealSearch]);
 
   const filteredSpeakers = useMemo(() => {
     if (!meeting) return [];
@@ -128,7 +116,6 @@ export default function MeetingDetailScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.keyboardContainer} behavior={Platform.OS === "ios" ? "padding" : undefined}>
     <Screen style={styles.detailScreen} scrollRef={scrollRef}>
       <BackHeader title="Chi tiết cuộc họp" compact action={manage ? <Pressable accessibilityRole="button" accessibilityLabel="Tùy chỉnh cuộc họp" onPress={() => setSettingsOpen(true)} style={styles.settingsButton}><Settings color={colors.primaryDark} size={22} /></Pressable> : undefined} />
       <Card style={[styles.summary, meeting.coverImage && styles.summaryWithCover]}>
@@ -191,9 +178,9 @@ export default function MeetingDetailScreen() {
 
       <SectionTitle>Người đã check-in · thứ tự phát biểu</SectionTitle>
       {meeting.speakers.length ? (
-        <View onLayout={(event) => { searchOffsetRef.current = event.nativeEvent.layout.y; }}>
+        <View onLayout={onSearchLayout}>
         <Card style={styles.speakersCard}>
-          <View style={styles.searchBox}><Search color={colors.muted} size={16} /><TextInput value={search} onChangeText={setSearch} onFocus={() => { searchFocusedRef.current = true; requestAnimationFrame(revealSearch); }} onBlur={() => { searchFocusedRef.current = false; }} placeholder="Tìm thành viên hoặc khách mời" placeholderTextColor={colors.muted} style={styles.searchInput} /></View>
+          <View style={styles.searchBox}><Search color={colors.muted} size={16} /><TextInput value={search} onChangeText={setSearch} onFocus={onSearchFocus} onBlur={onSearchBlur} placeholder="Tìm thành viên hoặc khách mời" placeholderTextColor={colors.muted} style={styles.searchInput} /></View>
           {filteredSpeakers.map((speaker) => {
             const index = meeting.speakers.findIndex((item) => item.id === speaker.id);
             const isCurrent = currentSpeaker?.id === speaker.id && (meeting.status === "live" || meeting.status === "paused");
@@ -236,7 +223,6 @@ export default function MeetingDetailScreen() {
         </View>
       </Modal>
     </Screen>
-    </KeyboardAvoidingView>
   );
 }
 
@@ -265,7 +251,6 @@ function ProcessRow({ icon: Icon, label, detail, onPress }: { icon: typeof Clock
 }
 
 const styles = StyleSheet.create({
-  keyboardContainer: { flex: 1 },
   detailScreen: { gap: spacing.xs },
   settingsButton: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center" },
   sheetOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.overlay },

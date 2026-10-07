@@ -2,6 +2,7 @@ import { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { KeyboardResponsiveView } from '@/components/KeyboardResponsiveView';
 import { Check, X } from 'lucide-react-native';
 import { chatService, type ChatRoom } from '@/services/chat';
 import { userService } from '@/services/users';
@@ -89,6 +90,7 @@ export function ChatRoomSettingsModal({ room, currentUserId, onClose, onUpdated,
 
   return (
     <Modal visible animationType='slide' onRequestClose={onClose}>
+      <KeyboardResponsiveView>
       <SafeAreaView style={styles.safe}>
         <View style={styles.header}>
           <Text style={styles.title}>{adding ? 'Thêm thành viên' : 'Thông tin trò chuyện'}</Text>
@@ -141,6 +143,7 @@ export function ChatRoomSettingsModal({ room, currentUserId, onClose, onUpdated,
           </ScrollView>
         )}
       </SafeAreaView>
+      </KeyboardResponsiveView>
     </Modal>
   );
 }
