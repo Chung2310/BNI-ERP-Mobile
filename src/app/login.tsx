@@ -9,10 +9,12 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -22,6 +24,7 @@ import { authService } from "@/services/auth";
 import { colors, radius, spacing } from "@/theme/tokens";
 
 export default function LoginScreen() {
+  const { height: windowHeight } = useWindowDimensions();
   const { signIn, signInWithBiometrics } = useAuth();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -30,11 +33,29 @@ export default function LoginScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [canUseBiometrics, setCanUseBiometrics] = useState(false);
   const [isSheetVisible, setIsSheetVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const passwordInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     authService.canUseBiometricLogin().then(setCanUseBiometrics);
+  }, []);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
   }, []);
 
   const openSheet = () => {
@@ -44,6 +65,7 @@ export default function LoginScreen() {
 
   const closeSheet = () => {
     Keyboard.dismiss();
+    setKeyboardHeight(0);
     setError("");
     setIsSheetVisible(false);
   };
@@ -129,9 +151,20 @@ export default function LoginScreen() {
           />
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : undefined}
-            style={styles.sheetKeyboardAvoid}
+            style={[
+              styles.sheetKeyboardAvoid,
+              Platform.OS === "android" && keyboardHeight > 0 && { paddingBottom: keyboardHeight },
+            ]}
           >
-            <View style={styles.sheetCard}>
+            <View
+              style={[
+                styles.sheetCard,
+                keyboardHeight > 0 && {
+                  paddingBottom: spacing.md,
+                  maxHeight: Math.max(300, windowHeight - keyboardHeight - 40),
+                },
+              ]}
+            >
               <View style={styles.sheetHandleBar}>
                 <View style={styles.sheetHandle} />
               </View>
@@ -153,85 +186,92 @@ export default function LoginScreen() {
                 </Pressable>
               </View>
 
-              <View style={styles.form}>
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.label}>Số điện thoại hoặc email</Text>
-                  <TextInput
-                    autoCapitalize="none"
-                    autoComplete="email"
-                    inputMode="email"
-                    placeholder="Nhập tài khoản"
-                    placeholderTextColor={colors.muted}
-                    returnKeyType="next"
-                    style={styles.input}
-                    value={identifier}
-                    onChangeText={setIdentifier}
-                    onSubmitEditing={() => passwordInputRef.current?.focus()}
-                  />
-                </View>
-
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.label}>Mật khẩu</Text>
-                  <View style={styles.passwordWrapper}>
+              <ScrollView
+                bounces={false}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
+              >
+                <View style={styles.form}>
+                  <View style={styles.fieldGroup}>
+                    <Text style={styles.label}>Số điện thoại hoặc email</Text>
                     <TextInput
-                      ref={passwordInputRef}
-                      autoComplete="current-password"
-                      placeholder="Nhập mật khẩu"
+                      autoCapitalize="none"
+                      autoComplete="email"
+                      inputMode="email"
+                      placeholder="Nhập tài khoản"
                       placeholderTextColor={colors.muted}
-                      secureTextEntry={!showPassword}
-                      returnKeyType="done"
-                      style={styles.passwordInput}
-                      value={password}
-                      onChangeText={setPassword}
-                      onSubmitEditing={submit}
+                      returnKeyType="next"
+                      style={styles.input}
+                      value={identifier}
+                      onChangeText={setIdentifier}
+                      onSubmitEditing={() => passwordInputRef.current?.focus()}
                     />
-                    <Pressable
-                      accessibilityLabel={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                      accessibilityRole="button"
-                      hitSlop={10}
-                      onPress={() => setShowPassword((prev) => !prev)}
-                      style={styles.eyeButton}
-                    >
-                      {showPassword ? (
-                        <EyeOff color={colors.muted} size={20} />
-                      ) : (
-                        <Eye color={colors.muted} size={20} />
-                      )}
-                    </Pressable>
                   </View>
-                </View>
 
-                {error ? (
-                  <Text accessibilityRole="alert" style={styles.error}>
-                    {error}
-                  </Text>
-                ) : null}
+                  <View style={styles.fieldGroup}>
+                    <Text style={styles.label}>Mật khẩu</Text>
+                    <View style={styles.passwordWrapper}>
+                      <TextInput
+                        ref={passwordInputRef}
+                        autoComplete="current-password"
+                        placeholder="Nhập mật khẩu"
+                        placeholderTextColor={colors.muted}
+                        secureTextEntry={!showPassword}
+                        returnKeyType="done"
+                        style={styles.passwordInput}
+                        value={password}
+                        onChangeText={setPassword}
+                        onSubmitEditing={submit}
+                      />
+                      <Pressable
+                        accessibilityLabel={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                        accessibilityRole="button"
+                        hitSlop={10}
+                        onPress={() => setShowPassword((prev) => !prev)}
+                        style={styles.eyeButton}
+                      >
+                        {showPassword ? (
+                          <EyeOff color={colors.muted} size={20} />
+                        ) : (
+                          <Eye color={colors.muted} size={20} />
+                        )}
+                      </Pressable>
+                    </View>
+                  </View>
 
-                <Button
-                  fullWidth
-                  disabled={submitting}
-                  onPress={submit}
-                  style={styles.submitButton}
-                  textStyle={styles.loginButtonText}
-                >
-                  {submitting ? "Đang đăng nhập..." : "Đăng nhập"}
-                </Button>
+                  {error ? (
+                    <Text accessibilityRole="alert" style={styles.error}>
+                      {error}
+                    </Text>
+                  ) : null}
 
-                {canUseBiometrics ? (
                   <Button
-                    icon={Fingerprint}
-                    tone="secondary"
                     fullWidth
                     disabled={submitting}
-                    onPress={submitBiometrics}
-                    style={styles.biometricButton}
+                    onPress={submit}
+                    style={styles.submitButton}
+                    textStyle={styles.loginButtonText}
                   >
-                    Đăng nhập bằng vân tay / Face ID
+                    {submitting ? "Đang đăng nhập..." : "Đăng nhập"}
                   </Button>
-                ) : null}
 
-                <Text style={styles.legal}>Bảo mật · Điều khoản · Hỗ trợ</Text>
-              </View>
+                  {canUseBiometrics ? (
+                    <Button
+                      icon={Fingerprint}
+                      tone="secondary"
+                      fullWidth
+                      disabled={submitting}
+                      onPress={submitBiometrics}
+                      style={styles.biometricButton}
+                    >
+                      Đăng nhập bằng vân tay / Face ID
+                    </Button>
+                  ) : null}
+
+                  <Text style={styles.legal}>Bảo mật · Điều khoản · Hỗ trợ</Text>
+                </View>
+              </ScrollView>
             </View>
           </KeyboardAvoidingView>
         </View>
@@ -329,6 +369,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     alignItems: "center",
     justifyContent: "center",
+  },
+  scrollContent: {
+    flexGrow: 0,
   },
   form: {
     gap: 12,
