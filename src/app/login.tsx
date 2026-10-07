@@ -271,11 +271,13 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === "ios" ? spacing.sm : spacing.lg,
   },
   mainLoginButton: {
-    shadowColor: colors.primary,
+    backgroundColor: "#00BAEC",
+    minHeight: 52,
+    shadowColor: "#00BAEC",
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOpacity: 0.45,
+    shadowRadius: 16,
+    elevation: 6,
   },
   modalOverlay: {
     flex: 1,
@@ -396,7 +398,14 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   submitButton: {
+    backgroundColor: "#00BAEC",
+    minHeight: 50,
     marginTop: spacing.xs,
+    shadowColor: "#00BAEC",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 4,
   },
   legal: {
     color: colors.muted,
