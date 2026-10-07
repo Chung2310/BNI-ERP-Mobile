@@ -34,10 +34,10 @@ export const mockMeetings: MeetingSummary[] = [
 ];
 
 export const mockMembers: MemberSummary[] = [
-  { id: "nguyen-thanh", initials: "NT", name: "Nguyễn Thành", role: "Giám đốc Chapter", industry: "Công nghệ", company: "iGen Technology", online: true },
-  { id: "le-huong", initials: "LH", name: "Lê Hương", role: "Phó giám đốc", industry: "Tài chính", company: "FinPlus", online: true },
-  { id: "tran-vu", initials: "TV", name: "Trần Vũ", role: "Thư ký", industry: "Sự kiện", company: "V Event" },
-  { id: "pham-minh", initials: "PM", name: "Phạm Minh", role: "Thành viên", industry: "Xây dựng", company: "Minh Build" },
-  { id: "hoang-anh", initials: "HA", name: "Hoàng Anh", role: "Thành viên", industry: "Marketing", company: "HA Media", online: true },
-  { id: "do-nam", initials: "DN", name: "Đỗ Nam", role: "Thành viên", industry: "Logistics", company: "Nam Logistics" },
+  { id: "nguyen-thanh", initials: "NT", name: "Nguyễn Thành", role: "Giám đốc Chapter", industry: "Công nghệ", company: "iGen Technology", email: "thanh.nguyen@igen.vn", phone: "0901234567", online: true },
+  { id: "le-huong", initials: "LH", name: "Lê Hương", role: "Phó giám đốc", industry: "Tài chính", company: "FinPlus", email: "huong.le@finplus.vn", phone: "0912345678", online: true },
+  { id: "tran-vu", initials: "TV", name: "Trần Vũ", role: "Thư ký", industry: "Sự kiện", company: "V Event", email: "vu.tran@vevent.com", phone: "0987654321" },
+  { id: "pham-minh", initials: "PM", name: "Phạm Minh", role: "Thành viên", industry: "Xây dựng", company: "Minh Build", email: "minh.pham@minhbuild.vn", phone: "0934567890" },
+  { id: "hoang-anh", initials: "HA", name: "Hoàng Anh", role: "Thành viên", industry: "Marketing", company: "HA Media", email: "anh.hoang@hamedia.vn", phone: "0945678901", online: true },
+  { id: "do-nam", initials: "DN", name: "Đỗ Nam", role: "Thành viên", industry: "Logistics", company: "Nam Logistics", email: "nam.do@namlogistics.vn", phone: "0956789012" },
 ];

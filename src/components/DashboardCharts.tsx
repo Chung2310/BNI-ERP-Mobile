@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { StyleSheet, Text, View , Pressable } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { Meeting } from "@/services/meeting";
 import { colors } from "@/theme/tokens";
 
@@ -17,12 +17,12 @@ function absent(meeting: Meeting, members: number) {
   return Math.max(0, members - meeting.speakers.filter((speaker) => speaker.userId).length);
 }
 
-function Legend({ color, label, value }: { color: string; label: string; value: number }) {
+function Legend({ color, label, value }: { color: string; label: string; value?: number }) {
   return (
     <View style={s.legendItem}>
       <View style={[s.dot, { backgroundColor: color }]} />
       <Text style={s.legendText}>
-        {label} ({value})
+        {label}{value === undefined ? '' : ` (${value})`}
       </Text>
     </View>
   );
@@ -31,14 +31,14 @@ function Legend({ color, label, value }: { color: string; label: string; value: 
 type Totals = { present: number; guest: number; absent: number };
 type Bar = Totals & { id: string; title: string; checkedIn: number; date: string };
 
-function AttendanceChart({ bars, totals, selectedId, onSelect }: { bars: Bar[]; totals: Totals; selectedId?: string; onSelect: (id?: string) => void }) {
+function AttendanceChart({ bars, selectedId, onSelect }: { bars: Bar[]; selectedId?: string; onSelect: (id?: string) => void }) {
   const max = Math.max(5, ...bars.map((item) => item.present + item.guest + item.absent));
   return <Card style={s.card}>
     <Text style={s.title}>Thống kê tham dự và vắng mặt theo cuộc họp</Text>
     <View style={s.legendRow}>
-      <Legend color={palette.present} label='Có mặt' value={totals.present} />
-      <Legend color={palette.guest} label='Khách mời' value={totals.guest} />
-      <Legend color={palette.absent} label='Vắng mặt' value={totals.absent} />
+      <Legend color={palette.present} label='Có mặt' />
+      <Legend color={palette.guest} label='Khách mời' />
+      <Legend color={palette.absent} label='Vắng mặt' />
     </View>
     {!bars.length ? <View style={s.empty}><Text style={s.hint}>Chưa có dữ liệu cuộc họp.</Text></View> : <View style={s.plot}>
       {bars.map((item) => {
@@ -55,16 +55,17 @@ function AttendanceChart({ bars, totals, selectedId, onSelect }: { bars: Bar[]; 
         </Pressable>;
       })}
     </View>}
-    <Text style={s.footer}>Chạm vào cột để xem chi tiết · {bars.length} buổi gần nhất</Text>
+    <Text style={s.footer}>{bars.length ? `Hiển thị ${bars.length} cuộc họp gần nhất` : 'Chưa có cuộc họp đã diễn ra'}</Text>
   </Card>;
 }
 
-function DonutChart({ totals }: { totals: Totals }) {
+function DonutChart({ totals, meetings, selectedId, onSelect }: { totals: Totals; meetings: Meeting[]; selectedId?: string; onSelect: (id: string) => void }) {
   const total = totals.present + totals.guest + totals.absent;
   const circumference = Math.PI * 116;
   let used = 0;
   return <Card style={s.card}>
-    <Text style={s.title}>Cơ cấu Thành viên và Khách mời</Text>
+    <Text style={s.title}>Cơ cấu cuộc họp được chọn</Text>
+    <MeetingSelector meetings={meetings} selectedId={selectedId} onSelect={onSelect} />
     <View style={s.donut}>
       <Svg width={174} height={174} viewBox='0 0 150 150' accessibilityLabel='Cơ cấu tham dự và vắng mặt'>
         <Circle cx='75' cy='75' r='58' fill='none' stroke='#EEF3F5' strokeWidth='18' />
@@ -86,19 +87,38 @@ function DonutChart({ totals }: { totals: Totals }) {
   </Card>;
 }
 
+function MeetingSelector({ meetings, selectedId, onSelect }: { meetings: Meeting[]; selectedId?: string; onSelect: (id: string) => void }) {
+  return <View style={s.selector}>
+    <Text style={s.selectorLabel}>Chọn cuộc họp</Text>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.options}>
+      {meetings.map((meeting) => {
+        const active = meeting._id === selectedId;
+        const date = new Date(meeting.startsAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+        return <Pressable key={meeting._id} accessibilityRole='button' accessibilityState={{ selected: active }} onPress={() => onSelect(meeting._id)} style={[s.option, active && s.optionActive]}>
+          <Text numberOfLines={1} style={[s.optionText, active && s.optionTextActive]}>{date} · {meeting.title}</Text>
+        </Pressable>;
+      })}
+    </ScrollView>
+  </View>;
+}
+
 export function DashboardCharts({ meetings, memberCount }: { meetings: Meeting[]; memberCount: number }) {
-  const [selectedId, setSelectedId] = useState<string>();
+  const [donutMeetingId, setDonutMeetingId] = useState<string>();
+  const [selectedBarId, setSelectedBarId] = useState<string>();
+  const availableMeetings = useMemo(() => [...meetings]
+    .filter((meeting) => ['live', 'paused', 'ended'].includes(meeting.status))
+    .sort((a, b) => +new Date(b.startsAt) - +new Date(a.startsAt)), [meetings]);
+  const defaultMeeting = availableMeetings.find((meeting) => meeting.status === 'ended') || availableMeetings[0];
+  const activeMeeting = availableMeetings.find((meeting) => meeting._id === donutMeetingId) || defaultMeeting;
   const data = useMemo(() => {
-    const totals = { present: 0, guest: 0, absent: 0 };
-    meetings.forEach((meeting) => {
-      const present = meeting.speakers.filter((speaker) => speaker.userId).length;
-      totals.present += present;
-      totals.guest += meeting.speakers.length - present;
-      totals.absent += absent(meeting, memberCount);
-    });
-    const bars = [...meetings]
-      .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt))
-      .slice(-8)
+    const latestMeeting = activeMeeting;
+    const latestPresent = latestMeeting?.speakers.filter((speaker) => speaker.userId).length || 0;
+    const totals = {
+      present: latestPresent,
+      guest: latestMeeting ? latestMeeting.speakers.length - latestPresent : 0,
+      absent: latestMeeting ? absent(latestMeeting, memberCount) : 0,
+    };
+    const bars = [...availableMeetings].slice(0, 8).reverse()
       .map((meeting) => {
         const present = meeting.speakers.filter((speaker) => speaker.userId).length;
         return {
@@ -112,17 +132,24 @@ export function DashboardCharts({ meetings, memberCount }: { meetings: Meeting[]
         };
       });
     return { totals, bars };
-  }, [meetings, memberCount]);
+  }, [activeMeeting, availableMeetings, memberCount]);
 
-  const selected = data.bars.find((item) => item.id === selectedId);
+  const selected = data.bars.find((item) => item.id === selectedBarId);
   return <View style={s.wrap}>
-    <AttendanceChart bars={data.bars} totals={data.totals} selectedId={selectedId} onSelect={setSelectedId} />
+    <AttendanceChart bars={data.bars} selectedId={selectedBarId} onSelect={setSelectedBarId} />
     {selected ? <View style={s.detail}><Text numberOfLines={1} style={s.detailTitle}>{selected.title}</Text><Text style={s.detailText}>Có mặt {selected.present} · Khách {selected.guest} · Vắng {selected.absent}</Text></View> : null}
-    <DonutChart totals={data.totals} />
+    <DonutChart totals={data.totals} meetings={availableMeetings} selectedId={activeMeeting?._id} onSelect={setDonutMeetingId} />
   </View>;
 }
 
 const s = StyleSheet.create({
+  selector: { gap: 8 },
+  selectorLabel: { color: colors.text, fontSize: 12, fontWeight: '800' },
+  options: { gap: 8, paddingRight: 16 },
+  option: { maxWidth: 230, borderWidth: 1, borderColor: colors.border, borderRadius: 999, backgroundColor: colors.surface, paddingHorizontal: 12, paddingVertical: 9 },
+  optionActive: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  optionText: { color: colors.muted, fontSize: 11, fontWeight: '700' },
+  optionTextActive: { color: colors.primaryDark, fontWeight: '900' },
   wrap: { gap: 12 },
   card: { padding: 12 },
   title: { color: colors.text, fontSize: 13, fontWeight: '800' },

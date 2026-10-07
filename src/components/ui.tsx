@@ -1,13 +1,16 @@
-import type { PropsWithChildren, ReactNode } from "react";
+import { useState, type PropsWithChildren, type ReactNode } from "react";
 import { CircleAlert, Inbox, type LucideIcon } from "lucide-react-native";
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
+  type ImageStyle,
   type PressableProps,
+  type ScrollViewProps,
   type StyleProp,
   type TextStyle,
   type ViewStyle,
@@ -19,9 +22,14 @@ export function Screen({
   children,
   scroll = true,
   style,
-}: PropsWithChildren<{ scroll?: boolean; style?: StyleProp<ViewStyle> }>) {
+  scrollViewProps,
+}: PropsWithChildren<{ scroll?: boolean; style?: StyleProp<ViewStyle>; scrollViewProps?: ScrollViewProps }>) {
   const body = scroll ? (
-    <ScrollView contentContainerStyle={[styles.screenContent, style]} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      {...scrollViewProps}
+      contentContainerStyle={[styles.screenContent, style, scrollViewProps?.contentContainerStyle]}
+      keyboardShouldPersistTaps={scrollViewProps?.keyboardShouldPersistTaps || "handled"}
+    >
       {children}
     </ScrollView>
   ) : (
@@ -46,9 +54,35 @@ export function Card({ children, style }: PropsWithChildren<{ style?: StyleProp<
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
-export function Avatar({ initials, size = 44 }: { initials: string; size?: number }) {
+export function Avatar({
+  initials,
+  url,
+  size = 44,
+  style,
+}: {
+  initials: string;
+  url?: string;
+  size?: number;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const [imageError, setImageError] = useState(false);
+
+  if (url && !imageError) {
+    return (
+      <Image
+        source={{ uri: url }}
+        onError={() => setImageError(true)}
+        style={[
+          styles.avatar,
+          { width: size, height: size, borderRadius: size / 2 },
+          style as ImageStyle,
+        ]}
+      />
+    );
+  }
+
   return (
-    <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]}>
+    <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }, style]}>
       <Text style={[styles.avatarText, { fontSize: Math.max(11, size * 0.27) }]}>{initials}</Text>
     </View>
   );

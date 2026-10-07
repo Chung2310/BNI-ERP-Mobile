@@ -4,17 +4,17 @@ import { Badge, Card } from "@/components/ui";
 import { colors, spacing } from "@/theme/tokens";
 import type { Meeting } from "@/services/meeting";
 
-export function MeetingCard({ meeting }: { meeting: Meeting }) {
+export function MeetingCard({ meeting, onPress, showDate = true }: { meeting: Meeting; onPress?: () => void; showDate?: boolean }) {
   const start = new Date(meeting.startsAt);
   const time = start.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
   const date = start.toLocaleDateString("vi-VN");
   return (
-    <Pressable onPress={() => router.push({ pathname: "/meeting/[id]", params: { id: meeting._id } })}>
+    <Pressable onPress={onPress || (() => router.push({ pathname: "/meeting/[id]", params: { id: meeting._id } }))}>
       <Card style={styles.card}>
         <View style={styles.top}>
           <View style={styles.grow}>
             <Text style={styles.title}>{meeting.title}</Text>
-            <Text style={styles.meta}>{time} · {date}</Text>
+            <Text style={styles.meta}>{showDate ? `${time} · ${date}` : time}</Text>
           </View>
           <Badge tone={meeting.status === "live" ? "danger" : "primary"}>
             {meeting.status === "live" ? "LIVE" : "SẮP TỚI"}

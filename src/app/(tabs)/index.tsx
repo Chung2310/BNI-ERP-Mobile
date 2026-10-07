@@ -1,7 +1,7 @@
 import { router } from "expo-router";
-import { ArrowRight, Bell } from "lucide-react-native";
+import { Bell } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { AppHeader, Badge, Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionTitle } from "@/components/ui";
+import { AppHeader, EmptyState, ErrorState, LoadingState, Screen, SectionTitle } from "@/components/ui";
 import { MeetingCard } from "@/components/MeetingCard";
 import { MetricCard } from "@/components/MetricCard";
 import { useAuth } from "@/context/AuthContext";
@@ -11,13 +11,14 @@ import { colors, spacing } from "@/theme/tokens";
 
 import { DashboardCharts } from '@/components/DashboardCharts';
 import { DashboardQuickActions } from '@/components/DashboardQuickActions';
+import { ActiveMemberRanking } from '@/components/ActiveMemberRanking';
 import { userService } from '@/services/users';
 
 export default function HomeScreen() {
   const { user } = useAuth();
   const { data: dashboardData } = useAsyncData(async () => {
     const history = await meetingService.history();
-    const members = await userService.colleagues().catch(() => []);
+    const members = await userService.directory().catch(() => []);
     return { history, members };
   }, 'dashboard-charts');
   const { data, error, isLoading, reload } = useAsyncData(() => meetingService.list());
@@ -31,7 +32,7 @@ export default function HomeScreen() {
     <Screen>
       <AppHeader title={`Xin chào, ${user?.displayName?.split(" ").at(-1) || "bạn"}`} subtitle={today} action={<Pressable accessibilityLabel="Thông báo" style={styles.bell} onPress={() => router.push("/notifications")}><Bell color={colors.text} size={23} strokeWidth={2} /><View style={styles.dot} /></Pressable>} />
       {isLoading ? <LoadingState /> : error ? <ErrorState message={error} onRetry={reload} /> : <>
-        {liveMeeting ? <Card style={styles.hero}><Badge tone="danger">ĐANG DIỄN RA</Badge><Text style={styles.heroTitle}>{liveMeeting.title}</Text><Text style={styles.heroMeta}>{liveMeeting.speakers.length} người check-in · {liveMeeting.location || "Chưa cập nhật địa điểm"}</Text><Button icon={ArrowRight} tone="secondary" onPress={() => router.push({ pathname: "/meeting/[id]/live", params: { id: liveMeeting._id } })}>Vào phòng họp</Button></Card> : null}
+        <ActiveMemberRanking meetings={chartMeetings} members={dashboardData?.members || []} />
         <View style={styles.grid}><MetricCard label="Cuộc họp" value={String(meetings.length)} note="Trong dữ liệu hiện tại" /><MetricCard label="Đang diễn ra" value={String(meetings.filter((item) => item.status === "live").length)} note="Cập nhật từ máy chủ" /><MetricCard label="Sắp tới" value={String(meetings.filter((item) => item.status === "scheduled").length)} note="Theo lịch Chapter" /><MetricCard label="Đã kết thúc" value={String(meetings.filter((item) => item.status === "ended").length)} note="Lịch sử cuộc họp" /></View>
         <SectionTitle action={<Text style={styles.link} onPress={() => router.push("/(tabs)/meetings")}>Xem tất cả</Text>}>Sắp tới</SectionTitle>
         {upcoming.length ? upcoming.map((meeting) => <MeetingCard key={meeting._id} meeting={meeting} />) : <EmptyState title="Chưa có lịch sắp tới" message="Lịch họp mới sẽ xuất hiện tại đây." />}

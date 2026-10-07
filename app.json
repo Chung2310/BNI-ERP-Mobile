@@ -68,7 +68,8 @@
         {
           "photosPermission": "Cho phép iGen Connect truy cập thư viện ảnh để chọn ảnh bìa cuộc họp."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true

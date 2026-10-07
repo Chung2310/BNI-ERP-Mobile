@@ -2,7 +2,13 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 
-export function MonthCalendar({ date, eventDates, onPrevious, onNext }: { date: Date; eventDates: string[]; onPrevious: () => void; onNext: () => void }) {
+export function MonthCalendar({ date, eventDates, onPrevious, onNext, onSelectDate }: {
+  date: Date;
+  eventDates: string[];
+  onPrevious: () => void;
+  onNext: () => void;
+  onSelectDate?: (date: Date) => void;
+}) {
   const year = date.getFullYear();
   const month = date.getMonth();
   const first = new Date(year, month, 1);
@@ -21,10 +27,17 @@ export function MonthCalendar({ date, eventDates, onPrevious, onNext }: { date: 
           const active = day.toDateString() === today;
           const hasEvent = events.has(day.toDateString()) && !outside;
           return (
-            <View key={day.toISOString()} style={[styles.day, active && styles.dayActive, outside && styles.dayOutside]}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${day.getDate()} tháng ${day.getMonth() + 1}${hasEvent ? ", có cuộc họp" : ", không có cuộc họp"}`}
+              disabled={outside}
+              key={day.toISOString()}
+              onPress={() => onSelectDate?.(day)}
+              style={({ pressed }) => [styles.day, active && styles.dayActive, outside && styles.dayOutside, pressed && !outside && styles.dayPressed]}
+            >
               <Text style={[styles.dayText, active && styles.dayTextActive, outside && styles.dayTextOutside]}>{day.getDate()}</Text>
               {hasEvent ? <View style={[styles.dot, active && styles.dotActive]} /> : null}
-            </View>
+            </Pressable>
           );
         })}
       </View>
@@ -42,6 +55,7 @@ const styles = StyleSheet.create({
   day: { width: "14.2857%", height: 42, alignItems: "center", justifyContent: "center", borderRadius: radius.sm },
   dayActive: { backgroundColor: colors.primary },
   dayOutside: { opacity: 0.38 },
+  dayPressed: { backgroundColor: colors.primarySoft },
   dayText: { color: colors.text, fontSize: 13, fontWeight: "600" },
   dayTextActive: { color: "#FFFFFF", fontWeight: "900" },
   dayTextOutside: { color: colors.muted },
