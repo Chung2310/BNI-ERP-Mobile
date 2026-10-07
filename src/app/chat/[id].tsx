@@ -16,9 +16,9 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackHeader } from '@/components/BackHeader';
-import { EmptyState, ErrorState, LoadingState, Screen } from '@/components/ui';
+import { EmptyState, ErrorState, LoadingState } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
 import { useAsyncData } from '@/hooks/useAsyncData';
 import { chatService, type ChatMessage } from '@/services/chat';
@@ -49,7 +49,6 @@ const replyMessage = (value?: ChatMessage | string) =>
 export default function ChatRoomScreen() {
   const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
   const { user } = useAuth();
-  const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const [isFocused, setIsFocused] = useState(false);
   const [message, setMessage] = useState('');
@@ -193,14 +192,14 @@ export default function ChatRoomScreen() {
   };
 
   return (
-    <Screen scroll={false} style={styles.screen}>
+    <SafeAreaView edges={['top', 'bottom']} style={styles.screen}>
       <View style={styles.rootContainer}>
         <View style={styles.headerContainer}>
           <BackHeader title={name || 'Trò chuyện'} subtitle='Tin nhắn nội bộ' />
         </View>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={[styles.flex, { paddingBottom: isFocused ? spacing.sm : Math.max(insets.bottom, spacing.sm) }]}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardArea}
         >
           {isLoading && !data ? (
             <LoadingState />
@@ -280,17 +279,16 @@ export default function ChatRoomScreen() {
           </View>
         </KeyboardAvoidingView>
       </View>
-    </Screen>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-    paddingBottom: 0,
-    gap: 0,
+    flex: 1,
+    backgroundColor: colors.background,
   },
+  keyboardArea: { flex: 1, paddingBottom: spacing.sm },
   rootContainer: {
     flex: 1,
   },
