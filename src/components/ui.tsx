@@ -177,7 +177,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry: () 
       <CircleAlert color={colors.danger} size={30} strokeWidth={1.8} />
       <Text style={styles.stateTitle}>Không thể tải dữ liệu</Text>
       <Text style={styles.stateMessage}>{message}</Text>
-      <Button tone="secondary" onPress={onRetry}>Thử lại</Button>
+      <Button tone="secondary" style={styles.retryButton} textStyle={styles.retryText} onPress={onRetry}>Thử lại</Button>
     </Card>
   );
 }
@@ -233,6 +233,8 @@ const styles = StyleSheet.create({
   state: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xl },
   stateTitle: { color: colors.text, fontSize: 15, fontWeight: "800" },
   stateMessage: { color: colors.muted, fontSize: 12.5, lineHeight: 18, textAlign: "center" },
+  retryButton: { backgroundColor: "#FFFFFF", borderWidth: 0 },
+  retryText: { color: colors.danger },
   loading: { flex: 1, minHeight: 180, alignItems: "center", justifyContent: "center", gap: spacing.md },
 });
 
