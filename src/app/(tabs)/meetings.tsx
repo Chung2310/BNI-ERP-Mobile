@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { router, useFocusEffect } from "expo-router";
 import { Check, ChevronDown, Search, X } from "lucide-react-native";
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
@@ -10,7 +10,7 @@ import { MeetingCard } from "@/components/MeetingCard";
 import { MonthCalendar } from "@/components/MonthCalendar";
 import { useAuth } from "@/context/AuthContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
-import { meetingService } from "@/services/meeting";
+import { applyMeetingChange, meetingService, subscribeMeetingChanges } from "@/services/meeting";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 import { hasPermission } from "@/utils/permissions";
 
@@ -38,13 +38,17 @@ export default function MeetingsScreen() {
   const [visibleCount, setVisibleCount] = useState(pageSize);
   const canCreateMeeting = hasPermission(user, "meetings:manage");
   const monthKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`;
-  const { data, error, isLoading, reload } = useAsyncData(async () => {
+  const { data, setData, error, isLoading, reload } = useAsyncData(async () => {
     const results = await Promise.allSettled([meetingService.list(), meetingService.history()]);
     if (results[0].status === "rejected" && results[1].status === "rejected") throw results[0].reason;
     const combined = results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
     return [...new Map(combined.map((meeting) => [meeting._id, meeting])).values()];
   });
-  const { data: monthData, reload: reloadMonth } = useAsyncData(() => meetingService.list(monthKey), monthKey);
+  const { data: monthData, setData: setMonthData, reload: reloadMonth } = useAsyncData(() => meetingService.list(monthKey), monthKey);
+  useEffect(() => subscribeMeetingChanges((change) => {
+    setData((current) => applyMeetingChange(current, change));
+    setMonthData((current) => applyMeetingChange(current, change));
+  }), [setData, setMonthData]);
   const hasFocused = useRef(false);
   useFocusEffect(useCallback(() => {
     setReferenceDate(new Date());

@@ -1,6 +1,6 @@
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { ArrowRight, Bell, Calendar, Trophy, X } from "lucide-react-native";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -19,7 +19,7 @@ import { MeetingCard } from "@/components/MeetingCard";
 import { MonthCalendar } from "@/components/MonthCalendar";
 import { useAuth } from "@/context/AuthContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
-import { meetingService } from "@/services/meeting";
+import { applyMeetingChange, meetingService, subscribeMeetingChanges } from "@/services/meeting";
 import { userService } from "@/services/users";
 import { colors, radius, shadow, spacing } from "@/theme/tokens";
 
@@ -43,7 +43,13 @@ export default function HomeScreen() {
     return { history, members };
   }, "dashboard-charts");
 
-  const { data, error, isLoading, reload } = useAsyncData(() => meetingService.list());
+  const { data, setData, error, isLoading, reload } = useAsyncData(() => meetingService.list());
+  const hasFocused = useRef(false);
+  useFocusEffect(useCallback(() => {
+    if (hasFocused.current) void reload();
+    else hasFocused.current = true;
+  }, [reload]));
+  useEffect(() => subscribeMeetingChanges((change) => setData((current) => applyMeetingChange(current, change))), [setData]);
   const meetings = useMemo(() => data || [], [data]);
   const chartMeetings = dashboardData?.history || meetings;
   const memberCount =

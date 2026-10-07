@@ -193,6 +193,29 @@ export type MeetingSeriesChanges = {
 
 export const meetingVersion = (meeting: Pick<Meeting, "__v" | "revision">) => meeting.__v ?? meeting.revision ?? 0;
 
+export type MeetingChange = { type: "upsert"; meeting: Meeting } | { type: "remove"; id: string };
+const meetingChangeListeners = new Set<(change: MeetingChange) => void>();
+
+export function subscribeMeetingChanges(listener: (change: MeetingChange) => void) {
+  meetingChangeListeners.add(listener);
+  return () => { meetingChangeListeners.delete(listener); };
+}
+
+export function applyMeetingChange(current: Meeting[] | null, change: MeetingChange): Meeting[] | null {
+  if (!current) return current;
+  if (change.type === "remove") return current.filter((meeting) => meeting._id !== change.id);
+  const index = current.findIndex((meeting) => meeting._id === change.meeting._id);
+  if (index < 0) return [change.meeting, ...current];
+  return current.map((meeting, itemIndex) => itemIndex === index ? change.meeting : meeting);
+}
+
+const publishMeetingChange = (change: MeetingChange) => {
+  for (const listener of meetingChangeListeners) {
+    try { listener(change); } catch { /* A local screen update must not turn a successful API call into an error. */ }
+  }
+};
+const publishUpdatedMeeting = (meeting: Meeting) => { publishMeetingChange({ type: "upsert", meeting }); return meeting; };
+
 const unwrap = <T>(payload: { data: T }) => payload.data;
 
 export const meetingService = {
@@ -211,11 +234,11 @@ export const meetingService = {
   checkIn: (id: string, payload?: { latitude?: number; longitude?: number; name?: string; email?: string }) =>
     apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}/checkin`, { method: "POST", body: JSON.stringify(payload || {}) }).then(unwrap),
   control: (id: string, action: "start" | "pause" | "resume" | "next" | "previous" | "finish" | "cancel" | "start_speaker" | "reset_speaker", version: number) =>
-    apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}/control`, { method: "POST", body: JSON.stringify({ action, version }) }).then(unwrap),
+    apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}/control`, { method: "POST", body: JSON.stringify({ action, version }) }).then(unwrap).then(publishUpdatedMeeting),
   update: (id: string, input: MeetingUpdateInput) =>
-    apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(input) }).then(unwrap),
+    apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(input) }).then(unwrap).then(publishUpdatedMeeting),
   remove: (id: string) =>
-    apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}`, { method: "DELETE" }).then(unwrap),
+    apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}`, { method: "DELETE" }).then(unwrap).then((meeting) => { publishMeetingChange({ type: "remove", id }); return meeting; }),
   deferSpeaker: (id: string, speakerId: string, version: number) =>
     apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}/defer`, { method: "POST", body: JSON.stringify({ speakerId, version }) }).then(unwrap),
   reorderSpeakers: (id: string, speakerIds: string[], version: number) =>
