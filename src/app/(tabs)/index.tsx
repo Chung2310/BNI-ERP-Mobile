@@ -5,6 +5,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   AppHeader,
+  Avatar,
   EmptyState,
   ErrorState,
   LoadingState,
@@ -98,6 +99,17 @@ export default function HomeScreen() {
 
   const displayName = capitalizeName(user?.displayName);
 
+  const userInitials = useMemo(() => {
+    const name = user?.displayName?.trim() || "BNI";
+    return name
+      .split(" ")
+      .filter(Boolean)
+      .map((part) => part[0])
+      .slice(-2)
+      .join("")
+      .toUpperCase();
+  }, [user?.displayName]);
+
   const handleSelectDate = (date: Date) => {
     setSelectedDate(date);
     setIsDateSheetVisible(true);
@@ -107,6 +119,15 @@ export default function HomeScreen() {
     <>
       <Screen>
         <AppHeader
+          avatar={
+            <Pressable
+              accessibilityLabel="Xem hồ sơ"
+              onPress={() => router.push("/(tabs)/more")}
+              style={({ pressed }) => [styles.avatarBtn, pressed && styles.pressed]}
+            >
+              <Avatar initials={userInitials} url={user?.photoURL} size={36} />
+            </Pressable>
+          }
           title={`Xin chào, ${displayName}`}
           subtitle={todayStr}
           action={
@@ -292,6 +313,9 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  avatarBtn: {
+    borderRadius: radius.pill,
+  },
   bell: {
     width: 36,
     height: 36,

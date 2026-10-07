@@ -38,9 +38,20 @@ export function Screen({
   return <SafeAreaView edges={["top"]} style={styles.safe}>{body}</SafeAreaView>;
 }
 
-export function AppHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
+export function AppHeader({
+  title,
+  subtitle,
+  action,
+  avatar,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: ReactNode;
+  avatar?: ReactNode;
+}) {
   return (
     <View style={styles.header}>
+      {avatar}
       <View style={styles.flex}>
         <Text style={styles.headerTitle}>{title}</Text>
         {subtitle ? <Text style={styles.caption}>{subtitle}</Text> : null}
@@ -177,8 +188,8 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   screenContent: { flexGrow: 1, gap: 10, paddingHorizontal: 8, paddingVertical: spacing.sm, paddingBottom: spacing.xxl },
-  header: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: 2, paddingHorizontal: 4 },
-  headerTitle: { color: colors.text, fontSize: 18, fontWeight: "800" },
+  header: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 2, paddingHorizontal: 4 },
+  headerTitle: { color: colors.text, fontSize: 16.5, fontWeight: "800" },
   caption: { color: colors.muted, fontSize: 11.5, lineHeight: 16 },
   card: { borderWidth: 0, borderRadius: radius.lg, backgroundColor: colors.surface, padding: spacing.md },
   avatar: { alignItems: "center", justifyContent: "center", backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: "#B9E7EE" },
