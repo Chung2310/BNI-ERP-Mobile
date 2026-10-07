@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, TextInput, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
-import { AppHeader, EmptyState, ErrorState, LoadingState, Screen } from "@/components/ui";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Search, X } from "lucide-react-native";
+import { EmptyState, ErrorState, LoadingState, Screen } from "@/components/ui";
+import { BackHeader } from "@/components/BackHeader";
 import { MemberCard } from "@/components/MemberCard";
 import { userService } from "@/services/users";
-import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
+import { colors, radius, spacing } from "@/theme/tokens";
 import type { MemberSummary, UserProfile } from "@/types";
+
+const PAGE_SIZE = 15;
 
 const extractCompany = (u: any): string => {
   if (!u) return "";
@@ -109,7 +113,7 @@ export default function MembersScreen() {
     else setIsLoadingMore(true);
     setError("");
     try {
-      const result = await userService.directoryPage(nextPage, 20);
+      const result = await userService.directoryPage(nextPage, PAGE_SIZE);
       setData((current) => {
         const combined = reset ? result.items : [...current, ...result.items];
         return Array.from(new Map(combined.map((user) => [user.uid, user])).values());
@@ -135,10 +139,6 @@ export default function MembersScreen() {
   const loadMore = useCallback(() => {
     if (hasMore && !loadingRef.current) void loadPage(page + 1);
   }, [hasMore, loadPage, page]);
-  const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-    if (layoutMeasurement.height + contentOffset.y >= contentSize.height - 280) loadMore();
-  }, [loadMore]);
 
   const members = useMemo(
     () =>
@@ -183,25 +183,62 @@ export default function MembersScreen() {
     [data, query]
   );
 
+  const isSearching = Boolean(query.trim());
+
   return (
-    <Screen scrollViewProps={{ onScroll, scrollEventThrottle: 16 }}>
-      <AppHeader title="Thành viên" subtitle={total ? "Đã tải " + data.length + "/" + total + " thành viên" : "Danh sách thành viên"} />
-      <TextInput
-        value={query}
-        onChangeText={setQuery}
-        placeholder="Tìm tên, lĩnh vực, công ty, email, SĐT..."
-        placeholderTextColor={colors.muted}
-        style={styles.search}
-      />
-      {isLoading ? (
-        <LoadingState />
-      ) : error ? (
-        <ErrorState message={error} onRetry={reload} />
-      ) : members.length === 0 ? (
-        <EmptyState
-          title="Không tìm thấy"
-          message={hasMore ? "Không có kết quả trong các thành viên đã tải. Cuộn xuống để tải thêm." : "Thử tìm bằng tên, lĩnh vực, công ty hoặc thông tin liên hệ khác."}
+    <Screen style={styles.screen}>
+      <View style={styles.headerContainer}>
+        <BackHeader
+          title="Thành viên"
+          subtitle={
+            isLoading || error
+              ? undefined
+              : isSearching
+              ? `Tìm thấy ${members.length} thành viên`
+              : `${total} thành viên`
+          }
         />
+      </View>
+
+      {/* Nút tìm kiếm thành viên bo tròn hoàn toàn (pill), có icon kính lúp */}
+      <View style={styles.searchWrapper}>
+        <View style={styles.searchContainer}>
+          <Search size={18} color={colors.muted} strokeWidth={2.2} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Tìm kiếm thành viên..."
+            placeholderTextColor={colors.muted}
+            style={styles.searchInput}
+            returnKeyType="search"
+          />
+          {query.length > 0 ? (
+            <Pressable onPress={() => setQuery("")} hitSlop={8} style={styles.clearBtn}>
+              <X size={16} color={colors.muted} />
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+
+      {isLoading ? (
+        <View style={styles.stateContainer}>
+          <LoadingState />
+        </View>
+      ) : error ? (
+        <View style={styles.stateContainer}>
+          <ErrorState message={error} onRetry={reload} />
+        </View>
+      ) : members.length === 0 ? (
+        <View style={styles.stateContainer}>
+          <EmptyState
+            title="Không tìm thấy"
+            message={
+              isSearching
+                ? "Không tìm thấy thành viên phù hợp với từ khóa."
+                : "Danh sách thành viên hiện đang trống."
+            }
+          />
+        </View>
       ) : (
         <View style={styles.list}>
           {members.map((member: MemberSummary) => (
@@ -209,40 +246,114 @@ export default function MembersScreen() {
           ))}
         </View>
       )}
-      {isLoadingMore ? <View style={styles.loadingMore}><ActivityIndicator color={colors.primary} /><Text style={styles.loadingText}>Đang tải thêm 20 thành viên...</Text></View> : null}
-      {!isLoading && !hasMore && data.length > 0 ? <Text style={styles.endText}>Đã hiển thị toàn bộ {total} thành viên</Text> : null}
+
+      {/* Nút Xem thêm chỉ hiện khi KHÔNG tìm kiếm và còn dữ liệu để tải */}
+      {!isLoading && hasMore && !isSearching ? (
+        <View style={styles.loadMoreContainer}>
+          {isLoadingMore ? (
+            <View style={styles.loadingMoreRow}>
+              <ActivityIndicator color={colors.primary} size="small" />
+              <Text style={styles.loadingMoreText}>Đang tải thêm...</Text>
+            </View>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Xem thêm thành viên"
+              onPress={loadMore}
+              hitSlop={12}
+              style={({ pressed }) => [styles.loadMoreBtn, pressed && styles.loadMorePressed]}
+            >
+              <Text style={styles.loadMoreText}>Xem thêm</Text>
+            </Pressable>
+          )}
+        </View>
+      ) : null}
+
+      {!isLoading && !hasMore && data.length > 0 && !isSearching ? (
+        <Text style={styles.endText}>Đã hiển thị toàn bộ {total} thành viên</Text>
+      ) : null}
+
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  search: {
-    minHeight: touchTarget,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
+  screen: {
+    paddingHorizontal: 0,
     backgroundColor: colors.surface,
+    gap: 0,
+  },
+  headerContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xs,
+  },
+  searchWrapper: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.surface,
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F3F6F8",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: radius.pill, // Bo tròn tuyệt đối (pill shape) chứ không phải bo góc
     paddingHorizontal: spacing.md,
+    height: 42,
+    gap: spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    height: "100%",
+    fontSize: 14,
     color: colors.text,
+    paddingVertical: 0,
+  },
+  clearBtn: {
+    padding: spacing.xs,
   },
   list: {
-    gap: spacing.md,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: "#EEF2F6",
   },
-  loadingMore: {
-    minHeight: 64,
+  stateContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+  },
+  loadMoreContainer: {
+    paddingVertical: spacing.lg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadMoreBtn: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+  },
+  loadMorePressed: {
+    opacity: 0.6,
+  },
+  loadMoreText: {
+    color: colors.primary, // Màu brand iGen Connect (#00AECA)
+    fontSize: 14.5,
+    fontWeight: "700",
+  },
+  loadingMoreRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
-  loadingText: {
-    color: colors.muted,
-    fontSize: 12,
+  loadingMoreText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "600",
   },
   endText: {
     color: colors.muted,
     fontSize: 12,
     textAlign: "center",
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
   },
 });

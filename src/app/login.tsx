@@ -72,7 +72,7 @@ export default function LoginScreen() {
 
   const submit = async () => {
     if (!identifier.trim() || password.length < 6) {
-      setError("Nhập số điện thoại/email và mật khẩu tối thiểu 6 ký tự.");
+      setError("Vui lòng nhập SDT/email và mật khẩu");
       return;
     }
     setSubmitting(true);

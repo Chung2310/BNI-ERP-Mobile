@@ -39,9 +39,10 @@ type CreateRoomPayload = { isGroup: boolean; memberIds: string[]; name?: string 
 const roomPath = (roomId: string) => '/api/v1/chat/rooms/' + encodeURIComponent(roomId);
 
 export const chatService = {
-  rooms: () => apiRequest<{ data: ChatRoom[] }>('/api/v1/chat/rooms').then((payload) => payload.data || []),
-  createRoom: (body: CreateRoomPayload) =>
-    apiRequest<{ data: ChatRoom }>('/api/v1/chat/rooms', { method: 'POST', body: JSON.stringify(body) }).then((payload) => payload.data),
+  rooms: (): Promise<ChatRoom[]> =>
+    apiRequest<{ data: ChatRoom[] } | ChatRoom[]>('/api/v1/chat/rooms').then((payload: any) => payload?.data || (Array.isArray(payload) ? payload : [])),
+  createRoom: (body: CreateRoomPayload): Promise<ChatRoom> =>
+    apiRequest<{ data: ChatRoom } | ChatRoom>('/api/v1/chat/rooms', { method: 'POST', body: JSON.stringify(body) }).then((payload: any) => payload?.data || payload),
   messages: (roomId: string) =>
     apiRequest<{ data: ChatMessage[] }>(roomPath(roomId) + '/messages?limit=50').then((payload) => payload.data || []),
   send: (roomId: string, content: string, replyTo?: string) =>

@@ -1,7 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { router, useFocusEffect } from "expo-router";
-import { ChevronDown, Plus } from "lucide-react-native";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Check, ChevronDown, ChevronLeft, Plus, Search, X } from "lucide-react-native";
+import { Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppHeader, EmptyState, ErrorState, LoadingState, Screen, SectionTitle } from "@/components/ui";
 import { MeetingCard } from "@/components/MeetingCard";
 import { MonthCalendar } from "@/components/MonthCalendar";
@@ -26,9 +27,12 @@ const filters: { key: MeetingFilter; label: string }[] = [
 
 export default function MeetingsScreen() {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [month, setMonth] = useState(() => new Date());
   const [referenceDate, setReferenceDate] = useState(() => new Date());
   const [filter, setFilter] = useState<MeetingFilter>("today");
+  const [filterSheetVisible, setFilterSheetVisible] = useState(false);
+  const [search, setSearch] = useState("");
   const [visibleCount, setVisibleCount] = useState(pageSize);
   const canCreateMeeting = hasPermission(user, "meetings:manage");
   const { data, error, isLoading, reload } = useAsyncData(async () => {
@@ -79,6 +83,7 @@ export default function MeetingsScreen() {
     return { calendarEventDates: events, calendarCancelledDates: cancelled };
   }, [meetings, month]);
   const filteredMeetings = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase("vi");
     const start = new Date(referenceDate);
     start.setHours(0, 0, 0, 0);
     const end = new Date(start);
@@ -96,12 +101,14 @@ export default function MeetingsScreen() {
     return meetings
       .filter((meeting) => {
         const time = +new Date(meeting.startsAt);
-        return Number.isFinite(time) && (filter === "all" || (time >= +start && time < +end));
+        return Number.isFinite(time)
+          && (filter === "all" || (time >= +start && time < +end))
+          && (!query || [meeting.title, meeting.location].some((value) => value?.toLocaleLowerCase("vi").includes(query)));
       })
       .sort((left, right) => filter === "all"
         ? +new Date(right.startsAt) - +new Date(left.startsAt)
         : +new Date(left.startsAt) - +new Date(right.startsAt));
-  }, [meetings, filter, referenceDate]);
+  }, [meetings, filter, referenceDate, search]);
   const visibleMeetings = filteredMeetings.slice(0, visibleCount);
 
   const changeMonth = (offset: number) => {
@@ -115,6 +122,7 @@ export default function MeetingsScreen() {
   const selectFilter = (next: MeetingFilter) => {
     setFilter(next);
     setVisibleCount(pageSize);
+    setFilterSheetVisible(false);
   };
 
   return (
@@ -122,6 +130,16 @@ export default function MeetingsScreen() {
       <View style={styles.header}>
         <AppHeader
           title="Cuộc họp"
+          avatar={(
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Về Trang chủ"
+              onPress={() => router.navigate("/(tabs)")}
+              style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
+            >
+              <ChevronLeft color={colors.primaryDark} size={22} strokeWidth={2.4} />
+            </Pressable>
+          )}
           action={canCreateMeeting ? (
             <Pressable
               accessibilityRole="button"
@@ -143,18 +161,28 @@ export default function MeetingsScreen() {
         onSelectDate={canCreateMeeting ? createOnDate : undefined}
       />
       <SectionTitle>Cuộc họp ({filteredMeetings.length})</SectionTitle>
-      <View style={styles.filters}>
-        {filters.map((option) => (
-          <Pressable
-            key={option.key}
-            accessibilityRole="button"
-            accessibilityState={{ selected: filter === option.key }}
-            onPress={() => selectFilter(option.key)}
-            style={({ pressed }) => [styles.filter, filter === option.key && styles.filterActive, pressed && styles.pressed]}
-          >
-            <Text style={[styles.filterText, filter === option.key && styles.filterTextActive]}>{option.label}</Text>
-          </Pressable>
-        ))}
+      <View style={styles.toolbar}>
+        <View style={styles.searchBox}>
+          <Search color={colors.muted} size={16} />
+          <TextInput
+            accessibilityLabel="Tìm kiếm cuộc họp"
+            value={search}
+            onChangeText={(value) => { setSearch(value); setVisibleCount(pageSize); }}
+            placeholder="Tìm kiếm cuộc họp"
+            placeholderTextColor={colors.muted}
+            returnKeyType="search"
+            style={styles.searchInput}
+          />
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Lọc cuộc họp: ${filters.find((option) => option.key === filter)?.label}`}
+          onPress={() => setFilterSheetVisible(true)}
+          style={({ pressed }) => [styles.filterTrigger, pressed && styles.pressed]}
+        >
+          <Text style={styles.filterTriggerText}>{filters.find((option) => option.key === filter)?.label}</Text>
+          <ChevronDown color={colors.primaryDark} size={16} />
+        </Pressable>
       </View>
       {isLoading ? <LoadingState label="Đang tải lịch cuộc họp…" /> : error ? (
         <ErrorState message={error} onRetry={reload} />
@@ -178,19 +206,45 @@ export default function MeetingsScreen() {
               style={({ pressed }) => [styles.loadMore, pressed && styles.pressed]}
             >
               <Text style={styles.loadMoreText}>Xem thêm</Text>
-              <ChevronDown color={colors.primaryDark} size={16} />
             </Pressable>
           ) : null}
         </>
       ) : (
-        <EmptyState title="Chưa có cuộc họp" message="Không có cuộc họp trong khoảng thời gian này." />
+        <EmptyState title={search.trim() ? "Không tìm thấy cuộc họp" : "Chưa có cuộc họp"} message={search.trim() ? "Thử từ khóa khác hoặc đổi bộ lọc." : "Không có cuộc họp trong khoảng thời gian này."} />
       )}
+      <Modal visible={filterSheetVisible} transparent animationType="slide" statusBarTranslucent onRequestClose={() => setFilterSheetVisible(false)}>
+        <View style={styles.sheetOverlay}>
+          <Pressable style={styles.sheetBackdrop} accessibilityLabel="Đóng bộ lọc" onPress={() => setFilterSheetVisible(false)} />
+          <View style={[styles.sheetContent, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>Lọc cuộc họp</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Đóng" hitSlop={10} onPress={() => setFilterSheetVisible(false)} style={styles.sheetClose}>
+                <X color={colors.muted} size={20} />
+              </Pressable>
+            </View>
+            {filters.map((option) => (
+              <Pressable
+                key={option.key}
+                accessibilityRole="button"
+                accessibilityState={{ selected: filter === option.key }}
+                onPress={() => selectFilter(option.key)}
+                style={({ pressed }) => [styles.sheetOption, pressed && styles.pressed]}
+              >
+                <Text style={[styles.sheetOptionText, filter === option.key && styles.sheetOptionSelected]}>{option.label}</Text>
+                {filter === option.key ? <Check color={colors.primaryDark} size={20} /> : null}
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   header: { paddingLeft: spacing.sm, paddingRight: spacing.sm },
+  backButton: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center" },
   createButton: {
     width: touchTarget,
     height: touchTarget,
@@ -199,22 +253,24 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: colors.primary,
   },
-  filters: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
-  filter: {
-    minHeight: 36,
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.md,
-  },
-  filterActive: { borderColor: colors.primary, backgroundColor: colors.primary },
-  filterText: { color: colors.text, fontSize: 12, fontWeight: "700" },
-  filterTextActive: { color: "#FFFFFF" },
+  toolbar: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  searchBox: { flex: 1, height: 38, flexDirection: "row", alignItems: "center", gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, backgroundColor: colors.surface, paddingHorizontal: spacing.md },
+  searchInput: { flex: 1, minWidth: 0, color: colors.text, fontSize: 12, paddingVertical: 0 },
+  filterTrigger: { minHeight: 38, flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.sm },
+  filterTriggerText: { color: colors.primaryDark, fontSize: 12, fontWeight: "700" },
   list: { backgroundColor: colors.surface, paddingHorizontal: spacing.sm },
-  dateHeading: { color: colors.text, fontSize: 12, fontWeight: "800", textTransform: "capitalize", paddingHorizontal: spacing.sm, paddingTop: spacing.sm },
-  loadMore: { minHeight: touchTarget, flexDirection: "row", alignItems: "center", alignSelf: "center", gap: spacing.xs, borderWidth: 1, borderColor: "#B9E7EE", borderRadius: radius.pill, backgroundColor: colors.primarySoft, marginTop: spacing.sm, paddingHorizontal: spacing.lg },
-  loadMoreText: { color: colors.primaryDark, fontSize: 13, fontWeight: "800" },
+  dateHeading: { color: colors.muted, fontSize: 12, fontWeight: "400", textTransform: "capitalize", paddingHorizontal: spacing.sm, paddingTop: spacing.sm },
+  loadMore: { minHeight: touchTarget, alignItems: "center", justifyContent: "center", alignSelf: "center", marginTop: spacing.xs, paddingHorizontal: spacing.sm },
+  loadMoreText: { color: colors.primaryDark, fontSize: 13, fontWeight: "700" },
   pressed: { opacity: 0.75 },
+  sheetOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.overlay },
+  sheetBackdrop: { ...StyleSheet.absoluteFill },
+  sheetContent: { backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, paddingTop: spacing.sm, paddingHorizontal: spacing.lg },
+  sheetHandle: { width: 36, height: 4, alignSelf: "center", borderRadius: radius.pill, backgroundColor: colors.border, marginBottom: spacing.md },
+  sheetHeader: { minHeight: touchTarget, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.xs },
+  sheetTitle: { color: colors.text, fontSize: 16, fontWeight: "700" },
+  sheetClose: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center" },
+  sheetOption: { minHeight: touchTarget, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, paddingHorizontal: spacing.sm },
+  sheetOptionText: { color: colors.text, fontSize: 14 },
+  sheetOptionSelected: { color: colors.primaryDark, fontWeight: "700" },
 });
