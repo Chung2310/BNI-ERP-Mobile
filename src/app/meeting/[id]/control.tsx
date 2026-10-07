@@ -3,6 +3,7 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
   ArrowDown,
   ArrowUp,
+  CalendarClock,
   ChevronRight,
   CircleStop,
   CornerDownRight,
@@ -186,7 +187,8 @@ export default function MeetingControlScreen() {
         <>
           <SectionTitle>Quản lý</SectionTitle>
           <Card style={styles.section}>
-            {meetingOpen ? <Button icon={Pencil} tone="secondary" fullWidth style={styles.actionButton} textStyle={styles.actionButtonText} onPress={() => router.push({ pathname: "/meeting/[id]/edit", params: { id } })}>{meeting.status === "scheduled" ? "Chỉnh sửa / Dời lịch" : "Chỉnh sửa cuộc họp"}</Button> : null}
+            {meetingOpen ? <Button icon={Pencil} tone="secondary" fullWidth style={styles.actionButton} textStyle={styles.actionButtonText} onPress={() => router.push({ pathname: "/meeting/[id]/edit", params: { id } })}>Sửa thông tin lịch</Button> : null}
+            {meeting.status === "scheduled" ? <Button icon={CalendarClock} tone="secondary" fullWidth style={styles.actionButton} textStyle={styles.actionButtonText} onPress={() => router.push({ pathname: "/meeting/[id]/reschedule", params: { id } })}>Dời ngày giờ họp</Button> : null}
             {meeting.status === "scheduled" ? <Button icon={XCircle} tone="secondary" fullWidth style={styles.actionButton} textStyle={styles.actionButtonText} disabled={busy} onPress={() => confirmControl("cancel", "Hủy cuộc họp", "Cuộc họp sẽ được đánh dấu đã hủy; các buổi khác trong chuỗi không thay đổi.")}>Hủy buổi họp</Button> : null}
             <Button icon={Trash2} tone="danger" fullWidth style={styles.actionButton} textStyle={styles.actionButtonText} disabled={busy} onPress={remove}>Xóa cuộc họp</Button>
           </Card>

@@ -10,17 +10,20 @@ import {
   MapPin,
   MessageCircle,
   Navigation,
+  Pencil,
   Presentation,
   Search,
   Settings2,
   Timer,
+  Trash2,
+  XCircle,
 } from "lucide-react-native";
 import { Alert, Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { Avatar, Badge, Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionTitle } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
-import { meetingService, type Meeting } from "@/services/meeting";
+import { meetingService, meetingVersion, type Meeting } from "@/services/meeting";
 import { colors, radius, spacing } from "@/theme/tokens";
 import { hasPermission } from "@/utils/permissions";
 
@@ -80,6 +83,45 @@ export default function MeetingDetailScreen() {
     }
   };
 
+  const cancelMeeting = () => Alert.alert(
+    "Hủy lịch họp?",
+    "Buổi họp này sẽ được đánh dấu đã hủy. Các buổi khác trong chuỗi không thay đổi.",
+    [
+      { text: "Giữ lịch", style: "cancel" },
+      { text: "Hủy lịch", style: "destructive", onPress: async () => {
+        if (busy) return;
+        setBusy(true);
+        try {
+          setData(await meetingService.control(id, "cancel", meetingVersion(meeting)));
+        } catch (cause) {
+          Alert.alert("Không thể hủy lịch", cause instanceof Error ? cause.message : "Vui lòng thử lại.");
+        } finally {
+          setBusy(false);
+        }
+      } },
+    ],
+  );
+
+  const removeMeeting = () => Alert.alert(
+    "Xóa lịch họp?",
+    "Cuộc họp cùng danh sách check-in và dữ liệu quay thưởng sẽ bị xóa vĩnh viễn.",
+    [
+      { text: "Giữ lịch", style: "cancel" },
+      { text: "Xóa vĩnh viễn", style: "destructive", onPress: async () => {
+        if (busy) return;
+        setBusy(true);
+        try {
+          await meetingService.remove(id);
+          router.replace("/meetings");
+        } catch (cause) {
+          Alert.alert("Không thể xóa lịch", cause instanceof Error ? cause.message : "Vui lòng thử lại.");
+        } finally {
+          setBusy(false);
+        }
+      } },
+    ],
+  );
+
   return (
     <Screen style={styles.detailScreen}>
       <BackHeader title="Chi tiết cuộc họp" compact />
@@ -94,6 +136,16 @@ export default function MeetingDetailScreen() {
         <View style={styles.summaryMeta}><Clock3 color={colors.primaryDark} size={16} /><Text style={styles.summaryMetaText}>{dateTime(meeting.startsAt)}</Text></View>
         <View style={styles.summaryMeta}><MapPin color={colors.primaryDark} size={16} /><Text style={styles.summaryMetaText}>{meeting.location || "Chưa cập nhật địa điểm"}</Text></View>
       </Card>
+
+      {manage ? <>
+        <SectionTitle>Quản lý lịch họp</SectionTitle>
+        <Card style={styles.scheduleActions}>
+          {meetingOpen ? <Button icon={Pencil} tone="secondary" fullWidth disabled={busy} onPress={() => router.push({ pathname: "/meeting/[id]/edit", params: { id } })}>Sửa thông tin lịch</Button> : null}
+          {meeting.status === "scheduled" ? <Button icon={CalendarClock} tone="secondary" fullWidth disabled={busy} onPress={() => router.push({ pathname: "/meeting/[id]/reschedule", params: { id } })}>Dời ngày giờ họp</Button> : null}
+          {meeting.status === "scheduled" ? <Button icon={XCircle} tone="secondary" fullWidth disabled={busy} onPress={cancelMeeting}>Hủy lịch họp</Button> : null}
+          <Button icon={Trash2} tone="danger" fullWidth disabled={busy} onPress={removeMeeting}>Xóa lịch họp</Button>
+        </Card>
+      </> : null}
 
       <View style={styles.metrics}>
         <Metric label="CHECK-IN" value={String(meeting.speakers.length)} />
@@ -186,6 +238,7 @@ function ProcessRow({ icon: Icon, label, detail, onPress }: { icon: typeof Clock
 
 const styles = StyleSheet.create({
   detailScreen: { gap: spacing.xs },
+  scheduleActions: { gap: spacing.sm },
   processCard: { paddingVertical: 0, paddingHorizontal: spacing.sm },
   processRow: { minHeight: 64, flexDirection: "row", alignItems: "center", gap: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, paddingHorizontal: spacing.xs, paddingVertical: spacing.sm },
   processPressed: { opacity: 0.6 },
