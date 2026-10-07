@@ -49,11 +49,32 @@ export default function HomeScreen() {
     new Set(chartMeetings.flatMap((meeting) => meeting.speakers.map((speaker) => speaker.userId).filter(Boolean)))
       .size;
 
-  const liveMeeting = meetings.find((meeting) => meeting.status === "live" || meeting.status === "paused");
-  const upcoming = meetings
-    .filter((meeting) => meeting.status === "scheduled")
-    .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt))
-    .slice(0, 3);
+  const liveMeeting = useMemo(
+    () => meetings.find((meeting) => meeting.status === "live" || meeting.status === "paused"),
+    [meetings],
+  );
+  const upcoming = useMemo(
+    () =>
+      meetings
+        .filter((meeting) => meeting.status === "scheduled")
+        .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt))
+        .slice(0, 3),
+    [meetings],
+  );
+
+  const featuredMeeting = liveMeeting || upcoming[0] || null;
+  const isFeaturedLive = Boolean(liveMeeting);
+
+  const featuredMeta = (() => {
+    if (!featuredMeeting) return "";
+    if (isFeaturedLive) {
+      return `${featuredMeeting.speakers.length} check-in · ${featuredMeeting.location || "Trực tiếp"}`;
+    }
+    const dateObj = new Date(featuredMeeting.startsAt);
+    const timeStr = dateObj.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+    const dateStr = dateObj.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
+    return `${timeStr} · ${dateStr} · ${featuredMeeting.location || "Trực tiếp"}`;
+  })();
 
   const eventDates = useMemo(() => meetings.map((m) => m.startsAt), [meetings]);
   const liveDates = useMemo(() => (liveMeeting ? [liveMeeting.startsAt] : []), [liveMeeting]);
@@ -106,34 +127,38 @@ export default function HomeScreen() {
           <ErrorState message={error} onRetry={reload} />
         ) : (
           <>
-            {/* Live Meeting Compact Banner */}
-            {liveMeeting ? (
+            {/* Top Meeting Banner: Ưu tiên Đang diễn ra > Sắp diễn ra gần nhất */}
+            {featuredMeeting ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`Vào cuộc họp: ${liveMeeting.title}`}
+                accessibilityLabel={`${isFeaturedLive ? "Vào cuộc họp" : "Xem cuộc họp"}: ${featuredMeeting.title}`}
                 style={({ pressed }) => [styles.heroCompact, pressed && styles.pressed]}
                 onPress={() =>
                   router.push({
-                    pathname: "/meeting/[id]/live",
-                    params: { id: liveMeeting._id },
+                    pathname: isFeaturedLive ? "/meeting/[id]/live" : "/meeting/[id]",
+                    params: { id: featuredMeeting._id },
                   })
                 }
               >
                 <View style={styles.heroLeft}>
                   <View style={styles.heroTagRow}>
                     <View style={styles.livePulseDot} />
-                    <Text style={styles.heroTagText}>ĐANG DIỄN RA</Text>
+                    <Text style={styles.heroTagText}>
+                      {isFeaturedLive ? "Đang diễn ra" : "Sắp diễn ra"}
+                    </Text>
                   </View>
                   <Text style={styles.heroTitleCompact} numberOfLines={1}>
-                    {liveMeeting.title}
+                    {featuredMeeting.title}
                   </Text>
                   <Text style={styles.heroMetaCompact} numberOfLines={1}>
-                    {liveMeeting.speakers.length} check-in · {liveMeeting.location || "Trực tiếp"}
+                    {featuredMeta}
                   </Text>
                 </View>
 
                 <View style={styles.heroActionBtn}>
-                  <Text style={styles.heroActionBtnText}>Vào họp</Text>
+                  <Text style={styles.heroActionBtnText}>
+                    {isFeaturedLive ? "Vào họp" : "Chi tiết"}
+                  </Text>
                   <ArrowRight color="#00AECA" size={14} strokeWidth={2.6} />
                 </View>
               </Pressable>
@@ -317,9 +342,9 @@ const styles = StyleSheet.create({
   },
   heroTagText: {
     color: "#FFFFFF",
-    fontSize: 9.5,
-    fontWeight: "900",
-    letterSpacing: 0.4,
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.1,
   },
   heroTitleCompact: {
     color: "#FFFFFF",
