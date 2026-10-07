@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { CalendarPlus, CalendarRange, ImagePlus, MapPin, Plus, Trash2, Upload, type LucideIcon } from "lucide-react-native";
 import {
   ActivityIndicator,
@@ -34,11 +34,19 @@ const weekdays = [
 ];
 
 export default function CreateMeetingScreen() {
+  const { date } = useLocalSearchParams<{ date?: string }>();
+  const initialDate = typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "";
   const [mode, setMode] = useState<CreateMode>("single");
   const [title, setTitle] = useState("");
-  const [startsAt, setStartsAt] = useState("");
-  const [endsAt, setEndsAt] = useState("");
-  const [recurrence, setRecurrence] = useState<MeetingRecurrence>({ startDate: "", months: 6, weekday: 3, time: "07:00", durationMinutes: 120 });
+  const [startsAt, setStartsAt] = useState(() => initialDate ? `${initialDate} 07:00` : "");
+  const [endsAt, setEndsAt] = useState(() => initialDate ? `${initialDate} 09:00` : "");
+  const [recurrence, setRecurrence] = useState<MeetingRecurrence>({
+    startDate: initialDate,
+    months: 6,
+    weekday: initialDate ? new Date(`${initialDate}T00:00:00`).getDay() : 3,
+    time: "07:00",
+    durationMinutes: 120,
+  });
   const [location, setLocation] = useState("");
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");

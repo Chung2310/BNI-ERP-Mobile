@@ -1,233 +1,192 @@
+import { useState } from "react";
 import { router } from "expo-router";
-import { Building2, Mail, Phone } from "lucide-react-native";
-import { Image, Linking, Pressable, StyleSheet, Text, View } from "react-native";
-import { Avatar, Badge, Card } from "@/components/ui";
-import { colors, radius, shadow, spacing } from "@/theme/tokens";
+import { MessageCircle, Phone } from "lucide-react-native";
+import { ActivityIndicator, Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Avatar } from "@/components/ui";
+import { chatService, type ChatRoom } from "@/services/chat";
+import { colors, radius, spacing } from "@/theme/tokens";
 import type { MemberSummary } from "@/types";
 
 export function MemberCard({ member }: { member: MemberSummary }) {
-  const handleCall = (e: { stopPropagation?: () => void }) => {
-    e.stopPropagation?.();
+  const [isStartingChat, setIsStartingChat] = useState(false);
+
+  const handleCall = () => {
     if (member.phone) {
       Linking.openURL(`tel:${member.phone}`);
     }
   };
 
-  const handleEmail = (e: { stopPropagation?: () => void }) => {
-    e.stopPropagation?.();
-    if (member.email) {
-      Linking.openURL(`mailto:${member.email}`);
+  const handleMessage = async () => {
+    if (isStartingChat) return;
+    setIsStartingChat(true);
+    try {
+      // 1. Kiểm tra xem đã có phòng chat 1-1 với thành viên này chưa để mở thẳng
+      const rooms = await chatService.rooms();
+      const existing = rooms.find((r: ChatRoom) =>
+        !r.isGroup &&
+        r.members?.some((m: any) => {
+          const uid = typeof m.userId === "string" ? m.userId : (m.userId?._id || m.userId?.uid);
+          return uid === member.id;
+        })
+      );
+
+      if (existing) {
+        const roomId = existing._id || (existing as any).id;
+        router.push({
+          pathname: "/chat/[id]",
+          params: { id: roomId, name: member.name },
+        });
+        return;
+      }
+
+      // 2. Nếu chưa có thì tạo phòng chat mới
+      const result: any = await chatService.createRoom({
+        isGroup: false,
+        memberIds: [member.id],
+      });
+      const room = result?.data || result;
+      const roomId = room?._id || room?.id;
+
+      if (!roomId) {
+        throw new Error("Không thể khởi tạo cuộc trò chuyện.");
+      }
+
+      router.push({
+        pathname: "/chat/[id]",
+        params: { id: roomId, name: member.name },
+      });
+    } catch (err) {
+      Alert.alert("Lỗi", err instanceof Error ? err.message : "Không thể mở tin nhắn với thành viên này.");
+    } finally {
+      setIsStartingChat(false);
     }
   };
 
   return (
-    <Pressable
-      style={styles.wrapper}
-      onPress={() => router.push({ pathname: "/member/[id]", params: { id: member.id } })}
-    >
-      <Card style={styles.card}>
-        {/* Ảnh bìa */}
-        <View style={styles.coverContainer}>
-          {member.coverUrl ? (
-            <Image source={{ uri: member.coverUrl }} style={styles.coverImage} resizeMode="cover" />
-          ) : (
-            <View style={styles.coverBanner}>
-              <View style={styles.coverPattern} />
-            </View>
-          )}
-        </View>
+    <View style={styles.item}>
+      {/* Vùng thông tin thành viên (bấm vào để xem hồ sơ) */}
+      <Pressable
+        style={({ pressed }) => [styles.mainPressable, pressed && styles.mainPressed]}
+        onPress={() => router.push({ pathname: "/member/[id]", params: { id: member.id } })}
+      >
+        <Avatar initials={member.initials} url={member.avatarUrl} size={44} />
 
-        {/* Khối Header: Avatar + Tên & Vai trò & Lĩnh vực */}
-        <View style={styles.headerRow}>
-          <View style={styles.avatarWrapper}>
-            <Avatar initials={member.initials} url={member.avatarUrl} size={64} />
-          </View>
-          <View style={styles.titleInfo}>
-            <Text numberOfLines={1} style={styles.name}>
-              {member.name}
+        <View style={styles.infoCol}>
+          <Text numberOfLines={1} style={styles.name}>
+            {member.name}
+          </Text>
+
+          {member.company ? (
+            <Text numberOfLines={1} style={styles.company}>
+              {member.company}
             </Text>
-            <View style={styles.badgeRow}>
-              <Badge tone="primary">{member.industry || "Chưa cập nhật lĩnh vực"}</Badge>
-            </View>
-          </View>
-        </View>
+          ) : null}
 
-        {/* Danh sách thông tin chi tiết: Công ty, Email, SĐT */}
-        <View style={styles.details}>
-          <View style={styles.infoRow}>
-            <Building2 size={16} color={colors.primary} />
-            <Text numberOfLines={1} style={styles.infoText}>
-              {member.company || "Chưa cập nhật công ty"}
+          {member.industry ? (
+            <Text numberOfLines={1} style={styles.industry}>
+              {member.industry}
             </Text>
-          </View>
-
-          {member.email ? (
-            <Pressable onPress={handleEmail} style={styles.infoRow}>
-              <Mail size={16} color={colors.primary} />
-              <Text numberOfLines={1} style={[styles.infoText, styles.linkText]}>
-                {member.email}
-              </Text>
-            </Pressable>
-          ) : (
-            <View style={styles.infoRow}>
-              <Mail size={16} color={colors.muted} />
-              <Text numberOfLines={1} style={styles.infoTextMuted}>
-                Chưa cập nhật email
-              </Text>
-            </View>
-          )}
+          ) : null}
 
           {member.phone ? (
-            <Pressable onPress={handleCall} style={styles.infoRow}>
-              <Phone size={16} color={colors.primary} />
-              <Text numberOfLines={1} style={[styles.infoText, styles.linkText]}>
+            <Pressable onPress={handleCall} hitSlop={6} style={styles.phoneRow}>
+              <Phone size={12} color={colors.primaryDark} strokeWidth={2.2} />
+              <Text numberOfLines={1} style={styles.phone}>
                 {member.phone}
               </Text>
             </Pressable>
-          ) : (
-            <View style={styles.infoRow}>
-              <Phone size={16} color={colors.muted} />
-              <Text numberOfLines={1} style={styles.infoTextMuted}>
-                Chưa cập nhật số điện thoại
-              </Text>
-            </View>
-          )}
+          ) : null}
         </View>
+      </Pressable>
 
-        {/* Nút thao tác nhanh liên hệ */}
-        {(member.phone || member.email) && (
-          <View style={styles.actionRow}>
-            {member.phone ? (
-              <Pressable onPress={handleCall} style={[styles.actionBtn, styles.callBtn]}>
-                <Phone size={14} color="#FFFFFF" />
-                <Text style={styles.callBtnText}>Gọi điện</Text>
-              </Pressable>
-            ) : null}
-            {member.email ? (
-              <Pressable onPress={handleEmail} style={[styles.actionBtn, styles.emailBtn]}>
-                <Mail size={14} color={colors.text} />
-                <Text style={styles.emailBtnText}>Gửi email</Text>
-              </Pressable>
-            ) : null}
-          </View>
-        )}
-      </Card>
-    </Pressable>
+      {/* Nút mở tin nhắn độc lập (bấm vào mở thẳng hội thoại chat) */}
+      <View style={styles.actionCol}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Nhắn tin với ${member.name}`}
+          onPress={handleMessage}
+          disabled={isStartingChat}
+          hitSlop={8}
+          style={({ pressed }) => [styles.chatBtn, pressed && styles.chatBtnPressed]}
+        >
+          {isStartingChat ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <MessageCircle size={19} color={colors.primaryDark} strokeWidth={2.2} />
+          )}
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: { width: "100%" },
-  card: { padding: 0, overflow: "hidden" },
-  coverContainer: {
-    width: "100%",
-    height: 72,
-    backgroundColor: colors.primarySoft,
-    overflow: "hidden",
-  },
-  coverImage: {
-    width: "100%",
-    height: "100%",
-  },
-  coverBanner: {
-    width: "100%",
-    height: "100%",
-    backgroundColor: colors.primarySoft,
-    justifyContent: "space-between",
-  },
-  coverPattern: {
-    width: "100%",
-    height: 4,
-    backgroundColor: colors.primary,
-  },
-  headerRow: {
+  item: {
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: "#EEF2F6",
     flexDirection: "row",
-    alignItems: "flex-end",
-    paddingHorizontal: spacing.md,
-    marginTop: -32,
+    alignItems: "center",
+  },
+  mainPressable: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.md,
   },
-  avatarWrapper: {
-    borderWidth: 3,
-    borderColor: colors.surface,
-    borderRadius: radius.pill,
-    ...shadow,
+  mainPressed: {
+    opacity: 0.7,
   },
-  titleInfo: {
+  infoCol: {
     flex: 1,
-    paddingTop: 36,
+    gap: 2,
+    justifyContent: "center",
   },
   name: {
     color: colors.text,
-    fontSize: 16,
-    fontWeight: "900",
+    fontSize: 15.5,
+    fontWeight: "700",
   },
-  badgeRow: {
-    marginTop: spacing.xs,
-    alignSelf: "flex-start",
+  company: {
+    color: "#2C3E50",
+    fontSize: 13,
+    fontWeight: "500",
   },
-  details: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-    gap: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    marginTop: spacing.md,
+  industry: {
+    color: colors.primaryDark,
+    fontSize: 12.5,
   },
-  infoRow: {
+  phoneRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
+    gap: 5,
+    alignSelf: "flex-start",
+    marginTop: 1,
   },
-  infoText: {
-    color: colors.text,
-    fontSize: 13,
-    flex: 1,
-  },
-  linkText: {
+  phone: {
     color: colors.primaryDark,
+    fontSize: 12.5,
     fontWeight: "600",
   },
-  infoTextMuted: {
-    color: colors.muted,
-    fontSize: 13,
-    fontStyle: "italic",
-    flex: 1,
+  actionCol: {
+    justifyContent: "center",
+    alignItems: "center",
+    paddingLeft: spacing.sm,
   },
-  actionRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
-    paddingTop: spacing.xs,
-  },
-  actionBtn: {
-    flex: 1,
-    minHeight: 36,
-    flexDirection: "row",
+  chatBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primarySoft,
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing.xs,
-    borderRadius: radius.md,
     borderWidth: 1,
+    borderColor: "#CDEEF5",
   },
-  callBtn: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  callBtnText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  emailBtn: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-  },
-  emailBtnText: {
-    color: colors.text,
-    fontSize: 12,
-    fontWeight: "800",
+  chatBtnPressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.95 }],
   },
 });

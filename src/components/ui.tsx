@@ -16,7 +16,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { colors, radius, shadow, spacing, touchTarget } from "@/theme/tokens";
+import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 
 export function Screen({
   children,
@@ -38,9 +38,20 @@ export function Screen({
   return <SafeAreaView edges={["top"]} style={styles.safe}>{body}</SafeAreaView>;
 }
 
-export function AppHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
+export function AppHeader({
+  title,
+  subtitle,
+  action,
+  avatar,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: ReactNode;
+  avatar?: ReactNode;
+}) {
   return (
     <View style={styles.header}>
+      {avatar}
       <View style={styles.flex}>
         <Text style={styles.headerTitle}>{title}</Text>
         {subtitle ? <Text style={styles.caption}>{subtitle}</Text> : null}
@@ -103,12 +114,24 @@ type ButtonProps = PressableProps & {
   tone?: ButtonTone;
   fullWidth?: boolean;
   icon?: LucideIcon;
+  iconColor?: string;
+  textStyle?: StyleProp<TextStyle>;
 };
 
 type ButtonTone = "primary" | "secondary" | "danger";
 
-export function Button({ children, tone = "primary", fullWidth, icon: Icon, style, disabled, ...props }: ButtonProps) {
-  const iconColor = tone === "secondary" ? colors.text : "#FFFFFF";
+export function Button({
+  children,
+  tone = "primary",
+  fullWidth,
+  icon: Icon,
+  iconColor: customIconColor,
+  textStyle,
+  style,
+  disabled,
+  ...props
+}: ButtonProps) {
+  const iconColor = customIconColor ?? (tone === "secondary" ? colors.text : "#FFFFFF");
   return (
     <Pressable
       accessibilityRole="button"
@@ -125,7 +148,7 @@ export function Button({ children, tone = "primary", fullWidth, icon: Icon, styl
     >
       <View style={styles.buttonContent}>
         {Icon ? <Icon color={iconColor} size={18} strokeWidth={2.2} /> : null}
-        <Text style={[styles.buttonText, buttonTextToneStyles[tone]]}>{children}</Text>
+        <Text style={[styles.buttonText, buttonTextToneStyles[tone], textStyle]}>{children}</Text>
       </View>
     </Pressable>
   );
@@ -155,20 +178,20 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry: () 
 }
 
 export const textStyles: Record<string, TextStyle> = {
-  title: { color: colors.text, fontSize: 20, fontWeight: "800" },
-  subtitle: { color: colors.text, fontSize: 15, fontWeight: "700" },
-  body: { color: colors.text, fontSize: 14, lineHeight: 20 },
-  caption: { color: colors.muted, fontSize: 12, lineHeight: 17 },
+  title: { color: colors.text, fontSize: 18, fontWeight: "800" },
+  subtitle: { color: colors.text, fontSize: 14, fontWeight: "700" },
+  body: { color: colors.text, fontSize: 13.5, lineHeight: 19 },
+  caption: { color: colors.muted, fontSize: 11.5, lineHeight: 16 },
 };
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
-  screenContent: { flexGrow: 1, gap: spacing.md, padding: spacing.lg, paddingBottom: spacing.xxl },
-  header: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.xs },
-  headerTitle: { color: colors.text, fontSize: 22, fontWeight: "900" },
-  caption: { color: colors.muted, fontSize: 12, lineHeight: 17 },
-  card: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, padding: spacing.lg, ...shadow },
+  screenContent: { flexGrow: 1, gap: 10, paddingHorizontal: 8, paddingVertical: spacing.sm, paddingBottom: spacing.xxl },
+  header: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 2, paddingHorizontal: 4 },
+  headerTitle: { color: colors.text, fontSize: 16.5, fontWeight: "800" },
+  caption: { color: colors.muted, fontSize: 11.5, lineHeight: 16 },
+  card: { borderWidth: 0, borderRadius: radius.lg, backgroundColor: colors.surface, padding: spacing.md },
   avatar: { alignItems: "center", justifyContent: "center", backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: "#B9E7EE" },
   avatarText: { color: colors.primaryDark, fontWeight: "900" },
   badge: { alignSelf: "flex-start", borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 4, backgroundColor: "#EDF3F5" },
@@ -193,11 +216,18 @@ const styles = StyleSheet.create({
   fullWidth: { width: "100%" },
   disabled: { opacity: 0.5 },
   pressed: { opacity: 0.8, transform: [{ scale: 0.99 }] },
-  sectionTitle: { minHeight: 28, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
-  sectionTitleText: { color: colors.text, fontSize: 15, fontWeight: "800" },
+  sectionTitle: {
+    minHeight: 22,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+    paddingHorizontal: 8,
+  },
+  sectionTitleText: { color: colors.text, fontSize: 13.5, fontWeight: "700" },
   state: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xl },
-  stateTitle: { color: colors.text, fontSize: 16, fontWeight: "800" },
-  stateMessage: { color: colors.muted, fontSize: 13, lineHeight: 19, textAlign: "center" },
+  stateTitle: { color: colors.text, fontSize: 15, fontWeight: "800" },
+  stateMessage: { color: colors.muted, fontSize: 12.5, lineHeight: 18, textAlign: "center" },
   loading: { flex: 1, minHeight: 180, alignItems: "center", justifyContent: "center", gap: spacing.md },
 });
 
