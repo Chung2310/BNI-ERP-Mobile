@@ -3,7 +3,7 @@ import {
   Bell,
   CalendarPlus,
   FolderOpen,
-  HandCoins,
+  ReceiptText,
   Settings,
   ShieldCheck,
   Trophy,
@@ -66,7 +66,7 @@ export function DashboardQuickActions({
 
   actions.push(
     {
-      icon: HandCoins,
+      icon: ReceiptText,
       title: 'Hội phí',
       href: '/fees',
       color: '#D97706',
