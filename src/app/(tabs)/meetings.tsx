@@ -135,10 +135,11 @@ export default function MeetingsScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Tạo cuộc họp"
+            hitSlop={6}
             onPress={() => router.push("/meeting/create")}
             style={({ pressed }) => [styles.createButton, pressed && styles.pressed]}
           >
-            <Plus color="#FFFFFF" size={24} strokeWidth={2.5} />
+            <Plus color="#FFFFFF" size={20} strokeWidth={2.5} />
           </Pressable>
         ) : undefined}
       />
@@ -234,8 +235,8 @@ export default function MeetingsScreen() {
 
 const styles = StyleSheet.create({
   createButton: {
-    width: touchTarget,
-    height: touchTarget,
+    width: 36,
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: radius.pill,
