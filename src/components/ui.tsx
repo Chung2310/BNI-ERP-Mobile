@@ -1,4 +1,4 @@
-import { useState, type PropsWithChildren, type ReactNode } from "react";
+import { useState, type PropsWithChildren, type ReactNode, type Ref } from "react";
 import { CircleAlert, Inbox, type LucideIcon } from "lucide-react-native";
 import {
   ActivityIndicator,
@@ -23,10 +23,12 @@ export function Screen({
   scroll = true,
   style,
   scrollViewProps,
-}: PropsWithChildren<{ scroll?: boolean; style?: StyleProp<ViewStyle>; scrollViewProps?: ScrollViewProps }>) {
+  scrollRef,
+}: PropsWithChildren<{ scroll?: boolean; style?: StyleProp<ViewStyle>; scrollViewProps?: ScrollViewProps; scrollRef?: Ref<ScrollView> }>) {
   const body = scroll ? (
     <ScrollView
       {...scrollViewProps}
+      ref={scrollRef}
       contentContainerStyle={[styles.screenContent, style, scrollViewProps?.contentContainerStyle]}
       keyboardShouldPersistTaps={scrollViewProps?.keyboardShouldPersistTaps || "handled"}
     >
