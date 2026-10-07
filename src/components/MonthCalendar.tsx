@@ -2,6 +2,8 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { ChevronLeft, ChevronRight, X as LucideX } from "lucide-react-native";
 import { colors, radius, spacing } from "@/theme/tokens";
 
+const cancelledMarkColor = "#C9AEB2";
+
 export function MonthCalendar({
   date,
   eventDates,
@@ -94,7 +96,7 @@ export function MonthCalendar({
                   {day.getDate()}
                 </Text>
               </View>
-              {isCancelled ? <LucideX color={colors.danger} size={11} strokeWidth={1.3} style={styles.cancelledIcon} /> : null}
+              {isCancelled ? <LucideX color={cancelledMarkColor} size={11} strokeWidth={1} style={styles.cancelledIcon} /> : null}
             </Pressable>
           );
         })}
@@ -111,7 +113,7 @@ export function MonthCalendar({
           <Text style={styles.legendText}>Có cuộc họp</Text>
         </View>
         <View style={styles.legendItem}>
-          <LucideX color={colors.danger} size={11} strokeWidth={1.3} />
+          <LucideX color={cancelledMarkColor} size={11} strokeWidth={1} />
           <Text style={styles.legendText}>Bị hủy</Text>
         </View>
       </View>
@@ -188,7 +190,7 @@ const styles = StyleSheet.create({
     borderWidth: 0,
   },
   dayCircleCancelled: {
-    backgroundColor: "#FDF0F2",
+    backgroundColor: "#FDF7F8",
     borderRadius: 14.5,
     overflow: "hidden",
   },
@@ -214,8 +216,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   dayTextCancelled: {
-    color: "#C53B4F",
-    fontWeight: "500",
+    color: colors.muted,
+    fontWeight: "400",
   },
   dayTextToday: {
     color: colors.primaryDark,
