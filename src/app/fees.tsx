@@ -16,7 +16,7 @@ export default function FeesScreen() {
   const openCheckout = async (fee: MemberFee) => { const detail = await feeService.get(fee._id); if (detail.checkout?.qrUrl) await Linking.openURL(detail.checkout.qrUrl); };
   return (
     <Screen>
-      <BackHeader title="Phí thường niên" subtitle={`Năm ${year}`} />
+      <BackHeader title="Phí thường niên" subtitle={`Năm ${year}`} compact />
       <Card style={styles.hero}><Text style={styles.heroLabel}>TỔNG CẦN THANH TOÁN</Text><Text style={styles.amount}>{money.format(remaining)}</Text><Text style={styles.heroMeta}>{data?.filter((item) => item.remaining > 0).length || 0} khoản phí đang chờ xử lý</Text></Card>
       <SectionTitle>Các khoản phí</SectionTitle>
       {isLoading ? <LoadingState /> : error ? <ErrorState message={error} onRetry={reload} /> : !data?.length ? <EmptyState title="Không có khoản phí" message={`Chưa có khoản phí nào trong năm ${year}.`} /> : <Card style={styles.list}>{data.map((fee) => <View key={fee._id} style={styles.fee}><View style={styles.grow}><Text style={styles.title}>{fee.title}</Text><Text style={styles.meta}>Còn lại {money.format(fee.remaining)} · hạn {new Date(fee.dueDate).toLocaleDateString("vi-VN")}</Text>{fee.remaining > 0 ? <Button icon={QrCode} tone="secondary" onPress={() => openCheckout(fee)}>Xem QR thanh toán</Button> : null}</View><Badge tone={fee.status === "paid" ? "primary" : fee.status === "overdue" ? "danger" : "warning"}>{statusLabel[fee.status]}</Badge></View>)}</Card>}

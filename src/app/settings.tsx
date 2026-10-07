@@ -52,7 +52,7 @@ export default function SettingsScreen() {
 
   return (
     <Screen>
-      <BackHeader title="Cài đặt" subtitle="Hồ sơ và bảo mật" />
+      <BackHeader title="Cài đặt" subtitle="Hồ sơ và bảo mật" compact />
       <Card>
         <Text style={styles.label}>Tài khoản</Text>
         <Text style={styles.title}>{user?.displayName || "Nguyễn Minh"}</Text>
