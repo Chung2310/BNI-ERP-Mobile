@@ -13,6 +13,7 @@ import {
 } from "@/components/ui";
 import { DashboardCharts } from "@/components/DashboardCharts";
 import { DashboardQuickActions } from "@/components/DashboardQuickActions";
+import { ActiveMemberRanking } from "@/components/ActiveMemberRanking";
 import { MeetingCard } from "@/components/MeetingCard";
 import { MonthCalendar } from "@/components/MonthCalendar";
 import { useAuth } from "@/context/AuthContext";
@@ -37,7 +38,7 @@ export default function HomeScreen() {
 
   const { data: dashboardData } = useAsyncData(async () => {
     const history = await meetingService.history();
-    const members = await userService.colleagues().catch(() => []);
+    const members = await userService.directory().catch(() => []);
     return { history, members };
   }, "dashboard-charts");
 
@@ -171,6 +172,8 @@ export default function HomeScreen() {
             {/* Thao tác nhanh - Icons 3D */}
             <SectionTitle>Thao tác nhanh</SectionTitle>
             <DashboardQuickActions user={user} liveMeetingId={liveMeeting?._id} />
+
+            <ActiveMemberRanking meetings={chartMeetings} members={dashboardData?.members || []} />
 
             {/* Biểu đồ tổng quan - Brand cyan theme */}
             <SectionTitle>Biểu đồ tổng quan</SectionTitle>

@@ -15,6 +15,7 @@ import {
   type TextInputProps,
 } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
+import { DateTimeField } from "@/components/DateTimeField";
 import { Button, Card, Screen } from "@/components/ui";
 import { meetingService, type MeetingPoint, type MeetingRecurrence, type SpeakingTimeSlot } from "@/services/meeting";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
@@ -169,16 +170,16 @@ export default function CreateMeetingScreen() {
       {mode === "single" ? (
         <FormSection title="Thông tin cuộc họp">
           <Field label="Tên cuộc họp *" value={title} onChangeText={setTitle} placeholder="Ví dụ: Buổi họp định kỳ Chapter Tuần 40" maxLength={200} />
-          <Field label="Thời gian bắt đầu *" value={startsAt} onChangeText={(value) => { setStartsAt(value); if (!endsAt || endsAt <= value) setEndsAt(twoHoursAfter(value)); }} placeholder="YYYY-MM-DD HH:mm" />
-          <Field label="Thời gian kết thúc *" value={endsAt} onChangeText={setEndsAt} placeholder="YYYY-MM-DD HH:mm" help="QR dùng chung nhận check-in từ giờ bắt đầu đến trước giờ kết thúc. Mặc định 2 giờ." />
+          <DateTimeField label="Thời gian bắt đầu *" mode="datetime" value={startsAt} onChange={(value) => { setStartsAt(value); if (!endsAt || endsAt <= value) setEndsAt(twoHoursAfter(value)); }} />
+          <DateTimeField label="Thời gian kết thúc *" mode="datetime" value={endsAt} onChange={setEndsAt} help="QR dùng chung nhận check-in từ giờ bắt đầu đến trước giờ kết thúc. Mặc định 2 giờ." />
         </FormSection>
       ) : (
         <FormSection title="Lịch định kỳ" tone="primary">
-          <Field label="Từ ngày *" value={recurrence.startDate} onChangeText={(value) => updateRecurrence("startDate", value)} placeholder="YYYY-MM-DD" />
+          <DateTimeField label="Từ ngày *" mode="date" value={recurrence.startDate} onChange={(value) => updateRecurrence("startDate", value)} />
           <Field label="Trong thời gian (tháng) *" value={Number.isFinite(recurrence.months) ? String(recurrence.months) : ""} onChangeText={(value) => updateRecurrence("months", Number(value))} placeholder="1 - 12" keyboardType="number-pad" />
           <Text style={styles.label}>THỨ DIỄN RA *</Text>
           <View style={styles.chips}>{weekdays.map((day) => <Chip key={day.value} active={recurrence.weekday === day.value} label={day.label} onPress={() => updateRecurrence("weekday", day.value)} />)}</View>
-          <Field label="Giờ bắt đầu *" value={recurrence.time} onChangeText={(value) => updateRecurrence("time", value)} placeholder="HH:mm" />
+          <DateTimeField label="Giờ bắt đầu *" mode="time" value={recurrence.time} onChange={(value) => updateRecurrence("time", value)} />
           <Field label="Thời lượng mỗi buổi (phút) *" value={Number.isFinite(recurrence.durationMinutes) ? String(recurrence.durationMinutes) : ""} onChangeText={(value) => updateRecurrence("durationMinutes", Number(value))} placeholder="120" keyboardType="number-pad" />
           <View style={styles.chips}>{[60, 90, 120].map((minutes) => <Chip key={minutes} active={recurrence.durationMinutes === minutes} label={`${minutes} phút`} onPress={() => updateRecurrence("durationMinutes", minutes)} />)}</View>
           {preview.length ? <Text style={styles.preview}>Sẽ tạo {preview.length} buổi · {preview[0].toLocaleDateString("vi-VN")} → {preview[preview.length - 1].toLocaleDateString("vi-VN")}</Text> : null}
@@ -198,7 +199,6 @@ export default function CreateMeetingScreen() {
       <FormSection title="Ảnh bìa sự kiện">
         {coverImage ? <Image accessibilityLabel="Ảnh bìa cuộc họp" source={{ uri: coverImage }} style={styles.cover} /> : <View style={styles.coverPlaceholder}><ImagePlus color={colors.primary} size={34} /><Text style={styles.help}>PNG, JPG, WEBP hoặc GIF · tối đa 10MB</Text></View>}
         <Button icon={Upload} tone="secondary" fullWidth disabled={uploading} onPress={pickCover}>{uploading ? "Đang tải ảnh…" : coverImage ? "Đổi ảnh bìa" : "Chọn ảnh từ máy"}</Button>
-        <Field label="Hoặc nhập URL ảnh" value={coverImage} onChangeText={setCoverImage} placeholder="https://..." autoCapitalize="none" keyboardType="url" />
       </FormSection>
 
       <FormSection title="Nhắc hẹn">
@@ -214,8 +214,8 @@ export default function CreateMeetingScreen() {
               <Pressable accessibilityLabel={`Xóa khung ${index + 1}`} disabled={tiers.length <= 1} onPress={() => setTiers((current) => current.filter((_, itemIndex) => itemIndex !== index))} style={({ pressed }) => [styles.iconButton, tiers.length <= 1 && styles.disabled, pressed && styles.pressed]}><Trash2 color={colors.danger} size={18} /></Pressable>
             </View>
             <View style={styles.twoColumns}>
-              <View style={styles.column}><Field label="Từ giờ *" value={slot.startTime} onChangeText={(value) => updateSlot(index, { startTime: value })} placeholder="07:00" /></View>
-              <View style={styles.column}><Field label="Đến giờ *" value={slot.endTime} onChangeText={(value) => updateSlot(index, { endTime: value })} placeholder="08:00" /></View>
+              <View style={styles.column}><DateTimeField label="Từ giờ *" mode="time" value={slot.startTime} onChange={(value) => updateSlot(index, { startTime: value })} /></View>
+              <View style={styles.column}><DateTimeField label="Đến giờ *" mode="time" value={slot.endTime} onChange={(value) => updateSlot(index, { endTime: value })} /></View>
             </View>
             <Field label="Số giây phát biểu *" value={Number.isFinite(slot.seconds) ? String(slot.seconds) : ""} onChangeText={(value) => updateSlot(index, { seconds: Number(value) })} placeholder="30" keyboardType="number-pad" />
           </View>

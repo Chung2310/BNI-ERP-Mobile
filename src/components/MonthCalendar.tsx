@@ -60,8 +60,10 @@ export function MonthCalendar({
 
           return (
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${day.getDate()} tháng ${day.getMonth() + 1}${hasEvent ? ", có cuộc họp" : ", không có cuộc họp"}`}
               key={day.toISOString()}
-              disabled={!onSelectDate}
+              disabled={outside || !onSelectDate}
               onPress={() => onSelectDate?.(day)}
               style={[styles.dayCell, outside && styles.dayOutside]}
             >
