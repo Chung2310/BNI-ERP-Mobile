@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { router } from "expo-router";
 import { Eye, EyeOff, Fingerprint, LogIn } from "lucide-react-native";
 import {
+  Image,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -101,20 +102,20 @@ export default function LoginScreen() {
         >
           {isKeyboardVisible ? (
             <View style={styles.compactHeader}>
-              <View style={styles.compactLogo}>
-                <Text style={styles.compactLogoText}>iG</Text>
-              </View>
-              <View>
-                <Text style={styles.compactTitle}>iGen Connect</Text>
-                <Text style={styles.compactSubtitle}>Đăng nhập tài khoản</Text>
-              </View>
+              <Image
+                source={require("../../assets/images/igen-connect-transparent.png")}
+                style={styles.compactLogoImage}
+                resizeMode="contain"
+              />
+              <Text style={styles.compactSubtitle}>Đăng nhập tài khoản</Text>
             </View>
           ) : (
             <View style={styles.brandHeader}>
-              <View style={styles.logo}>
-                <Text style={styles.logoText}>iG</Text>
-              </View>
-              <Text style={styles.title}>iGen Connect</Text>
+              <Image
+                source={require("../../assets/images/igen-connect-transparent.png")}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
               <Text style={styles.subtitle}>Kết nối và vận hành cộng đồng hiệu quả</Text>
             </View>
           )}
@@ -213,47 +214,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   compactHeader: {
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing.md,
     paddingVertical: spacing.xs,
   },
-  compactLogo: {
-    width: 38,
-    height: 38,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.md,
-    backgroundColor: colors.primary,
-  },
-  compactLogoText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "900",
-  },
-  compactTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: "900",
+  compactLogoImage: {
+    width: 140,
+    height: 48,
+    alignSelf: "center",
   },
   compactSubtitle: {
     color: colors.muted,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "600",
+    textAlign: "center",
+    marginTop: 2,
   },
-  logo: {
-    width: 72,
-    height: 72,
+  logoImage: {
+    width: 210,
+    height: 95,
     alignSelf: "center",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.xl,
-    backgroundColor: colors.primary,
     marginBottom: spacing.xs,
   },
-  logoText: { color: "#FFFFFF", fontSize: 24, fontWeight: "900" },
-  title: { color: colors.text, fontSize: 26, fontWeight: "900", textAlign: "center" },
   subtitle: { color: colors.muted, fontSize: 13, textAlign: "center", marginBottom: spacing.md },
   form: { gap: spacing.lg },
   fieldGroup: { gap: spacing.sm },
