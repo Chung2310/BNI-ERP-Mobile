@@ -1,8 +1,8 @@
 import { Alert } from "@/components/AppAlert";
 import { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View,  ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardResponsiveView } from '@/components/KeyboardResponsiveView';
 import { Check, X } from 'lucide-react-native';
 import { chatService, type ChatRoom } from '@/services/chat';
@@ -19,6 +19,7 @@ type Props = {
 };
 
 export function ChatRoomSettingsModal({ room, currentUserId, onClose, onUpdated, onExit }: Props) {
+  const insets = useSafeAreaInsets();
   const [name, setName] = useState(room.name || '');
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -90,9 +91,11 @@ export function ChatRoomSettingsModal({ room, currentUserId, onClose, onUpdated,
   };
 
   return (
-    <Modal visible animationType='slide' onRequestClose={onClose}>
+    <Modal visible transparent animationType='slide' onRequestClose={onClose}>
       <KeyboardResponsiveView>
-      <SafeAreaView style={styles.safe}>
+      <View style={styles.overlay}>
+      <Pressable accessibilityLabel='Đóng thông tin trò chuyện' onPress={onClose} style={styles.backdrop} />
+      <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.md) }, adding && styles.addingSheet]}>
         <View style={styles.header}>
           <Text style={styles.title}>{adding ? 'Thêm thành viên' : 'Thông tin trò chuyện'}</Text>
           <Pressable accessibilityLabel='Đóng' onPress={() => adding ? setAdding(false) : onClose()} style={styles.close}><X size={22} color={colors.text} /></Pressable>
@@ -138,12 +141,13 @@ export function ChatRoomSettingsModal({ room, currentUserId, onClose, onUpdated,
                   })}
                 </View>
                 <Action label='Rời nhóm' disabled={busy} danger onPress={leave} />
-                {isAdmin ? <Action label='Giải tán nhóm' disabled={busy} danger onPress={deleteGroup} /> : null}
+                {isAdmin ? <Action label='Xóa trò chuyện' disabled={busy} danger onPress={deleteGroup} /> : null}
               </>
             ) : null}
           </ScrollView>
         )}
-      </SafeAreaView>
+      </View>
+      </View>
       </KeyboardResponsiveView>
     </Modal>
   );
@@ -154,12 +158,15 @@ function Action({ label, onPress, danger, disabled }: { label: string; onPress: 
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  header: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, backgroundColor: colors.surface },
-  title: { color: colors.text, fontSize: 18, fontWeight: '800' },
+  overlay: { flex: 1, justifyContent: 'flex-end' },
+  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0, 0, 0, 0.4)' },
+  sheet: { maxHeight: '85%', borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, backgroundColor: colors.background, overflow: 'hidden' },
+  addingSheet: { height: '80%' },
+  header: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, backgroundColor: colors.surface },
+  title: { color: colors.text, fontSize: 15, fontWeight: '700' },
   close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   content: { padding: spacing.md, paddingBottom: 40, gap: spacing.md },
-  scroll: { flex: 1, paddingHorizontal: spacing.md },
+  scroll: { flexShrink: 1, paddingHorizontal: spacing.md },
   action: { minHeight: 48, justifyContent: 'center', paddingHorizontal: spacing.md, borderRadius: radius.md, backgroundColor: colors.surface },
   actionText: { color: colors.primaryDark, fontSize: 14, fontWeight: '700' },
   danger: { color: colors.danger },
