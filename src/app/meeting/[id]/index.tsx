@@ -77,7 +77,7 @@ export default function MeetingDetailScreen() {
   };
 
   return (
-    <Screen>
+    <Screen style={styles.detailScreen}>
       <BackHeader title="Chi tiết cuộc họp" compact />
       <Card style={styles.summary}>
         <View style={styles.summaryRow}>
@@ -166,9 +166,10 @@ function InfoRow({ icon: Icon, label, value }: { icon: typeof Clock3; label: str
 }
 
 const styles = StyleSheet.create({
-  summary: { gap: spacing.sm, padding: spacing.md },
+  detailScreen: { gap: spacing.xs },
+  summary: { gap: spacing.sm, padding: spacing.md, paddingTop: spacing.sm },
   summaryRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  title: { marginTop: spacing.sm, color: colors.text, fontSize: 19, lineHeight: 24, fontWeight: "900" },
+  title: { marginTop: spacing.xs, color: colors.text, fontSize: 19, lineHeight: 24, fontWeight: "900" },
   cover: { width: 70, height: 70, borderRadius: radius.md, backgroundColor: colors.background },
   summaryMeta: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   summaryMetaText: { flex: 1, color: colors.muted, fontSize: 12, lineHeight: 17 },
