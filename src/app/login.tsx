@@ -260,8 +260,8 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   cornerLogo: {
-    width: 140,
-    height: 70,
+    width: 110,
+    height: 55,
   },
   contentSpacer: {
     flex: 1,
