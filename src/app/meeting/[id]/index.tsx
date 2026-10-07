@@ -267,7 +267,7 @@ function ProcessRow({ icon: Icon, label, detail, onPress }: { icon: typeof Clock
 
 const styles = StyleSheet.create({
   detailScreen: { gap: spacing.xs },
-  settingsButton: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.primarySoft },
+  settingsButton: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center" },
   sheetOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.overlay },
   sheetBackdrop: { ...StyleSheet.absoluteFill },
   sheetContent: { backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, paddingTop: spacing.sm, paddingHorizontal: spacing.lg },
