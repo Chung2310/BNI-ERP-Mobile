@@ -14,7 +14,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -52,9 +51,7 @@ export default function ChatRoomScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList<ChatMessage>>(null);
-  const { height: windowHeight } = useWindowDimensions();
   const [isFocused, setIsFocused] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [message, setMessage] = useState('');
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
   const [sending, setSending] = useState(false);
@@ -81,28 +78,13 @@ export default function ChatRoomScreen() {
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const showSub = Keyboard.addListener(showEvent, (e) => {
-      const h = e?.endCoordinates?.height || 0;
-      if (h > 100) {
-        setKeyboardHeight(h);
-      }
-      setIsFocused(true);
+    const showSub = Keyboard.addListener(showEvent, () => {
       setTimeout(() => {
         listRef.current?.scrollToEnd({ animated: true });
       }, 100);
     });
 
-    const hideSub = Keyboard.addListener(hideEvent, () => {
-      setKeyboardHeight(0);
-      setIsFocused(false);
-    });
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
+    return () => showSub.remove();
   }, []);
 
   const send = async () => {
@@ -210,18 +192,6 @@ export default function ChatRoomScreen() {
     );
   };
 
-  const isKeyboardActive = isFocused || keyboardHeight > 100;
-  const activeKeyboardHeight = keyboardHeight > 100 ? keyboardHeight + 4 : Math.round(windowHeight * 0.40);
-
-  const containerBottomPadding =
-    Platform.OS === 'android'
-      ? isKeyboardActive
-        ? activeKeyboardHeight
-        : Math.max(insets.bottom, spacing.sm)
-      : keyboardHeight > 0
-        ? 0
-        : Math.max(insets.bottom, spacing.sm);
-
   return (
     <Screen scroll={false} style={styles.screen}>
       <View style={styles.rootContainer}>
@@ -230,8 +200,7 @@ export default function ChatRoomScreen() {
         </View>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={0}
-          style={[styles.flex, { paddingBottom: containerBottomPadding }]}
+          style={[styles.flex, { paddingBottom: isFocused ? spacing.sm : Math.max(insets.bottom, spacing.sm) }]}
         >
           {isLoading && !data ? (
             <LoadingState />
