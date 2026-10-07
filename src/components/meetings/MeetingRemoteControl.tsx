@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { router, useFocusEffect } from "expo-router";
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   CalendarCheck, ChevronRight, CircleStop, Clock3, Gift, ListOrdered, MessageCircle,
@@ -8,7 +8,8 @@ import {
   SkipForward, Sparkles, Trophy, Users, type LucideIcon,
 } from "lucide-react-native";
 import { BackHeader } from "@/components/BackHeader";
-import { Avatar, Button, Card, ErrorState, LoadingState, Screen, SectionTitle } from "@/components/ui";
+import { ProfileSlideCanvas } from "@/components/meetings/ProfileSlideCanvas";
+import { Button, Card, ErrorState, LoadingState, Screen, SectionTitle } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { meetingService, meetingVersion, type Meeting, type MeetingLiveSnapshot, type PresentationView } from "@/services/meeting";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
@@ -207,6 +208,7 @@ export function MeetingRemoteControl({ id }: { id: string }) {
 }
 
 function StagePreview({ snapshot, now }: { snapshot: MeetingLiveSnapshot; now: number }) {
+  const { width: screenWidth } = useWindowDimensions();
   const meeting = snapshot.meeting;
   const view = meeting.presentation?.view || "checkin";
   const speaker = meeting.speakers[meeting.currentIndex];
@@ -217,11 +219,10 @@ function StagePreview({ snapshot, now }: { snapshot: MeetingLiveSnapshot; now: n
   const winner = meeting.luckyDraw?.prizes.flatMap((prize) => prize.winners).find((item) => item.id === meeting.presentation?.drawWinnerId);
   const drawing = meeting.presentation?.drawRevealsAt && Date.parse(meeting.presentation.drawRevealsAt) > now;
   if (meeting.status === "ended" || meeting.status === "cancelled") return <View style={styles.stage}><Text style={styles.stageTitle}>{meeting.title}</Text><Text style={styles.stageMessage}>Cuộc họp đã {meeting.status === "ended" ? "kết thúc" : "hủy"}</Text></View>;
-  if (view === "speaker") return <View style={[styles.stage, styles.speakerStage]}>
-    {slide?.coverImage ? <Image source={{ uri: slide.coverImage }} style={styles.stageCover} resizeMode="cover" /> : null}
-    <View style={styles.stageSpeakerInfo}><Avatar initials={(slide?.name || speaker?.name || "?").split(" ").filter(Boolean).map((part) => part[0]).slice(-2).join("").toUpperCase()} url={slide?.photoURL} size={42} /><View style={styles.grow}><Text numberOfLines={1} style={styles.stageName}>{slide?.name || speaker?.name || "Chờ người phát biểu"}</Text><Text numberOfLines={1} style={styles.stageCompany}>{slide?.company || ""}</Text></View></View>
-    {speaker ? <View style={styles.stageTimer}><Clock3 color={colors.primaryDark} size={13} /><Text style={styles.stageTime}>{time}</Text></View> : null}
-  </View>;
+  if (view === "speaker") return slide ? <View style={styles.stageSlide}>
+    <ProfileSlideCanvas key={slide.id} slide={slide} width={screenWidth - 18} />
+    {speaker ? <View style={styles.stageTimerOverlay}><Clock3 color={colors.primaryDark} size={13} /><Text style={styles.stageTime}>{time}</Text></View> : null}
+  </View> : <View style={styles.stage}><Presentation color="#FFFFFF" size={32} /><Text style={styles.stageTitle}>Chờ slide thuyết trình</Text></View>;
   if (view === "checkin") return <View style={[styles.stage, styles.checkinStage]}><View style={styles.qrBox}><QrCode color={colors.primaryDark} size={56} /></View><View style={styles.grow}><Text style={styles.stageEyebrow}>QR CHECK-IN</Text><Text numberOfLines={2} style={styles.stageName}>{meeting.title}</Text><Text style={styles.stageCompany}>{meeting.speakers.length} người đã điểm danh</Text></View></View>;
   if (view === "luckyDraw") return <View style={styles.stage}><Gift color="#FBBF24" size={32} /><Text style={styles.stageEyebrow}>QUAY THƯỞNG</Text><Text numberOfLines={2} style={styles.stageTitle}>{drawing ? "Đang quay…" : winner?.name || "Chờ bắt đầu quay"}</Text><Text style={styles.stageSub}>{drawing ? "Kết quả sẽ hiện trên laptop" : winner?.prizeName || ""}</Text></View>;
   if (view === "activeMembers") return <View style={styles.stage}><Trophy color="#FBBF24" size={34} /><Text style={styles.stageTitle}>Xếp hạng thành viên tích cực</Text><Text style={styles.stageSub}>Đang chiếu trên laptop</Text></View>;
@@ -247,13 +248,11 @@ const styles = StyleSheet.create({
   previewLabel: { color: colors.text, fontSize: 10, fontWeight: "900", flexShrink: 1 },
   syncError: { padding: spacing.sm, color: colors.danger, fontSize: 11 },
   stage: { width: "100%", aspectRatio: 16 / 9, backgroundColor: "#102533", alignItems: "center", justifyContent: "center", gap: 5, padding: spacing.lg },
-  speakerStage: { backgroundColor: "#F8FAFC", alignItems: "stretch", justifyContent: "flex-end" },
+  stageSlide: { width: "100%", aspectRatio: 16 / 9, backgroundColor: colors.surface, overflow: "hidden" },
   checkinStage: { backgroundColor: colors.surface, flexDirection: "row", gap: spacing.lg },
-  stageCover: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, opacity: 0.2 },
-  stageSpeakerInfo: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: "rgba(255,255,255,0.9)", padding: spacing.sm, borderRadius: radius.md },
   stageName: { color: colors.text, fontSize: 15, fontWeight: "900" },
   stageCompany: { color: colors.muted, fontSize: 11 },
-  stageTimer: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.sm, backgroundColor: colors.surface },
+  stageTimerOverlay: { position: "absolute", right: spacing.sm, bottom: spacing.sm, flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.sm, backgroundColor: colors.surface },
   stageTime: { color: colors.primaryDark, fontSize: 13, fontWeight: "900" },
   stageEyebrow: { color: colors.primaryDark, fontSize: 10, fontWeight: "900" },
   stageTitle: { color: "#FFFFFF", fontSize: 18, fontWeight: "900", textAlign: "center" },
