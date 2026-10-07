@@ -105,6 +105,8 @@ export default function LoginScreen() {
         <View style={styles.footerContainer}>
           <Button
             icon={LogIn}
+            iconColor="#0844A6"
+            textStyle={styles.loginButtonText}
             fullWidth
             onPress={openSheet}
             style={styles.mainLoginButton}
@@ -214,6 +216,8 @@ export default function LoginScreen() {
 
                   <Button
                     icon={LogIn}
+                    iconColor="#0844A6"
+                    textStyle={styles.loginButtonText}
                     fullWidth
                     disabled={submitting}
                     onPress={submit}
@@ -271,13 +275,14 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === "ios" ? spacing.sm : spacing.lg,
   },
   mainLoginButton: {
-    backgroundColor: "#00BAEC",
+    backgroundColor: "#6ADBFD",
     minHeight: 52,
-    shadowColor: "#00BAEC",
+    borderRadius: 16,
+    shadowColor: "#6ADBFD",
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.45,
-    shadowRadius: 16,
-    elevation: 6,
+    shadowOpacity: 0.5,
+    shadowRadius: 14,
+    elevation: 5,
   },
   modalOverlay: {
     flex: 1,
@@ -398,14 +403,20 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   submitButton: {
-    backgroundColor: "#00BAEC",
+    backgroundColor: "#6ADBFD",
     minHeight: 50,
+    borderRadius: 16,
     marginTop: spacing.xs,
-    shadowColor: "#00BAEC",
+    shadowColor: "#6ADBFD",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 10,
     elevation: 4,
+  },
+  loginButtonText: {
+    color: "#0844A6",
+    fontSize: 16,
+    fontWeight: "800",
   },
   legal: {
     color: colors.muted,

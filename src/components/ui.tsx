@@ -69,12 +69,24 @@ type ButtonProps = PressableProps & {
   tone?: ButtonTone;
   fullWidth?: boolean;
   icon?: LucideIcon;
+  iconColor?: string;
+  textStyle?: StyleProp<TextStyle>;
 };
 
 type ButtonTone = "primary" | "secondary" | "danger";
 
-export function Button({ children, tone = "primary", fullWidth, icon: Icon, style, disabled, ...props }: ButtonProps) {
-  const iconColor = tone === "secondary" ? colors.text : "#FFFFFF";
+export function Button({
+  children,
+  tone = "primary",
+  fullWidth,
+  icon: Icon,
+  iconColor: customIconColor,
+  textStyle,
+  style,
+  disabled,
+  ...props
+}: ButtonProps) {
+  const iconColor = customIconColor ?? (tone === "secondary" ? colors.text : "#FFFFFF");
   return (
     <Pressable
       accessibilityRole="button"
@@ -91,7 +103,7 @@ export function Button({ children, tone = "primary", fullWidth, icon: Icon, styl
     >
       <View style={styles.buttonContent}>
         {Icon ? <Icon color={iconColor} size={18} strokeWidth={2.2} /> : null}
-        <Text style={[styles.buttonText, buttonTextToneStyles[tone]]}>{children}</Text>
+        <Text style={[styles.buttonText, buttonTextToneStyles[tone], textStyle]}>{children}</Text>
       </View>
     </Pressable>
   );
