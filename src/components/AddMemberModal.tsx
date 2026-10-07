@@ -55,6 +55,7 @@ export function AddMemberModal({ visible, onClose, onCreated }: Props) {
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingGallery, setUploadingGallery] = useState(false);
+  const [imageSourceTarget, setImageSourceTarget] = useState<"avatar" | "gallery" | null>(null);
 
   // Thông tin văn bản
   const [name, setName] = useState("");
@@ -89,6 +90,7 @@ export function AddMemberModal({ visible, onClose, onCreated }: Props) {
     setPassword("");
     setBirthDate(null);
     setShowPassword(false);
+    setImageSourceTarget(null);
   };
 
   const handleClose = () => {
@@ -212,12 +214,14 @@ export function AddMemberModal({ visible, onClose, onCreated }: Props) {
   };
 
   const chooseImageSource = (target: "avatar" | "gallery") => {
-    const pick = target === "avatar" ? pickAvatar : pickGallery;
-    Alert.alert("Thêm ảnh", "Chọn nguồn ảnh", [
-      { text: "Chụp ảnh", onPress: () => void pick("camera") },
-      { text: "Chọn từ thư viện", onPress: () => void pick("library") },
-      { text: "Hủy", style: "cancel" },
-    ]);
+    setImageSourceTarget(target);
+  };
+
+  const selectImageSource = (source: ImageSource) => {
+    const target = imageSourceTarget;
+    setImageSourceTarget(null);
+    if (target === "avatar") void pickAvatar(source);
+    if (target === "gallery") void pickGallery(source);
   };
 
   const removeGalleryImage = (index: number) => {
@@ -617,6 +621,16 @@ export function AddMemberModal({ visible, onClose, onCreated }: Props) {
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
+        {imageSourceTarget ? <View style={styles.imageSourceOverlay}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Đóng chọn nguồn ảnh" onPress={() => setImageSourceTarget(null)} style={StyleSheet.absoluteFill} />
+          <View style={styles.imageSourcePopup}>
+            <Text style={styles.imageSourceTitle}>Thêm ảnh</Text>
+            <Text style={styles.imageSourceDescription}>Chọn nguồn ảnh</Text>
+            <Pressable accessibilityRole="button" onPress={() => selectImageSource("camera")} style={styles.imageSourceOption}><Camera color={colors.primaryDark} size={20} /><Text style={styles.imageSourceOptionText}>Chụp ảnh</Text></Pressable>
+            <Pressable accessibilityRole="button" onPress={() => selectImageSource("library")} style={styles.imageSourceOption}><ImageIcon color={colors.primaryDark} size={20} /><Text style={styles.imageSourceOptionText}>Chọn từ thư viện</Text></Pressable>
+            <Pressable accessibilityRole="button" onPress={() => setImageSourceTarget(null)} style={styles.imageSourceCancel}><Text style={styles.imageSourceCancelText}>Hủy</Text></Pressable>
+          </View>
+        </View> : null}
       </SafeAreaView>
     </Modal>
   );
@@ -630,6 +644,30 @@ const styles = StyleSheet.create({
   keyboardView: {
     flex: 1,
   },
+  imageSourceOverlay: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.overlay,
+  },
+  imageSourcePopup: {
+    width: "88%",
+    maxWidth: 360,
+    borderRadius: radius.xl,
+    backgroundColor: colors.surface,
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  imageSourceTitle: { color: colors.text, fontSize: 16, fontWeight: "700" },
+  imageSourceDescription: { color: colors.muted, fontSize: 12, marginBottom: spacing.xs },
+  imageSourceOption: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: spacing.md, borderRadius: radius.md, backgroundColor: colors.background, paddingHorizontal: spacing.md },
+  imageSourceOptionText: { color: colors.text, fontSize: 14, fontWeight: "600" },
+  imageSourceCancel: { minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: radius.md },
+  imageSourceCancelText: { color: colors.muted, fontSize: 13, fontWeight: "600" },
   header: {
     minHeight: 48,
     flexDirection: "row",
