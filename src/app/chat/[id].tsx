@@ -280,6 +280,17 @@ export default function ChatRoomScreen() {
     }
   };
 
+  const capturePhoto = async () => {
+    try {
+      const camera = await ImagePicker.requestCameraPermissionsAsync();
+      if (!camera.granted) { Alert.alert('Cần quyền camera', 'Vui lòng cho phép sử dụng camera để chụp ảnh.'); return; }
+      const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.85 });
+      if (!result.canceled) await uploadAssets(result.assets.map((asset) => ({ uri: asset.uri, name: asset.fileName || `photo-${Date.now()}.jpg`, mimeType: asset.mimeType || 'image/jpeg', size: asset.fileSize })));
+    } catch (cause) {
+      Alert.alert('Không thể chụp ảnh', cause instanceof Error ? cause.message : 'Vui lòng thử lại.');
+    }
+  };
+
   const captureVideo = async () => {
     try {
       const camera = await ImagePicker.requestCameraPermissionsAsync();
@@ -602,7 +613,7 @@ export default function ChatRoomScreen() {
       </View>
     </SafeAreaView>
     <Modal visible={showAttachmentPicker} transparent animationType='slide' onRequestClose={() => setShowAttachmentPicker(false)}>
-      <View style={styles.sheetOverlay}><Pressable style={styles.sheetBackdrop} onPress={() => setShowAttachmentPicker(false)} /><View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}><Text style={styles.sheetTitle}>Đính kèm</Text><SheetAction label='Ảnh hoặc video từ thư viện' onPress={() => chooseAttachment(() => void pickMedia())} /><SheetAction label='Quay video' onPress={() => chooseAttachment(() => void captureVideo())} /><SheetAction label='Ghi âm' onPress={() => chooseAttachment(() => void startRecording())} /><SheetAction label='Tệp từ điện thoại' onPress={() => chooseAttachment(() => void pickFile())} /></View></View>
+      <View style={styles.sheetOverlay}><Pressable style={styles.sheetBackdrop} onPress={() => setShowAttachmentPicker(false)} /><View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}><Text style={styles.sheetTitle}>Đính kèm</Text><SheetAction label='Chụp ảnh' onPress={() => chooseAttachment(() => void capturePhoto())} /><SheetAction label='Ảnh hoặc video từ thư viện' onPress={() => chooseAttachment(() => void pickMedia())} /><SheetAction label='Quay video' onPress={() => chooseAttachment(() => void captureVideo())} /><SheetAction label='Ghi âm' onPress={() => chooseAttachment(() => void startRecording())} /><SheetAction label='Tệp từ điện thoại' onPress={() => chooseAttachment(() => void pickFile())} /></View></View>
     </Modal>
     <Modal visible={Boolean(actionsMessage)} transparent animationType='slide' onRequestClose={() => setActionsMessage(null)}>
       <View style={styles.sheetOverlay}>
