@@ -9,7 +9,6 @@ import {
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -140,10 +139,7 @@ export default function LoginScreen() {
               </View>
 
               <View style={styles.sheetHeader}>
-                <View style={styles.sheetHeaderTextWrapper}>
-                  <Text style={styles.sheetTitle}>Đăng nhập</Text>
-                  <Text style={styles.sheetSubtitle}>Nhập thông tin tài khoản để tiếp tục</Text>
-                </View>
+                <Text style={styles.sheetTitle}>Đăng nhập</Text>
                 <Pressable
                   accessibilityLabel="Đóng"
                   accessibilityRole="button"
@@ -151,96 +147,91 @@ export default function LoginScreen() {
                   onPress={closeSheet}
                   style={styles.closeButton}
                 >
-                  <X color={colors.muted} size={22} />
+                  <X color={colors.muted} size={20} />
                 </Pressable>
               </View>
 
-              <ScrollView
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.sheetScrollContent}
-              >
-                <View style={styles.form}>
-                  <View style={styles.fieldGroup}>
-                    <Text style={styles.label}>SỐ ĐIỆN THOẠI HOẶC EMAIL</Text>
+              <View style={styles.form}>
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.label}>SỐ ĐIỆN THOẠI HOẶC EMAIL</Text>
+                  <TextInput
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    inputMode="email"
+                    placeholder="Nhập tài khoản"
+                    placeholderTextColor={colors.muted}
+                    returnKeyType="next"
+                    style={styles.input}
+                    value={identifier}
+                    onChangeText={setIdentifier}
+                    onSubmitEditing={() => passwordInputRef.current?.focus()}
+                  />
+                </View>
+
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.label}>MẬT KHẨU</Text>
+                  <View style={styles.passwordWrapper}>
                     <TextInput
-                      autoCapitalize="none"
-                      autoComplete="email"
-                      inputMode="email"
-                      placeholder="Nhập tài khoản"
+                      ref={passwordInputRef}
+                      autoComplete="current-password"
+                      placeholder="Nhập mật khẩu"
                       placeholderTextColor={colors.muted}
-                      returnKeyType="next"
-                      style={styles.input}
-                      value={identifier}
-                      onChangeText={setIdentifier}
-                      onSubmitEditing={() => passwordInputRef.current?.focus()}
+                      secureTextEntry={!showPassword}
+                      returnKeyType="done"
+                      style={styles.passwordInput}
+                      value={password}
+                      onChangeText={setPassword}
+                      onSubmitEditing={submit}
                     />
+                    <Pressable
+                      accessibilityLabel={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                      accessibilityRole="button"
+                      hitSlop={10}
+                      onPress={() => setShowPassword((prev) => !prev)}
+                      style={styles.eyeButton}
+                    >
+                      {showPassword ? (
+                        <EyeOff color={colors.muted} size={20} />
+                      ) : (
+                        <Eye color={colors.muted} size={20} />
+                      )}
+                    </Pressable>
                   </View>
+                </View>
 
-                  <View style={styles.fieldGroup}>
-                    <Text style={styles.label}>MẬT KHẨU</Text>
-                    <View style={styles.passwordWrapper}>
-                      <TextInput
-                        ref={passwordInputRef}
-                        autoComplete="current-password"
-                        placeholder="Nhập mật khẩu"
-                        placeholderTextColor={colors.muted}
-                        secureTextEntry={!showPassword}
-                        returnKeyType="done"
-                        style={styles.passwordInput}
-                        value={password}
-                        onChangeText={setPassword}
-                        onSubmitEditing={submit}
-                      />
-                      <Pressable
-                        accessibilityLabel={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                        accessibilityRole="button"
-                        hitSlop={10}
-                        onPress={() => setShowPassword((prev) => !prev)}
-                        style={styles.eyeButton}
-                      >
-                        {showPassword ? (
-                          <EyeOff color={colors.muted} size={20} />
-                        ) : (
-                          <Eye color={colors.muted} size={20} />
-                        )}
-                      </Pressable>
-                    </View>
-                  </View>
+                {error ? (
+                  <Text accessibilityRole="alert" style={styles.error}>
+                    {error}
+                  </Text>
+                ) : null}
 
-                  {error ? (
-                    <Text accessibilityRole="alert" style={styles.error}>
-                      {error}
-                    </Text>
-                  ) : null}
+                <Button
+                  icon={LogIn}
+                  iconColor="#0844A6"
+                  textStyle={styles.loginButtonText}
+                  fullWidth
+                  disabled={submitting}
+                  onPress={submit}
+                  style={styles.submitButton}
+                >
+                  {submitting ? "Đang đăng nhập..." : "Đăng nhập"}
+                </Button>
 
+                {canUseBiometrics ? (
                   <Button
-                    icon={LogIn}
-                    iconColor="#0844A6"
-                    textStyle={styles.loginButtonText}
+                    icon={Fingerprint}
+                    tone="secondary"
                     fullWidth
                     disabled={submitting}
-                    onPress={submit}
-                    style={styles.submitButton}
+                    onPress={submitBiometrics}
+                    style={styles.biometricButton}
                   >
-                    {submitting ? "Đang đăng nhập..." : "Đăng nhập"}
+                    Đăng nhập bằng vân tay / Face ID
                   </Button>
+                ) : null}
 
-                  {canUseBiometrics ? (
-                    <Button
-                      icon={Fingerprint}
-                      tone="secondary"
-                      fullWidth
-                      disabled={submitting}
-                      onPress={submitBiometrics}
-                    >
-                      Đăng nhập bằng vân tay / Face ID
-                    </Button>
-                  ) : null}
-
-                  <Text style={styles.legal}>Bảo mật · Điều khoản · Hỗ trợ</Text>
-                </View>
-              </ScrollView>
+                <Text style={styles.legal}>Bảo mật · Điều khoản · Hỗ trợ</Text>
+              </View>
             </View>
           </KeyboardAvoidingView>
         </View>
@@ -297,11 +288,11 @@ const styles = StyleSheet.create({
   },
   sheetCard: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingTop: spacing.sm,
-    paddingBottom: Platform.OS === "ios" ? spacing.xl : spacing.lg,
-    maxHeight: "85%",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xs,
+    paddingBottom: Platform.OS === "ios" ? 34 : spacing.xl,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.12,
@@ -313,50 +304,36 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   sheetHandle: {
-    width: 44,
-    height: 5,
-    borderRadius: 3,
+    width: 40,
+    height: 4,
+    borderRadius: 2,
     backgroundColor: colors.border,
   },
   sheetHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: spacing.xl,
     paddingTop: spacing.xs,
     paddingBottom: spacing.sm,
   },
-  sheetHeaderTextWrapper: {
-    flex: 1,
-    gap: 2,
-  },
   sheetTitle: {
     color: colors.text,
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "900",
   },
-  sheetSubtitle: {
-    color: colors.muted,
-    fontSize: 13,
-  },
   closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: colors.background,
     alignItems: "center",
     justifyContent: "center",
   },
-  sheetScrollContent: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.md,
-  },
   form: {
-    gap: spacing.md,
+    gap: 10,
   },
   fieldGroup: {
-    gap: spacing.xs,
+    gap: 4,
   },
   label: {
     color: colors.muted,
@@ -392,36 +369,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   eyeButton: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
   },
   error: {
     color: colors.danger,
     fontSize: 12,
-    lineHeight: 18,
+    lineHeight: 16,
   },
   submitButton: {
     backgroundColor: "#6ADBFD",
-    minHeight: 50,
+    minHeight: 48,
     borderRadius: 16,
-    marginTop: spacing.xs,
+    marginTop: 2,
     shadowColor: "#6ADBFD",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 10,
     elevation: 4,
   },
+  biometricButton: {
+    minHeight: 44,
+    borderRadius: 14,
+  },
   loginButtonText: {
     color: "#0844A6",
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "800",
   },
   legal: {
     color: colors.muted,
     fontSize: 11,
     textAlign: "center",
-    marginTop: spacing.xs,
+    marginTop: 4,
   },
 });
