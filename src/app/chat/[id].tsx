@@ -56,6 +56,12 @@ const sameDay = (first: string, second?: string) =>
 const replyMessage = (value?: ChatMessage | string) =>
   value && typeof value !== 'string' ? value : undefined;
 const quickReactions = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+const emojiCategories = [
+  { label: 'Cảm xúc', icon: '😀', emojis: ['😀', '😃', '😄', '😁', '😆', '😂', '🤣', '😊', '🙂', '😉', '😍', '🥰', '😘', '😎', '🥳', '🤩', '😮', '😢', '😭', '😡', '🤔', '🙏', '❤️', '💕'] },
+  { label: 'Cử chỉ', icon: '👋', emojis: ['👋', '🤝', '👏', '👍', '👎', '👌', '✌️', '🤞', '🤟', '💪', '🫶', '🙌', '👐', '👀', '🧠', '💋', '👑', '🧑', '👩', '👨'] },
+  { label: 'Đồ vật', icon: '🎁', emojis: ['🎁', '🎉', '🎊', '🎂', '🏆', '🥇', '💎', '💰', '📌', '📎', '💻', '📱', '📷', '🎤', '🎵', '📚', '✉️', '💡', '⏰', '🚀'] },
+  { label: 'Thiên nhiên', icon: '🌿', emojis: ['🌿', '🌸', '🌹', '🌻', '🍀', '🌳', '☀️', '🌈', '⭐', '🌙', '🔥', '💧', '🐶', '🐱', '🦋', '🍎', '🍓', '☕', '🍰', '🍕'] },
+];
 const previewCache = new Map<string, ChatLinkPreview | null>();
 const searchTypes = [
   { id: 'all', label: 'Tất cả' }, { id: 'text', label: 'Tin nhắn' }, { id: 'link', label: 'Liên kết' }, { id: 'file', label: 'Tệp' }, { id: 'media', label: 'Ảnh/video' },
@@ -85,6 +91,8 @@ export default function ChatRoomScreen() {
   const [shareRooms, setShareRooms] = useState<ChatRoom[]>([]);
   const [shareBusy, setShareBusy] = useState(false);
   const [showEmojis, setShowEmojis] = useState(false);
+  const [emojiCategory, setEmojiCategory] = useState(0);
+  const [previewAttachment, setPreviewAttachment] = useState<ChatAttachment | null>(null);
   const [showAttachmentPicker, setShowAttachmentPicker] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -438,7 +446,7 @@ export default function ChatRoomScreen() {
             {!item.isDeleted && item.content.match(/https?:\/\/[^\s]+/i)?.[0] ? <ChatLinkPreviewCard url={item.content.match(/https?:\/\/[^\s]+/i)![0].replace(/[.,!?)]$/, '')} mine={mine} /> : null}
             {!item.isDeleted ? item.attachments?.map((attachment, attachmentIndex) =>
               attachment.type?.startsWith('image/') ? (
-                <Pressable key={attachment.url + attachmentIndex} onPress={() => void Linking.openURL(attachment.url)}>
+                <Pressable key={attachment.url + attachmentIndex} onPress={() => setPreviewAttachment(attachment)}>
                   <Image source={{ uri: attachment.url }} style={styles.attachmentImage} resizeMode='cover' />
                 </Pressable>
               ) : attachment.type?.startsWith('audio/') ? <ChatAudioAttachment key={attachment.url + attachmentIndex} attachment={attachment} mine={mine} /> : attachment.type?.startsWith('video/') ? <ChatVideoAttachment key={attachment.url + attachmentIndex} attachment={attachment} /> : (
@@ -543,7 +551,7 @@ export default function ChatRoomScreen() {
 
           {recorderState.isRecording ? <View style={styles.recordingBar}><Mic color={colors.danger} size={18} /><Text style={styles.recordingText}>Đang ghi âm {Math.floor(recorderState.durationMillis / 1000)} giây</Text><Pressable accessibilityLabel='Hủy ghi âm' onPress={() => void stopRecording(false)} style={styles.recordingButton}><X color={colors.muted} size={20} /></Pressable><Pressable accessibilityLabel='Dừng và đính kèm ghi âm' onPress={() => void stopRecording(true)} style={styles.recordingButton}><Check color={colors.primaryDark} size={20} /></Pressable></View> : null}
 
-          {showEmojis ? <View style={styles.emojiRow}>{quickReactions.map((emoji) => <Pressable key={emoji} accessibilityLabel={`Chèn ${emoji}`} onPress={() => { setMessage((current) => current + emoji); setShowEmojis(false); }} style={styles.emojiButton}><Text style={styles.emojiText}>{emoji}</Text></Pressable>)}</View> : null}
+          {showEmojis ? <View style={styles.emojiPicker}><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.emojiTabs}>{emojiCategories.map((category, index) => <Pressable key={category.label} accessibilityLabel={category.label} onPress={() => setEmojiCategory(index)} style={[styles.emojiTab, emojiCategory === index && styles.emojiTabSelected]}><Text style={styles.emojiTabText}>{category.icon}</Text><Text style={styles.emojiTabLabel}>{category.label}</Text></Pressable>)}</ScrollView><ScrollView style={styles.emojiGridScroll} contentContainerStyle={styles.emojiGrid}>{emojiCategories[emojiCategory].emojis.map((emoji, index) => <Pressable key={`${emoji}-${index}`} accessibilityLabel={`Chèn ${emoji}`} onPress={() => setMessage((current) => current + emoji)} style={styles.emojiButton}><Text style={styles.emojiText}>{emoji}</Text></Pressable>)}</ScrollView></View> : null}
           {mentionNames.length ? <View style={styles.mentions}>{mentionNames.map((candidate) => <Pressable key={candidate} onPress={() => setMessage((current) => `${current.slice(0, current.lastIndexOf('@'))}@${candidate} `)} style={styles.mention}><Text style={styles.mentionText}>@{candidate}</Text></Pressable>)}</View> : null}
 
           <View style={styles.composerContainer}>
@@ -551,7 +559,7 @@ export default function ChatRoomScreen() {
             {blocked ? <Text style={styles.blockedHint}>Cuộc trò chuyện đang bị chặn. Mở cài đặt để bỏ chặn.</Text> : null}
             <View style={styles.composer}>
               <Pressable accessibilityLabel='Đính kèm ảnh, video hoặc tệp' disabled={blocked || uploading || sending || Boolean(editingMessage)} onPress={() => { Keyboard.dismiss(); setShowAttachmentPicker(true); }} style={styles.composerTool}>{uploading ? <ActivityIndicator color={colors.primaryDark} /> : <Paperclip color={colors.primaryDark} size={20} />}</Pressable>
-              <Pressable accessibilityLabel='Chèn emoji' onPress={() => setShowEmojis((value) => !value)} style={styles.composerTool}><Smile color={colors.primaryDark} size={20} /></Pressable>
+              <Pressable accessibilityLabel='Chèn emoji' disabled={blocked} onPress={() => { Keyboard.dismiss(); setShowEmojis((value) => !value); }} style={styles.composerTool}><Smile color={colors.primaryDark} size={20} /></Pressable>
               <TextInput
                 value={message}
                 editable={!blocked}
@@ -562,6 +570,7 @@ export default function ChatRoomScreen() {
                 maxLength={4000}
                 onFocus={() => {
                   setIsFocused(true);
+                  setShowEmojis(false);
                   setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 120);
                 }}
                 onBlur={() => {
@@ -616,6 +625,7 @@ export default function ChatRoomScreen() {
       <View style={styles.sheetOverlay}><Pressable style={styles.sheetBackdrop} onPress={() => setShowSearch(false)} /><View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}><Text style={styles.sheetTitle}>Tìm trong cuộc trò chuyện</Text><View style={styles.searchRow}><TextInput value={searchQuery} onChangeText={setSearchQuery} placeholder='Từ khóa tin nhắn' style={styles.searchInput} returnKeyType='search' onSubmitEditing={() => void searchMessages()} /><Pressable accessibilityLabel='Tìm' onPress={() => void searchMessages()} style={styles.headerAction}><Search color={colors.primaryDark} size={20} /></Pressable></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.searchTypes}>{searchTypes.map((type) => <Pressable key={type.id} onPress={() => setSearchType(type.id)} style={[styles.searchType, searchType === type.id && styles.searchTypeSelected]}><Text style={[styles.searchTypeText, searchType === type.id && styles.searchTypeTextSelected]}>{type.label}</Text></Pressable>)}</ScrollView>{searching ? <LoadingState /> : <ScrollView style={styles.sheetScroll}>{searchResults.map((item) => <Pressable key={item._id} onPress={() => void jumpToMessage(item)} style={styles.searchResult}><Text style={styles.searchResultTitle}>{item.senderName} · {formatDay(item.createdAt)}</Text><Text numberOfLines={3} style={styles.sheetHint}>{item.content || item.attachments?.[0]?.name || 'Tệp đính kèm'}</Text></Pressable>)}</ScrollView>}</View></View>
     </Modal>
     {showSettings && room ? <ChatRoomSettingsModal room={room} currentUserId={user?.uid} onClose={() => setShowSettings(false)} onUpdated={setRoom} onExit={() => { setShowSettings(false); router.replace('/(tabs)/chat'); }} /> : null}
+    <Modal visible={Boolean(previewAttachment)} transparent animationType='fade' onRequestClose={() => setPreviewAttachment(null)}><View style={styles.imagePreview}><Pressable accessibilityLabel='Đóng ảnh' onPress={() => setPreviewAttachment(null)} style={styles.imagePreviewClose}><X color='#FFFFFF' size={26} /></Pressable>{previewAttachment ? <Image source={{ uri: previewAttachment.url }} style={styles.imagePreviewContent} resizeMode='contain' /> : null}</View></Modal>
     </>
   );
 }
@@ -669,8 +679,19 @@ const styles = StyleSheet.create({
   attachmentChip: { flexDirection: 'row', alignItems: 'center', gap: 5, maxWidth: '100%', paddingHorizontal: 8, paddingVertical: 6, borderRadius: radius.md, backgroundColor: colors.primarySoft },
   attachmentName: { flexShrink: 1, color: colors.primaryDark, fontSize: 11 },
   emojiRow: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 6, backgroundColor: colors.surface },
+  emojiPicker: { height: 210, backgroundColor: colors.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  emojiTabs: { gap: 4, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+  emojiTab: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: spacing.sm, borderRadius: radius.pill },
+  emojiTabSelected: { backgroundColor: colors.primarySoft },
+  emojiTabText: { fontSize: 18 },
+  emojiTabLabel: { color: colors.text, fontSize: 11 },
+  emojiGridScroll: { flex: 1 },
+  emojiGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-around', paddingHorizontal: spacing.sm },
   emojiButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   emojiText: { fontSize: 24 },
+  imagePreview: { flex: 1, justifyContent: 'center', backgroundColor: '#050B12' },
+  imagePreviewClose: { position: 'absolute', zIndex: 1, top: 48, right: 12, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  imagePreviewContent: { width: '100%', height: '80%' },
   mentions: { maxHeight: 190, paddingHorizontal: spacing.md, backgroundColor: colors.surface },
   mention: { minHeight: 36, justifyContent: 'center' },
   mentionText: { color: colors.primaryDark, fontSize: 12, fontWeight: '700' },
