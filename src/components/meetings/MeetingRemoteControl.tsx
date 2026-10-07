@@ -4,7 +4,7 @@ import { io } from "socket.io-client";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-  CalendarCheck, ChevronRight, CircleStop, Clock3, Gift, ListOrdered, MessageCircle,
+  CalendarCheck, CircleStop, Clock3, Gift, ListOrdered, MessageCircle,
   Monitor, Pause, Play, Presentation, QrCode, RefreshCw, RotateCcw, SkipBack,
   SkipForward, Sparkles, Settings2, Trophy, Users, X, type LucideIcon,
 } from "lucide-react-native";
@@ -159,7 +159,7 @@ export function MeetingRemoteControl({ id }: { id: string }) {
           </Pressable>
           {syncError ? <Text style={styles.syncError}>{syncError} · Chạm nút làm mới để thử lại.</Text> : null}
         </View>
-        <ScrollView style={styles.controls} contentContainerStyle={[styles.controlsContent, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]} showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.controls} contentContainerStyle={styles.controlsContent} showsVerticalScrollIndicator={false}>
           <Text style={styles.inlineLabel}>Chuyển màn hình</Text>
           <View style={styles.modes}>{views.map(({ value, label, icon: Icon }) => <Pressable key={value} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: view === value, disabled }} disabled={disabled || view === value} onPress={() => setView(value)} style={[styles.mode, view === value && styles.modeActive, disabled && styles.disabled]}><Icon color={view === value ? colors.text : brandBlue} size={21} /></Pressable>)}</View>
 
@@ -220,8 +220,12 @@ export function MeetingRemoteControl({ id }: { id: string }) {
             </View>
           </Card> : null}
 
-          {(meeting.status === "live" || meeting.status === "paused") ? <ToolRow icon={CircleStop} label="Kết thúc cuộc họp" danger showChevron={false} disabled={disabled} onPress={confirmFinish} /> : null}
         </ScrollView>
+        {(meeting.status === "live" || meeting.status === "paused") ? <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Kết thúc cuộc họp" accessibilityState={{ disabled }} disabled={disabled} onPress={confirmFinish} style={[styles.finishButton, disabled && styles.disabled]}>
+            <CircleStop color={colors.danger} size={18} /><Text style={styles.finishText}>Kết thúc cuộc họp</Text>
+          </Pressable>
+        </View> : null}
       </>
     <Modal visible={settingsOpen} transparent animationType="slide" statusBarTranslucent onRequestClose={() => setSettingsOpen(false)}>
       <View style={styles.sheetOverlay}>
@@ -266,10 +270,6 @@ function CompactAction({ icon: Icon, label, accessibilityLabel, onPress, disable
 function SpeakerAction({ icon: Icon, accessibilityLabel, onPress, disabled, primary = false }: { icon: LucideIcon; accessibilityLabel: string; onPress: () => void; disabled?: boolean; primary?: boolean }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.speakerAction, primary && styles.compactPrimary, disabled && styles.disabled, pressed && styles.compactPressed]}><Icon color={primary ? colors.text : brandBlue} size={19} /></Pressable>;
 }
-function ToolRow({ icon: Icon, label, onPress, disabled, danger = false, showChevron = true }: { icon: LucideIcon; label: string; onPress: () => void; disabled?: boolean; danger?: boolean; showChevron?: boolean }) {
-  return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={[styles.toolRow, disabled && styles.disabled]}><Icon color={danger ? colors.danger : colors.primaryDark} size={19} /><Text style={[styles.toolText, danger && styles.dangerText]}>{label}</Text>{showChevron ? <ChevronRight color={danger ? colors.danger : colors.muted} size={17} /> : null}</Pressable>;
-}
-
 const styles = StyleSheet.create({
   screen: { paddingHorizontal: 0, paddingVertical: 0, paddingBottom: 0, gap: 0 },
   header: { paddingHorizontal: spacing.sm },
@@ -291,7 +291,10 @@ const styles = StyleSheet.create({
   qrBox: { width: 84, height: 84, alignItems: "center", justifyContent: "center", borderRadius: radius.sm, backgroundColor: colors.primarySoft },
   grow: { flex: 1 },
   controls: { flex: 1 },
-  controlsContent: { width: "100%", maxWidth: 640, alignSelf: "center", gap: spacing.xs, paddingHorizontal: spacing.sm },
+  controlsContent: { width: "100%", maxWidth: 640, alignSelf: "center", gap: spacing.xs, paddingHorizontal: spacing.sm, paddingBottom: spacing.md },
+  footer: { alignItems: "center", borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, backgroundColor: colors.surface, paddingTop: spacing.sm, paddingHorizontal: spacing.sm },
+  finishButton: { minHeight: touchTarget, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, borderWidth: 1, borderColor: colors.danger, borderRadius: radius.pill, paddingHorizontal: spacing.lg },
+  finishText: { color: colors.danger, fontSize: 13, fontWeight: "600" },
   inlineLabel: { color: colors.muted, fontSize: 12, paddingHorizontal: spacing.xs },
   modes: { flexDirection: "row", gap: spacing.xs },
   mode: { flex: 1, minHeight: touchTarget, minWidth: touchTarget, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface },
@@ -336,9 +339,6 @@ const styles = StyleSheet.create({
   prize: { width: "49%", minHeight: touchTarget, justifyContent: "center", borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.sm },
   prizeActive: { borderColor: brandBlue, backgroundColor: brandSoft },
   prizeName: { color: colors.text, fontSize: 12, fontWeight: "500" },
-  toolRow: { minHeight: touchTarget, flexDirection: "row", alignItems: "center", gap: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  toolText: { flex: 1, color: colors.text, fontSize: 13, fontWeight: "500" },
-  dangerText: { color: colors.danger },
   sheetOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.overlay },
   sheetBackdrop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
   sheetContent: { gap: spacing.md, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, backgroundColor: colors.surface, paddingHorizontal: spacing.lg, paddingTop: spacing.md },
