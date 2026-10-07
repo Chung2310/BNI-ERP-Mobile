@@ -75,7 +75,8 @@ export default function ChatScreen() {
       <Screen>
         <BackHeader
           title='Trò chuyện'
-          subtitle={unreadTotal ? `${unreadTotal} tin chưa đọc` : 'Tất cả tin nhắn đã đọc'}
+          compact
+          subtitle={unreadTotal ? `${unreadTotal} tin chưa đọc` : 'Trò chuyện nội bộ'}
           onBack={() => router.navigate('/(tabs)')}
           action={
             <Pressable
@@ -85,7 +86,7 @@ export default function ChatScreen() {
               onPress={() => setShowNewChat(true)}
               style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
             >
-              <Plus color='#FFFFFF' size={20} strokeWidth={2.5} />
+              <Plus color='#FFFFFF' size={18} strokeWidth={2.5} />
             </Pressable>
           }
         />
@@ -173,8 +174,8 @@ export default function ChatScreen() {
 
 const styles = StyleSheet.create({
   addButton: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.pill,
