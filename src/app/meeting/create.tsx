@@ -18,7 +18,7 @@ import { BackHeader } from "@/components/BackHeader";
 import { DateTimeField } from "@/components/DateTimeField";
 import { Button, Card, Screen } from "@/components/ui";
 import { meetingService, type MeetingPoint, type MeetingRecurrence, type SpeakingTimeSlot } from "@/services/meeting";
-import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
+import { colors, radius, spacing } from "@/theme/tokens";
 import { defaultSpeakingTimeSlots, parseVietnamDateTime, recurringMeetingDates, twoHoursAfter, validateSpeakingTimeSlots } from "@/utils/meetingForm";
 
 type CreateMode = "single" | "recurring";
@@ -169,7 +169,7 @@ export default function CreateMeetingScreen() {
 
   return (
     <Screen>
-      <BackHeader title="Tạo cuộc họp" subtitle="Thiết lập đầy đủ như hệ thống web" />
+      <BackHeader title="Tạo cuộc họp" subtitle="Thiết lập đầy đủ như hệ thống web" compact />
       <View accessibilityRole="tablist" style={styles.modeRow}>
         <ModeButton active={mode === "single"} icon={CalendarPlus} label="Tạo đơn" onPress={() => setMode("single")} />
         <ModeButton active={mode === "recurring"} icon={CalendarRange} label="Tạo hàng loạt" onPress={() => setMode("recurring")} />
@@ -196,7 +196,7 @@ export default function CreateMeetingScreen() {
 
       <FormSection title="Địa điểm và check-in">
         <Field label="Địa điểm / Link họp" value={location} onChangeText={setLocation} placeholder="Khách sạn New World / Zoom" maxLength={500} />
-        <Button icon={MapPin} tone="secondary" fullWidth disabled={locating} onPress={locate}>{locating ? "Đang lấy vị trí…" : "Lấy vị trí hiện tại"}</Button>
+        <Button icon={MapPin} tone="secondary" fullWidth disabled={locating} onPress={locate} style={styles.actionBtn}>{locating ? "Đang lấy vị trí…" : "Lấy vị trí hiện tại"}</Button>
         <View style={styles.twoColumns}>
           <View style={styles.column}><Field label="Vĩ độ" value={latitude} onChangeText={setLatitude} placeholder="10.776" keyboardType="decimal-pad" /></View>
           <View style={styles.column}><Field label="Kinh độ" value={longitude} onChangeText={setLongitude} placeholder="106.700" keyboardType="decimal-pad" /></View>
@@ -206,7 +206,7 @@ export default function CreateMeetingScreen() {
 
       <FormSection title="Ảnh bìa sự kiện">
         {coverImage ? <Image accessibilityLabel="Ảnh bìa cuộc họp" source={{ uri: coverImage }} style={styles.cover} /> : <View style={styles.coverPlaceholder}><ImagePlus color={colors.primary} size={34} /><Text style={styles.help}>PNG, JPG, WEBP hoặc GIF · tối đa 10MB</Text></View>}
-        <Button icon={Upload} tone="secondary" fullWidth disabled={uploading} onPress={pickCover}>{uploading ? "Đang tải ảnh…" : coverImage ? "Đổi ảnh bìa" : "Chọn ảnh từ máy"}</Button>
+        <Button icon={Upload} tone="secondary" fullWidth disabled={uploading} onPress={pickCover} style={styles.actionBtn}>{uploading ? "Đang tải ảnh…" : coverImage ? "Đổi ảnh bìa" : "Chọn ảnh từ máy"}</Button>
       </FormSection>
 
       <FormSection title="Nhắc hẹn">
@@ -228,12 +228,12 @@ export default function CreateMeetingScreen() {
             <Field label="Số giây phát biểu *" value={Number.isFinite(slot.seconds) ? String(slot.seconds) : ""} onChangeText={(value) => updateSlot(index, { seconds: Number(value) })} placeholder="30" keyboardType="number-pad" />
           </View>
         ))}
-        <Button icon={Plus} tone="secondary" fullWidth disabled={tiers.length >= 20} onPress={() => setTiers((current) => [...current, { startTime: current.at(-1)?.endTime || "", endTime: "", seconds: Number(fallbackSeconds) || 20 }])}>Thêm khung giờ</Button>
+        <Button icon={Plus} tone="secondary" fullWidth disabled={tiers.length >= 20} onPress={() => setTiers((current) => [...current, { startTime: current.at(-1)?.endTime || "", endTime: "", seconds: Number(fallbackSeconds) || 20 }])} style={styles.actionBtn}>Thêm khung giờ</Button>
         <Field label="Ngoài khung giờ (giây) *" value={fallbackSeconds} onChangeText={setFallbackSeconds} placeholder="20" keyboardType="number-pad" help="Dùng khi giờ check-in không nằm trong các khung đã cấu hình." />
       </FormSection>
 
       {error ? <Card style={styles.errorCard}><Text accessibilityRole="alert" style={styles.error}>{error}</Text></Card> : null}
-      <Button icon={mode === "single" ? CalendarPlus : CalendarRange} fullWidth disabled={saving || uploading} onPress={save}>
+      <Button icon={mode === "single" ? CalendarPlus : CalendarRange} fullWidth disabled={saving || uploading} onPress={save} style={styles.submitBtn}>
         {saving ? "Đang tạo…" : mode === "single" ? "Tạo cuộc họp" : preview.length ? `Tạo ${preview.length} buổi họp` : "Tạo lịch định kỳ"}
       </Button>
       {saving ? <ActivityIndicator color={colors.primary} /> : null}
@@ -250,7 +250,7 @@ function Field({ label, help, ...props }: TextInputProps & { label: string; help
 }
 
 function ModeButton({ active, icon: Icon, label, onPress }: { active: boolean; icon: LucideIcon; label: string; onPress: () => void }) {
-  return <Pressable accessibilityRole="tab" accessibilityState={{ selected: active }} onPress={onPress} style={({ pressed }) => [styles.modeButton, active && styles.modeButtonActive, pressed && styles.pressed]}><Icon color={active ? "#FFFFFF" : colors.primaryDark} size={20} /><Text style={[styles.modeText, active && styles.modeTextActive]}>{label}</Text></Pressable>;
+  return <Pressable accessibilityRole="tab" accessibilityState={{ selected: active }} onPress={onPress} style={({ pressed }) => [styles.modeButton, active && styles.modeButtonActive, pressed && styles.pressed]}><Icon color={active ? "#FFFFFF" : colors.primaryDark} size={17} strokeWidth={2.4} /><Text style={[styles.modeText, active && styles.modeTextActive]}>{label}</Text></Pressable>;
 }
 
 function Chip({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) {
@@ -259,16 +259,16 @@ function Chip({ active, label, onPress }: { active: boolean; label: string; onPr
 
 const styles = StyleSheet.create({
   modeRow: { flexDirection: "row", gap: spacing.sm },
-  modeButton: { flex: 1, minHeight: touchTarget, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, borderWidth: 1, borderColor: colors.primary, borderRadius: radius.md, backgroundColor: colors.surface, paddingHorizontal: spacing.md },
+  modeButton: { flex: 1, height: 40, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.xs, borderWidth: 1, borderColor: colors.primary, borderRadius: radius.pill, backgroundColor: colors.surface, paddingHorizontal: spacing.md },
   modeButtonActive: { backgroundColor: colors.primary },
-  modeText: { color: colors.primaryDark, fontSize: 14, fontWeight: "800" },
+  modeText: { color: colors.primaryDark, fontSize: 13.5, fontWeight: "800" },
   modeTextActive: { color: "#FFFFFF" },
-  section: { gap: spacing.md },
+  section: { gap: spacing.sm },
   sectionPrimary: { borderColor: "#B9E7EE", backgroundColor: colors.primarySoft },
-  sectionTitle: { color: colors.text, fontSize: 16, fontWeight: "900" },
+  sectionTitle: { color: colors.text, fontSize: 15, fontWeight: "800", marginBottom: 2 },
   field: { gap: spacing.xs },
   label: { color: colors.muted, fontSize: 10, fontWeight: "800" },
-  input: { minHeight: touchTarget, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background, color: colors.text, paddingHorizontal: spacing.md, fontSize: 14 },
+  input: { height: 42, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background, color: colors.text, paddingHorizontal: spacing.md, fontSize: 13.5 },
   help: { color: colors.muted, fontSize: 12, lineHeight: 17 },
   preview: { borderRadius: radius.md, backgroundColor: colors.surface, color: colors.primaryDark, padding: spacing.md, fontSize: 13, fontWeight: "700" },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
@@ -278,12 +278,14 @@ const styles = StyleSheet.create({
   chipTextActive: { color: "#FFFFFF" },
   twoColumns: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
   column: { flex: 1 },
-  cover: { width: "100%", height: 170, borderRadius: radius.md, backgroundColor: colors.background },
-  coverPlaceholder: { height: 130, alignItems: "center", justifyContent: "center", gap: spacing.sm, borderWidth: 1, borderStyle: "dashed", borderColor: colors.primary, borderRadius: radius.md, backgroundColor: colors.primarySoft },
+  cover: { width: "100%", height: 140, borderRadius: radius.md, backgroundColor: colors.background },
+  coverPlaceholder: { height: 100, alignItems: "center", justifyContent: "center", gap: spacing.xs, borderWidth: 1, borderStyle: "dashed", borderColor: colors.primary, borderRadius: radius.md, backgroundColor: colors.primarySoft },
   slot: { gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background, padding: spacing.md },
   slotHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   slotTitle: { color: colors.text, fontSize: 13, fontWeight: "800" },
-  iconButton: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center", borderRadius: radius.md },
+  iconButton: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: radius.pill },
+  actionBtn: { minHeight: 40, height: 40, borderRadius: radius.pill },
+  submitBtn: { minHeight: 44, height: 44, borderRadius: radius.pill, marginTop: spacing.xs },
   errorCard: { borderColor: "#F4BCC5", backgroundColor: "#FFF4F6", padding: spacing.md },
   error: { color: colors.danger, fontSize: 13, lineHeight: 19, fontWeight: "600" },
   disabled: { opacity: 0.4 },

@@ -1,9 +1,11 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { router, useFocusEffect } from "expo-router";
-import { Check, ChevronDown, ChevronLeft, Plus, Search, X } from "lucide-react-native";
+import { Check, ChevronDown, Search, X } from "lucide-react-native";
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { AppHeader, EmptyState, ErrorState, LoadingState, Screen, SectionTitle } from "@/components/ui";
+import { BackHeader } from "@/components/BackHeader";
+import { HeaderAddButton } from "@/components/HeaderAddButton";
+import { EmptyState, ErrorState, LoadingState, Screen, SectionTitle } from "@/components/ui";
 import { MeetingCard } from "@/components/MeetingCard";
 import { MonthCalendar } from "@/components/MonthCalendar";
 import { useAuth } from "@/context/AuthContext";
@@ -127,31 +129,18 @@ export default function MeetingsScreen() {
 
   return (
     <Screen>
-      <View style={styles.header}>
-        <AppHeader
-          title="Cuộc họp"
-          avatar={(
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Về Trang chủ"
-              onPress={() => router.navigate("/(tabs)")}
-              style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
-            >
-              <ChevronLeft color={colors.primaryDark} size={22} strokeWidth={2.4} />
-            </Pressable>
-          )}
-          action={canCreateMeeting ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Tạo cuộc họp"
-              onPress={() => router.push("/meeting/create")}
-              style={({ pressed }) => [styles.createButton, pressed && styles.pressed]}
-            >
-              <Plus color="#FFFFFF" size={24} strokeWidth={2.5} />
-            </Pressable>
-          ) : undefined}
-        />
-      </View>
+      <BackHeader
+        title="Cuộc họp"
+        compact
+        subtitle="Theo dõi các cuộc họp"
+        onBack={() => router.navigate("/(tabs)")}
+        action={canCreateMeeting ? (
+          <HeaderAddButton
+            accessibilityLabel="Tạo cuộc họp"
+            onPress={() => router.push("/meeting/create")}
+          />
+        ) : undefined}
+      />
       <MonthCalendar
         date={month}
         eventDates={calendarEventDates}
@@ -243,16 +232,6 @@ export default function MeetingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: { paddingLeft: spacing.sm, paddingRight: spacing.sm },
-  backButton: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center" },
-  createButton: {
-    width: touchTarget,
-    height: touchTarget,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.pill,
-    backgroundColor: colors.primary,
-  },
   toolbar: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   searchBox: { flex: 1, height: 38, flexDirection: "row", alignItems: "center", gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, backgroundColor: colors.surface, paddingHorizontal: spacing.md },
   searchInput: { flex: 1, minWidth: 0, color: colors.text, fontSize: 12, paddingVertical: 0 },
@@ -261,7 +240,7 @@ const styles = StyleSheet.create({
   list: { backgroundColor: colors.surface, paddingHorizontal: spacing.sm },
   dateHeading: { color: colors.muted, fontSize: 12, fontWeight: "400", textTransform: "capitalize", paddingHorizontal: spacing.sm, paddingTop: spacing.sm },
   loadMore: { minHeight: touchTarget, alignItems: "center", justifyContent: "center", alignSelf: "center", marginTop: spacing.xs, paddingHorizontal: spacing.sm },
-  loadMoreText: { color: colors.primaryDark, fontSize: 13, fontWeight: "700" },
+  loadMoreText: { color: colors.primaryDark, fontSize: 12, fontWeight: "700" },
   pressed: { opacity: 0.75 },
   sheetOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.overlay },
   sheetBackdrop: { ...StyleSheet.absoluteFill },

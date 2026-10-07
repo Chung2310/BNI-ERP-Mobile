@@ -1,5 +1,5 @@
 import { apiRequest } from "@/services/api";
-import type { UserProfile } from "@/types";
+import type { UserProfile, UserRole } from "@/types";
 
 type ApiUser = Omit<UserProfile, "uid"> & { _id?: string; uid?: string; isActive?: boolean };
 const normalize = (user: ApiUser): UserProfile & { isActive?: boolean } => ({ ...user, uid: user.uid || user._id || "" });
@@ -50,5 +50,29 @@ export const userService = {
     const user = users.find((item: UserProfile) => item.uid === id);
     if (!user) throw new Error("Không tìm thấy thành viên trong đơn vị của bạn.");
     return user;
+  },
+  create: async (data: {
+    displayName: string;
+    email?: string;
+    password?: string;
+    role?: UserRole;
+    phone?: string;
+    companyName?: string;
+    company?: string;
+    industry?: string;
+    photoURL?: string;
+    coverUrl?: string;
+    coverImage?: string;
+    galleryImages?: string[];
+    gender?: "male" | "female" | "other" | "";
+    targetMarket?: string;
+    address?: string;
+    birthDate?: string;
+  }): Promise<UserProfile> => {
+    const res = await apiRequest<any>("/api/v1/crud/users", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return normalize(res?.data || res);
   },
 };

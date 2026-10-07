@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { Check, Search, X } from 'lucide-react-native';
 import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Avatar, Button } from '@/components/ui';
+import { Avatar } from '@/components/ui';
 import { chatService, type ChatRoom } from '@/services/chat';
 import { userService } from '@/services/users';
-import { colors, radius, spacing, touchTarget } from '@/theme/tokens';
+import { colors, radius, spacing } from '@/theme/tokens';
 import type { UserProfile } from '@/types';
 
 type Props = {
@@ -69,17 +69,14 @@ export function NewChatModal({ currentUserId, onClose, onCreated }: Props) {
     <Modal visible animationType='slide' onRequestClose={onClose}>
       <SafeAreaView style={styles.safe}>
         <View style={styles.header}>
-          <View style={styles.headerCopy}>
-            <Text style={styles.title}>Cuộc trò chuyện mới</Text>
-            <Text style={styles.subtitle}>Chọn một người để nhắn riêng hoặc nhiều người để tạo nhóm.</Text>
-          </View>
-          <Pressable accessibilityLabel='Đóng' onPress={onClose} style={styles.close}>
-            <X color={colors.text} size={22} />
+          <Text style={styles.title}>Cuộc trò chuyện mới</Text>
+          <Pressable accessibilityLabel='Đóng' onPress={onClose} hitSlop={8} style={styles.close}>
+            <X color={colors.text} size={20} strokeWidth={2.4} />
           </Pressable>
         </View>
 
         <View style={styles.search}>
-          <Search color={colors.muted} size={19} />
+          <Search color={colors.muted} size={18} strokeWidth={2.2} />
           <TextInput
             value={query}
             onChangeText={setQuery}
@@ -87,6 +84,11 @@ export function NewChatModal({ currentUserId, onClose, onCreated }: Props) {
             placeholderTextColor={colors.muted}
             style={styles.searchInput}
           />
+          {query.length > 0 ? (
+            <Pressable onPress={() => setQuery('')} hitSlop={8} style={styles.clearBtn}>
+              <X size={16} color={colors.muted} strokeWidth={2.2} />
+            </Pressable>
+          ) : null}
         </View>
 
         {selectedIds.length > 1 ? (
@@ -134,10 +136,40 @@ export function NewChatModal({ currentUserId, onClose, onCreated }: Props) {
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <View style={styles.footer}>
-          <Button tone='secondary' onPress={onClose}>Hủy</Button>
-          <Button disabled={!selectedIds.length || creating} onPress={create}>
-            {creating ? 'Đang tạo...' : selectedIds.length > 1 ? 'Tạo nhóm (' + selectedIds.length + ')' : 'Bắt đầu trò chuyện'}
-          </Button>
+          <Pressable
+            accessibilityRole='button'
+            accessibilityLabel='Hủy'
+            hitSlop={8}
+            onPress={onClose}
+            style={({ pressed }) => [styles.cancelBtn, pressed && styles.pressed]}
+          >
+            <X color={colors.text} size={20} strokeWidth={2.4} />
+          </Pressable>
+          <Pressable
+            accessibilityRole='button'
+            accessibilityLabel={
+              creating
+                ? 'Đang tạo...'
+                : selectedIds.length > 1
+                ? `Tạo nhóm (${selectedIds.length})`
+                : 'Bắt đầu trò chuyện'
+            }
+            disabled={!selectedIds.length || creating}
+            onPress={create}
+            style={({ pressed }) => [
+              styles.submitBtn,
+              (!selectedIds.length || creating) && styles.submitBtnDisabled,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={styles.submitBtnText}>
+              {creating
+                ? 'Đang tạo...'
+                : selectedIds.length > 1
+                ? `Tạo nhóm (${selectedIds.length})`
+                : 'Bắt đầu trò chuyện'}
+            </Text>
+          </Pressable>
         </View>
       </SafeAreaView>
     </Modal>
@@ -145,25 +177,155 @@ export function NewChatModal({ currentUserId, onClose, onCreated }: Props) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background, padding: spacing.lg, gap: spacing.md },
-  header: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
-  headerCopy: { flex: 1 },
-  title: { color: colors.text, fontSize: 21, fontWeight: '900' },
-  subtitle: { marginTop: spacing.xs, color: colors.muted, fontSize: 12, lineHeight: 18 },
-  close: { width: touchTarget, height: touchTarget, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill, backgroundColor: colors.surface },
-  search: { minHeight: touchTarget, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface },
-  searchInput: { flex: 1, color: colors.text, fontSize: 14 },
-  groupInput: { minHeight: touchTarget, paddingHorizontal: spacing.md, color: colors.text, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface },
-  list: { paddingBottom: spacing.md },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  member: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  memberCopy: { flex: 1 },
-  memberName: { color: colors.text, fontSize: 14, fontWeight: '800' },
-  memberMeta: { marginTop: 3, color: colors.muted, fontSize: 12 },
-  checkbox: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center', borderRadius: 12, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface },
-  checkboxSelected: { borderColor: colors.primary, backgroundColor: colors.primary },
-  pressed: { opacity: 0.7 },
-  empty: { paddingVertical: spacing.xxl, color: colors.muted, textAlign: 'center' },
-  error: { color: colors.danger, fontSize: 12, lineHeight: 17 },
-  footer: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.sm },
+  safe: {
+    flex: 1,
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+    gap: spacing.md,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 40,
+  },
+  title: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  close: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  search: {
+    height: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+  },
+  searchInput: {
+    flex: 1,
+    height: '100%',
+    color: colors.text,
+    fontSize: 14,
+    paddingVertical: 0,
+  },
+  clearBtn: {
+    padding: spacing.xs,
+  },
+  groupInput: {
+    height: 42,
+    paddingHorizontal: spacing.md,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    fontSize: 14,
+  },
+  list: {
+    paddingBottom: spacing.md,
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  member: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#EEF2F6',
+    paddingVertical: spacing.xs,
+  },
+  memberCopy: {
+    flex: 1,
+  },
+  memberName: {
+    color: colors.text,
+    fontSize: 14.5,
+    fontWeight: '800',
+  },
+  memberMeta: {
+    marginTop: 3,
+    color: colors.muted,
+    fontSize: 12,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  checkboxSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
+  },
+  pressed: {
+    opacity: 0.7,
+  },
+  empty: {
+    paddingVertical: spacing.xxl,
+    color: colors.muted,
+    textAlign: 'center',
+  },
+  error: {
+    color: colors.danger,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
+  },
+  cancelBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  submitBtn: {
+    flex: 1,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+  },
+  submitBtnDisabled: {
+    opacity: 0.45,
+  },
+  submitBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14.5,
+    fontWeight: '700',
+  },
 });

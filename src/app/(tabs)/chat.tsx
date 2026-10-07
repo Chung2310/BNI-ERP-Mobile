@@ -1,9 +1,11 @@
 import { useCallback, useMemo, useState } from 'react';
 import { router, useFocusEffect } from 'expo-router';
-import { MessageCircleMore, Plus, Search, Users } from 'lucide-react-native';
+import { MessageCircleMore, Search, Users } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { NewChatModal } from '@/components/NewChatModal';
-import { AppHeader, Avatar, Card, EmptyState, ErrorState, LoadingState, Screen } from '@/components/ui';
+import { BackHeader } from '@/components/BackHeader';
+import { HeaderAddButton } from '@/components/HeaderAddButton';
+import { Avatar, Card, EmptyState, ErrorState, LoadingState, Screen } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
 import { useAsyncData } from '@/hooks/useAsyncData';
 import { chatService, type ChatRoom } from '@/services/chat';
@@ -72,13 +74,16 @@ export default function ChatScreen() {
   return (
     <>
       <Screen>
-        <AppHeader
+        <BackHeader
           title='Trò chuyện'
-          subtitle={unreadTotal ? unreadTotal + ' tin chưa đọc' : 'Tất cả tin nhắn đã đọc'}
+          compact
+          subtitle={unreadTotal ? `${unreadTotal} tin chưa đọc` : 'Trò chuyện nội bộ'}
+          onBack={() => router.navigate('/(tabs)')}
           action={
-            <Pressable accessibilityLabel='Tạo cuộc trò chuyện mới' onPress={() => setShowNewChat(true)} style={styles.addButton}>
-              <Plus color='#FFFFFF' size={22} strokeWidth={2.7} />
-            </Pressable>
+            <HeaderAddButton
+              accessibilityLabel='Tạo cuộc trò chuyện mới'
+              onPress={() => setShowNewChat(true)}
+            />
           }
         />
 
@@ -164,7 +169,6 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  addButton: { width: touchTarget, height: touchTarget, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, backgroundColor: colors.primary },
   search: { minHeight: touchTarget, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface, paddingHorizontal: spacing.md },
   searchInput: { flex: 1, color: colors.text, fontSize: 14 },
   list: { paddingVertical: 0, paddingHorizontal: spacing.md },

@@ -141,7 +141,7 @@ function EditForm({ meeting }: { meeting: Meeting }) {
 
   return (
     <Screen>
-      <BackHeader title="Chỉnh sửa cuộc họp" subtitle={meeting.status === "scheduled" ? "Có thể thay đổi toàn bộ thông tin" : "Không thể đổi giờ bắt đầu khi cuộc họp đã mở"} />
+      <BackHeader title="Chỉnh sửa cuộc họp" subtitle={meeting.status === "scheduled" ? "Có thể thay đổi toàn bộ thông tin" : "Không thể đổi giờ bắt đầu khi cuộc họp đã mở"} compact />
       <FormSection title="Thông tin chung">
         <Field label="Tên cuộc họp *" value={title} onChangeText={setTitle} placeholder="Tên cuộc họp" maxLength={200} />
         {meeting.status === "scheduled" ? <DateTimeField label="Thời gian bắt đầu *" mode="datetime" value={startsAt} onChange={setStartsAt} /> : <View><Text style={styles.label}>THỜI GIAN BẮT ĐẦU</Text><Text style={styles.readonly}>{new Date(meeting.startsAt).toLocaleString("vi-VN")}</Text></View>}

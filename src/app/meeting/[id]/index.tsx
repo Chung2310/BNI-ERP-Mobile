@@ -77,7 +77,7 @@ export default function MeetingDetailScreen() {
   };
 
   return (
-    <Screen>
+    <Screen style={styles.detailScreen}>
       <BackHeader title="Chi tiết cuộc họp" compact />
       <Card style={styles.summary}>
         <View style={styles.summaryRow}>
@@ -146,7 +146,7 @@ export default function MeetingDetailScreen() {
                 <View style={styles.grow}>
                   <Text style={styles.speakerName}>{speaker.name}</Text>
                   <Text style={styles.speakerMeta}>{speaker.userId ? "Thành viên" : "Khách mời"} · {speaker.seconds} giây · {dateTime(speaker.checkedInAt)}</Text>
-                  {isCurrent ? <Text style={styles.liveText}>ĐANG PHÁT BIỂU</Text> : speaker.deferred ? <Text style={styles.deferredText}>ĐÃ CHUYỂN CUỐI LƯỢT</Text> : (speaker.spokenSeconds || 0) > 0 ? <Text style={styles.doneText}>Đã phát biểu {speaker.spokenSeconds} giây</Text> : null}
+                  {isCurrent ? <Text style={styles.liveText}>ĐANG PHÁT BIỂU</Text> : speaker.deferred ? <Text style={styles.deferredText}>ĐÃ CHUYỂN CUỐI LƯỢT</Text> : (speaker.spokenSeconds || 0) > 0 ? <Text style={styles.doneText}>Đã phát biểu {Math.round(speaker.spokenSeconds ?? 0)} giây</Text> : null}
                 </View>
               </View>
             );
@@ -166,9 +166,10 @@ function InfoRow({ icon: Icon, label, value }: { icon: typeof Clock3; label: str
 }
 
 const styles = StyleSheet.create({
-  summary: { gap: spacing.sm, padding: spacing.md },
+  detailScreen: { gap: spacing.xs },
+  summary: { gap: spacing.sm, padding: spacing.md, paddingTop: spacing.sm },
   summaryRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  title: { marginTop: spacing.sm, color: colors.text, fontSize: 19, lineHeight: 24, fontWeight: "900" },
+  title: { marginTop: spacing.xs, color: colors.text, fontSize: 19, lineHeight: 24, fontWeight: "900" },
   cover: { width: 70, height: 70, borderRadius: radius.md, backgroundColor: colors.background },
   summaryMeta: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   summaryMetaText: { flex: 1, color: colors.muted, fontSize: 12, lineHeight: 17 },
