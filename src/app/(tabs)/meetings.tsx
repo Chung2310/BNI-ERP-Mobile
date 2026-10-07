@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { router, useFocusEffect } from "expo-router";
-import { Check, ChevronDown, ChevronLeft, Plus, Search, X } from "lucide-react-native";
+import { Check, ChevronDown, Plus, Search, X } from "lucide-react-native";
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { AppHeader, EmptyState, ErrorState, LoadingState, Screen, SectionTitle } from "@/components/ui";
+import { BackHeader } from "@/components/BackHeader";
+import { EmptyState, ErrorState, LoadingState, Screen, SectionTitle } from "@/components/ui";
 import { MeetingCard } from "@/components/MeetingCard";
 import { MonthCalendar } from "@/components/MonthCalendar";
 import { useAuth } from "@/context/AuthContext";
@@ -127,31 +128,20 @@ export default function MeetingsScreen() {
 
   return (
     <Screen>
-      <View style={styles.header}>
-        <AppHeader
-          title="Cuộc họp"
-          avatar={(
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Về Trang chủ"
-              onPress={() => router.navigate("/(tabs)")}
-              style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
-            >
-              <ChevronLeft color={colors.primaryDark} size={22} strokeWidth={2.4} />
-            </Pressable>
-          )}
-          action={canCreateMeeting ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Tạo cuộc họp"
-              onPress={() => router.push("/meeting/create")}
-              style={({ pressed }) => [styles.createButton, pressed && styles.pressed]}
-            >
-              <Plus color="#FFFFFF" size={24} strokeWidth={2.5} />
-            </Pressable>
-          ) : undefined}
-        />
-      </View>
+      <BackHeader
+        title="Cuộc họp"
+        onBack={() => router.navigate("/(tabs)")}
+        action={canCreateMeeting ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Tạo cuộc họp"
+            onPress={() => router.push("/meeting/create")}
+            style={({ pressed }) => [styles.createButton, pressed && styles.pressed]}
+          >
+            <Plus color="#FFFFFF" size={24} strokeWidth={2.5} />
+          </Pressable>
+        ) : undefined}
+      />
       <MonthCalendar
         date={month}
         eventDates={calendarEventDates}
@@ -243,8 +233,6 @@ export default function MeetingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: { paddingLeft: spacing.sm, paddingRight: spacing.sm },
-  backButton: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center" },
   createButton: {
     width: touchTarget,
     height: touchTarget,

@@ -190,6 +190,7 @@ export default function MembersScreen() {
       <View style={styles.headerContainer}>
         <BackHeader
           title="Thành viên"
+          compact
           subtitle={
             isLoading || error
               ? undefined
