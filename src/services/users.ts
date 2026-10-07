@@ -51,4 +51,27 @@ export const userService = {
     if (!user) throw new Error("Không tìm thấy thành viên trong đơn vị của bạn.");
     return user;
   },
+  create: async (data: {
+    displayName: string;
+    email?: string;
+    password?: string;
+    phone?: string;
+    companyName?: string;
+    company?: string;
+    industry?: string;
+    photoURL?: string;
+    coverUrl?: string;
+    coverImage?: string;
+    galleryImages?: string[];
+    gender?: "male" | "female" | "other" | "";
+    targetMarket?: string;
+    address?: string;
+    birthDate?: string;
+  }): Promise<UserProfile> => {
+    const res = await apiRequest<any>("/api/v1/crud/users", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return normalize(res?.data || res);
+  },
 };
