@@ -154,16 +154,21 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
+    overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
   },
   dayCircleEvent: {
-    borderWidth: 1,
+    borderWidth: 1.2,
     borderColor: "#00AECA", // Viền tròn mỏng màu xanh thương hiệu
+    borderRadius: 16,
+    overflow: "hidden",
     backgroundColor: "#F2FCFE",
   },
   dayCircleLive: {
     backgroundColor: "#00AECA", // Tô kín màu xanh thương hiệu khi đang diễn ra
+    borderRadius: 16,
+    overflow: "hidden",
     borderWidth: 0,
     shadowColor: "#00AECA",
     shadowOffset: { width: 0, height: 2 },
