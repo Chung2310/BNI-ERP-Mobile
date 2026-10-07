@@ -106,7 +106,7 @@ function MeetingSelector({
   );
 
   const selectedLabel = useMemo(() => {
-    if (!selectedMeeting) return "Chọn cuộc họp / Chapter";
+    if (!selectedMeeting) return "Chọn cuộc họp";
     const date = new Date(selectedMeeting.startsAt).toLocaleDateString("vi-VN", {
       day: "2-digit",
       month: "2-digit",
@@ -137,16 +137,15 @@ function MeetingSelector({
   return (
     <>
       <View style={s.selectorContainer}>
-        <Text style={s.selectorLabel}>Chọn cuộc họp</Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Lọc chapter hoặc cuộc họp"
+          accessibilityLabel="Chọn cuộc họp"
           style={({ pressed }) => [s.selectorTrigger, pressed && s.triggerPressed]}
           onPress={() => setIsSheetVisible(true)}
         >
           <View style={s.triggerLeft}>
             <View style={s.funnelCircle}>
-              <Filter color={colors.primaryDark} size={13} strokeWidth={2.4} />
+              <Filter color={colors.primaryDark} size={11.5} strokeWidth={2.4} />
             </View>
             <Text style={s.triggerText} numberOfLines={1}>
               {selectedLabel}
@@ -154,12 +153,12 @@ function MeetingSelector({
           </View>
           <View style={s.triggerRight}>
             <Text style={s.triggerActionText}>Đổi</Text>
-            <ChevronDown color={colors.muted} size={16} strokeWidth={2.2} />
+            <ChevronDown color={colors.muted} size={13} strokeWidth={2.2} />
           </View>
         </Pressable>
       </View>
 
-      {/* Bottom Sheet Lọc cuộc họp / Chapter */}
+      {/* Bottom Sheet Lọc cuộc họp */}
       <Modal
         visible={isSheetVisible}
         transparent
@@ -185,7 +184,7 @@ function MeetingSelector({
             {/* Header */}
             <View style={s.sheetHeader}>
               <View style={s.sheetHeaderInfo}>
-                <Text style={s.sheetTitle}>Chọn cuộc họp / Chapter</Text>
+                <Text style={s.sheetTitle}>Chọn cuộc họp</Text>
                 <Text style={s.sheetSubtitle}>
                   {meetings.length} cuộc họp có dữ liệu thống kê
                 </Text>
@@ -332,8 +331,7 @@ export function DashboardCharts({ meetings, memberCount }: { meetings: Meeting[]
 }
 
 const s = StyleSheet.create({
-  selectorContainer: { gap: 6, marginBottom: 4 },
-  selectorLabel: { color: colors.muted, fontSize: 11.5, fontWeight: '700' },
+  selectorContainer: { marginTop: 6, marginBottom: 2 },
   selectorTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -342,22 +340,23 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#D4EBF0',
     borderRadius: radius.pill,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
+    paddingVertical: 4.5,
+    paddingHorizontal: 10,
+    minHeight: 32,
   },
   triggerPressed: { opacity: 0.85 },
-  triggerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, marginRight: 8 },
+  triggerLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 6 },
   funnelCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: '#E2F4F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  triggerText: { color: colors.text, fontSize: 12.5, fontWeight: '700', flex: 1 },
+  triggerText: { color: colors.text, fontSize: 11.5, fontWeight: '600', flex: 1 },
   triggerRight: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  triggerActionText: { color: colors.primaryDark, fontSize: 11.5, fontWeight: '700' },
+  triggerActionText: { color: colors.primaryDark, fontSize: 11, fontWeight: '700' },
   sheetOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
