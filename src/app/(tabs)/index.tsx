@@ -13,7 +13,6 @@ import {
 } from "@/components/ui";
 import { DashboardCharts } from "@/components/DashboardCharts";
 import { DashboardQuickActions } from "@/components/DashboardQuickActions";
-import { ActiveMemberRanking } from "@/components/ActiveMemberRanking";
 import { MeetingCard } from "@/components/MeetingCard";
 import { MonthCalendar } from "@/components/MonthCalendar";
 import { useAuth } from "@/context/AuthContext";
@@ -38,7 +37,7 @@ export default function HomeScreen() {
 
   const { data: dashboardData } = useAsyncData(async () => {
     const history = await meetingService.history();
-    const members = await userService.directory().catch(() => []);
+    const members = await userService.colleagues().catch(() => []);
     return { history, members };
   }, "dashboard-charts");
 
@@ -95,7 +94,7 @@ export default function HomeScreen() {
               style={styles.bell}
               onPress={() => router.push("/notifications")}
             >
-              <Bell color={colors.text} size={22} strokeWidth={2} />
+              <Bell color={colors.text} size={20} strokeWidth={2} />
               <View style={styles.dot} />
             </Pressable>
           }
@@ -135,7 +134,7 @@ export default function HomeScreen() {
 
                 <View style={styles.heroActionBtn}>
                   <Text style={styles.heroActionBtnText}>Vào họp</Text>
-                  <ArrowRight color="#00AECA" size={14} strokeWidth={2.6} />
+                  <ArrowRight color="#00AECA" size={13} strokeWidth={2.6} />
                 </View>
               </Pressable>
             ) : null}
@@ -169,13 +168,11 @@ export default function HomeScreen() {
               }
             />
 
-            {/* Thao tác nhanh - Icons 3D */}
+            {/* Thao tác nhanh */}
             <SectionTitle>Thao tác nhanh</SectionTitle>
-            <DashboardQuickActions user={user} liveMeetingId={liveMeeting?._id} />
+            <DashboardQuickActions user={user} />
 
-            <ActiveMemberRanking meetings={chartMeetings} members={dashboardData?.members || []} />
-
-            {/* Biểu đồ tổng quan - Brand cyan theme */}
+            {/* Biểu đồ tổng quan */}
             <SectionTitle>Biểu đồ tổng quan</SectionTitle>
             <DashboardCharts meetings={chartMeetings} memberCount={memberCount} />
 
@@ -271,22 +268,22 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   bell: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: radius.pill,
     backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 0,
+    ...shadow,
   },
   dot: {
     position: "absolute",
-    right: 8,
-    top: 8,
-    width: 7,
-    height: 7,
-    borderRadius: 4,
+    right: 7,
+    top: 7,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: colors.danger,
   },
   heroCompact: {
@@ -295,9 +292,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     backgroundColor: "#00AECA", // Brand jade cyan
     borderRadius: radius.md,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    gap: spacing.sm,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    gap: spacing.xs,
+    borderWidth: 0,
     ...shadow,
   },
   pressed: {
@@ -306,33 +304,33 @@ const styles = StyleSheet.create({
   },
   heroLeft: {
     flex: 1,
-    gap: 2,
+    gap: 1,
   },
   heroTagRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    gap: 4,
   },
   livePulseDot: {
-    width: 6,
-    height: 6,
+    width: 5,
+    height: 5,
     borderRadius: 3,
     backgroundColor: "#FFFFFF",
   },
   heroTagText: {
     color: "#FFFFFF",
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "900",
     letterSpacing: 0.4,
   },
   heroTitleCompact: {
     color: "#FFFFFF",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "800",
   },
   heroMetaCompact: {
     color: "#E0F7FA",
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "500",
   },
   heroActionBtn: {
@@ -340,9 +338,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#FFFFFF",
     borderRadius: radius.pill,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    gap: 4,
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+    gap: 3,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.15,
@@ -351,7 +349,7 @@ const styles = StyleSheet.create({
   },
   heroActionBtnText: {
     color: "#00AECA",
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "800",
   },
   link: {

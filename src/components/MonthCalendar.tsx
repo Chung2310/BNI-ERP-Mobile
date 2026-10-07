@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
-import { colors, radius, spacing } from "@/theme/tokens";
+import { colors, radius, shadow, spacing } from "@/theme/tokens";
 
 export function MonthCalendar({
   date,
@@ -33,13 +33,13 @@ export function MonthCalendar({
     <View style={styles.container}>
       <View style={styles.monthHeader}>
         <Pressable accessibilityLabel="Tháng trước" style={styles.arrow} onPress={onPrevious}>
-          <ChevronLeft color={colors.primaryDark} size={22} />
+          <ChevronLeft color={colors.primaryDark} size={20} />
         </Pressable>
         <Text style={styles.month}>
           Tháng {month + 1}, {year}
         </Text>
         <Pressable accessibilityLabel="Tháng sau" style={styles.arrow} onPress={onNext}>
-          <ChevronRight color={colors.primaryDark} size={22} />
+          <ChevronRight color={colors.primaryDark} size={20} />
         </Pressable>
       </View>
 
@@ -108,23 +108,24 @@ export function MonthCalendar({
 
 const styles = StyleSheet.create({
   container: {
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 0,
     borderRadius: radius.lg,
     backgroundColor: colors.surface,
-    padding: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 6,
+    ...shadow,
   },
   monthHeader: {
-    minHeight: 40,
+    minHeight: 32,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: spacing.xs,
   },
-  month: { color: colors.text, fontSize: 15, fontWeight: "800" },
+  month: { color: colors.text, fontSize: 14, fontWeight: "800" },
   arrow: {
-    width: 36,
-    height: 36,
+    width: 28,
+    height: 28,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: radius.pill,
@@ -134,28 +135,28 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: "#EDF3F5",
-    paddingBottom: 4,
-    marginBottom: 4,
+    paddingBottom: 2,
+    marginBottom: 2,
   },
   grid: { flexDirection: "row", flexWrap: "wrap" },
   weekday: {
     width: "14.2857%",
-    paddingVertical: 2,
+    paddingVertical: 1,
     color: colors.muted,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "800",
     textAlign: "center",
   },
   dayCell: {
     width: "14.2857%",
-    height: 38,
+    height: 28,
     alignItems: "center",
     justifyContent: "center",
   },
   dayCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
@@ -163,13 +164,13 @@ const styles = StyleSheet.create({
   dayCircleEvent: {
     borderWidth: 1.2,
     borderColor: "#00AECA", // Viền tròn mỏng màu xanh thương hiệu
-    borderRadius: 16,
+    borderRadius: 13,
     overflow: "hidden",
     backgroundColor: "#F2FCFE",
   },
   dayCircleLive: {
     backgroundColor: "#00AECA", // Tô kín màu xanh thương hiệu khi đang diễn ra
-    borderRadius: 16,
+    borderRadius: 13,
     overflow: "hidden",
     borderWidth: 0,
     shadowColor: "#00AECA",
@@ -183,7 +184,7 @@ const styles = StyleSheet.create({
   },
   dayText: {
     color: colors.text,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "400", // Không in đậm
   },
   dayTextEvent: {
@@ -206,9 +207,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "flex-end",
     gap: spacing.md,
-    paddingTop: spacing.xs,
+    paddingTop: 3,
     paddingRight: spacing.xs,
-    marginTop: 4,
+    marginTop: 2,
     borderTopWidth: 1,
     borderTopColor: "#EDF3F5",
   },
@@ -218,9 +219,9 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   legendCircle: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   legendCircleLive: {
     backgroundColor: "#00AECA",
@@ -232,7 +233,7 @@ const styles = StyleSheet.create({
   },
   legendText: {
     color: colors.muted,
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "600",
   },
 });
