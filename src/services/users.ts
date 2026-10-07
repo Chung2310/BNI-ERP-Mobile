@@ -1,5 +1,5 @@
 import { apiRequest } from "@/services/api";
-import type { UserProfile } from "@/types";
+import type { UserProfile, UserRole } from "@/types";
 
 type ApiUser = Omit<UserProfile, "uid"> & { _id?: string; uid?: string; isActive?: boolean };
 const normalize = (user: ApiUser): UserProfile & { isActive?: boolean } => ({ ...user, uid: user.uid || user._id || "" });
@@ -55,6 +55,7 @@ export const userService = {
     displayName: string;
     email?: string;
     password?: string;
+    role?: UserRole;
     phone?: string;
     companyName?: string;
     company?: string;
