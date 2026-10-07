@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>iGen Connect Mobile — Wireframe v1</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="studio">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">iG</span><div><strong>iGen Connect</strong><small>Wireframe v1</small></div></div>
+      <div class="device-picker"><span>Thiết bị</span><div><button data-device="phone" class="active">Điện thoại</button><button data-device="tablet">Tablet</button></div></div>
+      <nav id="screen-list" aria-label="Danh sách wireframe"></nav>
+    </aside>
+    <main>
+      <header class="workspace-header">
+        <div><p>PROTOTYPE CÓ THỂ BẤM</p><h1 id="screen-title"></h1><small id="screen-note"></small></div>
+        <div class="legend"><span><i class="primary"></i> Hành động chính</span><span><i></i> Nội dung</span><span><i class="dashed"></i> Vùng cuộn</span></div>
+      </header>
+      <section class="canvas"><div id="device" class="device phone"><div class="status"><span>9:41</span><span>● ● ▰</span></div><div id="app"></div><div class="home-indicator"></div></div></section>
+    </main>
+  </div>
+  <script src="./app.js"></script>
+</body>
+</html>
