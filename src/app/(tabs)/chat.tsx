@@ -1,7 +1,8 @@
+import { Alert } from "@/components/AppAlert";
 import { useCallback, useMemo, useState } from 'react';
 import { router, useFocusEffect } from 'expo-router';
-import { MessageCircleMore, Search, Users } from 'lucide-react-native';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { MessageCircleMore, Pin, Search, Users } from 'lucide-react-native';
+import {  Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { NewChatModal } from '@/components/NewChatModal';
 import { BackHeader } from '@/components/BackHeader';
 import { HeaderAddButton } from '@/components/HeaderAddButton';
@@ -32,7 +33,7 @@ export default function ChatScreen() {
   const { user } = useAuth();
   const [query, setQuery] = useState('');
   const [showNewChat, setShowNewChat] = useState(false);
-  const { data, error, isLoading, reload } = useAsyncData(chatService.rooms);
+  const { data, setData, error, isLoading, reload } = useAsyncData(chatService.rooms);
 
   useFocusEffect(useCallback(() => {
     void reload();
@@ -50,13 +51,23 @@ export default function ChatScreen() {
       .filter((room) => !keyword || [roomName(room), ...room.members.map((member) => member.userId.displayName)]
         .some((value) => value.toLocaleLowerCase('vi').includes(keyword)))
       .sort((a, b) => {
+        const pinnedDifference = Number(Boolean(b.members.find((member) => member.userId._id === user?.uid)?.isPinned)) - Number(Boolean(a.members.find((member) => member.userId._id === user?.uid)?.isPinned));
+        if (pinnedDifference) return pinnedDifference;
         const unreadDifference = Number(Boolean(b.unreadCount)) - Number(Boolean(a.unreadCount));
         if (unreadDifference) return unreadDifference;
         const bTime = new Date(b.lastMessage?.createdAt || b.updatedAt || 0).getTime();
         const aTime = new Date(a.lastMessage?.createdAt || a.updatedAt || 0).getTime();
         return bTime - aTime;
       });
-  }, [data, query, roomName]);
+  }, [data, query, roomName, user?.uid]);
+
+  const toggleRoomPin = (room: ChatRoom) => {
+    const pinned = Boolean(room.members.find((member) => member.userId._id === user?.uid)?.isPinned);
+    Alert.alert(roomName(room), pinned ? 'Bỏ ghim cuộc trò chuyện này?' : 'Ghim cuộc trò chuyện này?', [
+      { text: 'Đóng', style: 'cancel' },
+      { text: pinned ? 'Bỏ ghim' : 'Ghim', onPress: () => void chatService.togglePinRoom(room._id).then((updated) => setData((current) => (current || []).map((item) => item._id === room._id ? updated : item))).catch((cause) => Alert.alert('Không thể cập nhật', cause instanceof Error ? cause.message : 'Vui lòng thử lại.')) },
+    ]);
+  };
 
   const openRoom = (room: ChatRoom) => {
     const name = roomName(room);
@@ -121,6 +132,7 @@ export default function ChatScreen() {
                   key={room._id}
                   accessibilityRole='button'
                   onPress={() => openRoom(room)}
+                  onLongPress={() => toggleRoomPin(room)}
                   style={({ pressed }) => [styles.room, pressed && styles.pressed]}
                 >
                   <View>
@@ -129,6 +141,7 @@ export default function ChatScreen() {
                   </View>
                   <View style={styles.grow}>
                     <View style={styles.roomHeading}>
+                      {room.members.find((member) => member.userId._id === user?.uid)?.isPinned ? <Pin color={colors.primaryDark} size={13} /> : null}
                       <Text numberOfLines={1} style={[styles.name, room.unreadCount ? styles.unreadName : null]}>{name}</Text>
                       <Text style={styles.time}>{formatTime(last?.createdAt || room.updatedAt)}</Text>
                     </View>

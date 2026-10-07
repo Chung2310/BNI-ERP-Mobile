@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { ChevronRight, FolderOpen, Settings, ShieldCheck, UserCog, WalletCards } from "lucide-react-native";
+import { ChevronRight, FolderOpen, ReceiptText, Settings, ShieldCheck, UserCog } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { Avatar, Screen } from "@/components/ui";
@@ -101,7 +101,7 @@ export default function MoreScreen() {
           style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
         >
           <View style={styles.tileIconBox}>
-            <WalletCards color="#7E3AF2" size={20} strokeWidth={2} />
+            <ReceiptText color="#7E3AF2" size={20} strokeWidth={2} />
           </View>
           <Text numberOfLines={1} style={styles.tileTitle}>Phí thường niên</Text>
           <Text numberOfLines={1} style={styles.tileSubtitle}>Thanh toán & đối soát</Text>

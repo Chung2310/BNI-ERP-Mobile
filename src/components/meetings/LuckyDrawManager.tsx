@@ -1,6 +1,7 @@
+import { Alert } from "@/components/AppAlert";
 import { useMemo, useState } from "react";
 import { ChevronRight, Clock3, Gift, Pencil, Plus, RefreshCw, RotateCcw, Save, Settings2, Trash2, Trophy, X } from "lucide-react-native";
-import { Alert, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import {  Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { Button, Card, EmptyState, Screen } from "@/components/ui";
 import { meetingService, type LuckyDraw, type LuckyDrawConfig, type LuckyDrawPrize, type LuckyDrawWinner } from "@/services/meeting";
@@ -80,7 +81,7 @@ export function LuckyDrawManager({ meetingId, initial, canManage, reload }: Prop
   ]);
 
   return <Screen>
-    <BackHeader title="Quay thưởng" subtitle={`${initial.attendeesCount} người tham dự đủ điều kiện`} />
+    <BackHeader title="Bốc thăm giải thưởng" subtitle={`${initial.attendeesCount} người tham dự đủ điều kiện`} />
     {!initial.meetingStarted ? <Card style={s.notice}><Clock3 color={colors.warning} size={22} /><Text style={s.noticeText}>Cuộc họp cần được bắt đầu trước khi quay thưởng.</Text></Card> : null}
     {winner ? <Card style={s.winner}><Trophy color={colors.warning} size={38} /><Text style={s.winnerLabel}>NGƯỜI TRÚNG GIẢI</Text><Text style={s.winnerName}>{winner.name || `Số ${winner.ticketNumber}`}</Text><Text style={s.meta}>{winner.prizeName}</Text></Card> : null}
     {canManage ? <Card>

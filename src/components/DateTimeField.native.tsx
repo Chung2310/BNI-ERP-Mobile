@@ -1,7 +1,7 @@
 import { useState } from "react";
-import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { CalendarDays, Clock3 } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { RoundedDateTimePicker } from "@/components/RoundedDateTimePicker";
 import { colors, radius, spacing } from "@/theme/tokens";
 
 export type DateTimeFieldProps = {
@@ -71,9 +71,9 @@ function PickerPart({ icon: Icon, label, mode, value, minimumDate, onChange }: {
   onChange: (value: Date) => void;
 }) {
   const [visible, setVisible] = useState(false);
-  const handleChange = (event: DateTimePickerEvent, selected?: Date) => {
+  const handleChange = (selected: Date) => {
     setVisible(false);
-    if (event.type === "set" && selected) onChange(selected);
+    onChange(selected);
   };
   return (
     <View style={styles.part}>
@@ -81,7 +81,7 @@ function PickerPart({ icon: Icon, label, mode, value, minimumDate, onChange }: {
         <Icon color={colors.primaryDark} size={18} />
         <Text style={styles.value}>{label}</Text>
       </Pressable>
-      {visible ? <DateTimePicker value={value} mode={mode} display="default" is24Hour minimumDate={minimumDate} onChange={handleChange} /> : null}
+      {visible ? <RoundedDateTimePicker visible mode={mode} value={value} minimumDate={minimumDate} onCancel={() => setVisible(false)} onConfirm={handleChange} /> : null}
     </View>
   );
 }

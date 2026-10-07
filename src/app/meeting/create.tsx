@@ -1,3 +1,4 @@
+import { Alert } from "@/components/AppAlert";
 import { useMemo, useState, type ReactNode } from "react";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
@@ -5,7 +6,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { CalendarPlus, CalendarRange, ImagePlus, MapPin, Plus, Trash2, Upload, type LucideIcon } from "lucide-react-native";
 import {
   ActivityIndicator,
-  Alert,
+
   Image,
   Pressable,
   StyleSheet,

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Check, Search, X } from 'lucide-react-native';
 import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { KeyboardResponsiveView } from '@/components/KeyboardResponsiveView';
 import { Avatar } from '@/components/ui';
 import { chatService, type ChatRoom } from '@/services/chat';
 import { userService } from '@/services/users';
@@ -67,6 +68,7 @@ export function NewChatModal({ currentUserId, onClose, onCreated }: Props) {
 
   return (
     <Modal visible animationType='slide' onRequestClose={onClose}>
+      <KeyboardResponsiveView>
       <SafeAreaView style={styles.safe}>
         <View style={styles.header}>
           <Text style={styles.title}>Cuộc trò chuyện mới</Text>
@@ -172,6 +174,7 @@ export function NewChatModal({ currentUserId, onClose, onCreated }: Props) {
           </Pressable>
         </View>
       </SafeAreaView>
+      </KeyboardResponsiveView>
     </Modal>
   );
 }
@@ -193,8 +196,8 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 20,
-    fontWeight: '900',
+    fontSize: 16.5,
+    fontWeight: '800',
   },
   close: {
     width: 36,

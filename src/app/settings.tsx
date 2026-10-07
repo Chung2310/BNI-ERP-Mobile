@@ -1,8 +1,9 @@
+import { Alert } from "@/components/AppAlert";
 import { useEffect, useState } from "react";
 import * as LocalAuthentication from "expo-local-authentication";
 import { router } from "expo-router";
 import { LogOut } from "lucide-react-native";
-import { Alert, StyleSheet, Switch, Text, View } from "react-native";
+import {  StyleSheet, Switch, Text, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { Button, Card, Screen } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
@@ -51,7 +52,7 @@ export default function SettingsScreen() {
 
   return (
     <Screen>
-      <BackHeader title="Cài đặt" subtitle="Hồ sơ và bảo mật" />
+      <BackHeader title="Cài đặt" subtitle="Hồ sơ và bảo mật" compact />
       <Card>
         <Text style={styles.label}>Tài khoản</Text>
         <Text style={styles.title}>{user?.displayName || "Nguyễn Minh"}</Text>

@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { ChevronLeft, ChevronRight, X as LucideX } from "lucide-react-native";
+import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { colors, radius, spacing } from "@/theme/tokens";
 
 export function MonthCalendar({
@@ -58,6 +58,7 @@ export function MonthCalendar({
         {days.map((day) => {
           const outside = day.getMonth() !== month;
           const isToday = day.toDateString() === today;
+          const isSelected = selectedDate?.toDateString() === day.toDateString();
           const isLive = liveEvents.has(day.toDateString()) && !outside;
           const hasEvent = events.has(day.toDateString()) && !outside;
           const isCancelled = cancelledEvents.has(day.toDateString()) && !outside && !hasEvent;
@@ -65,6 +66,7 @@ export function MonthCalendar({
           return (
             <Pressable
               accessibilityRole="button"
+              accessibilityState={{ selected: isSelected }}
               accessibilityLabel={`${day.getDate()} tháng ${day.getMonth() + 1}${
                 isCancelled ? ", cuộc họp bị hủy" : hasEvent ? ", có cuộc họp" : ", không có cuộc họp"
               }`}
@@ -93,14 +95,6 @@ export function MonthCalendar({
                 >
                   {day.getDate()}
                 </Text>
-                {isCancelled ? (
-                  <LucideX
-                    color={colors.danger}
-                    size={20}
-                    strokeWidth={2.8}
-                    style={styles.cancelledIcon}
-                  />
-                ) : null}
               </View>
             </Pressable>
           );
@@ -116,10 +110,6 @@ export function MonthCalendar({
         <View style={styles.legendItem}>
           <View style={[styles.legendCircle, styles.legendCircleEvent]} />
           <Text style={styles.legendText}>Có cuộc họp</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <LucideX color={colors.danger} size={11} strokeWidth={2.6} />
-          <Text style={styles.legendText}>Bị hủy</Text>
         </View>
       </View>
     </View>
@@ -177,7 +167,6 @@ const styles = StyleSheet.create({
     width: 29,
     height: 29,
     borderRadius: 14.5,
-    overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -185,23 +174,16 @@ const styles = StyleSheet.create({
     borderWidth: 1.2,
     borderColor: "#00AECA",
     borderRadius: 14.5,
-    overflow: "hidden",
     backgroundColor: "#F2FCFE",
   },
   dayCircleLive: {
     backgroundColor: "#00AECA",
     borderRadius: 14.5,
-    overflow: "hidden",
     borderWidth: 0,
   },
   dayCircleCancelled: {
-    backgroundColor: "#FDF0F2",
+    backgroundColor: "#FBE5E9",
     borderRadius: 14.5,
-    overflow: "hidden",
-  },
-  cancelledIcon: {
-    position: "absolute",
-    alignSelf: "center",
   },
   dayOutside: {
     opacity: 0.25,
@@ -220,7 +202,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   dayTextCancelled: {
-    color: "#C53B4F",
+    color: "#B83247",
     fontWeight: "500",
   },
   dayTextToday: {

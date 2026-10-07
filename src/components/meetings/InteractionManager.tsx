@@ -1,6 +1,7 @@
+import { Alert } from "@/components/AppAlert";
 import { useEffect, useState } from "react";
 import { Check, ChevronRight, Clock3, Eye, EyeOff, MessageCircle, Play, Plus, RefreshCw, Save, Settings2, Share2, Square, Trash2, X, type LucideIcon } from "lucide-react-native";
-import { Alert, Pressable, Share, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import {  Pressable, Share, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { Badge, Button, Card, EmptyState, Screen } from "@/components/ui";
 import { meetingService, type MeetingInteraction, type MeetingInteractionInput, type MeetingInteractionResponseStatus } from "@/services/meeting";
@@ -71,7 +72,7 @@ export function InteractionManager({ meetingId, initial, canManage, reload }: Pr
   const labels: Record<MeetingInteractionResponseStatus, string> = { pending: "Chờ duyệt", approved: "Đang hiển thị", hidden: "Đã ẩn", rejected: "Đã từ chối" };
 
   return <Screen>
-    <BackHeader title="Tương tác" subtitle="Câu hỏi và phản hồi trực tiếp" />
+    <BackHeader title="Tương tác" subtitle="Câu hỏi và phản hồi trực tiếp" compact />
     <Card>
       <View style={s.between}><View style={s.row}><MessageCircle color={colors.primaryDark} size={22} /><Text style={s.heading}>Câu hỏi tương tác</Text></View>{state.session ? <Badge tone={state.session.status === "open" ? "primary" : "default"}>{state.session.status === "open" ? "ĐANG MỞ" : state.session.status === "closed" ? "ĐÃ ĐÓNG" : "BẢN NHÁP"}</Badge> : null}</View>
       {state.session ? <View style={s.list}>
@@ -79,7 +80,7 @@ export function InteractionManager({ meetingId, initial, canManage, reload }: Pr
         {state.session.questions.map((item) => {
           const active = item.id === state.session?.activeQuestionId;
           return <View key={item.id} style={[s.questionRow, active && s.active]}>
-            <Pressable disabled={Boolean(busy)} onPress={() => !active && void run("select", () => meetingService.selectInteractionQuestion(meetingId, item.id))} style={s.questionPress}>
+            <Pressable disabled={!canManage || Boolean(busy)} onPress={() => !active && void run("select", () => meetingService.selectInteractionQuestion(meetingId, item.id))} style={s.questionPress}>
               <View style={[s.order, active && s.orderActive]}><Text style={[s.orderText, active && s.orderTextActive]}>{item.order}</Text></View>
               <View style={s.grow}><Text style={s.question}>{item.text}</Text><Text style={s.meta}>{item.responseCount} phản hồi{active ? " · Đang chọn" : ""}</Text></View>
               {!active ? <ChevronRight color={colors.muted} size={18} /> : null}

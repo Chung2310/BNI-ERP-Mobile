@@ -1,4 +1,4 @@
-import { useState, type PropsWithChildren, type ReactNode } from "react";
+import { useState, type PropsWithChildren, type ReactNode, type Ref } from "react";
 import { CircleAlert, Inbox, type LucideIcon } from "lucide-react-native";
 import {
   ActivityIndicator,
@@ -16,6 +16,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { KeyboardResponsiveView } from "@/components/KeyboardResponsiveView";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 
 export function Screen({
@@ -23,10 +24,12 @@ export function Screen({
   scroll = true,
   style,
   scrollViewProps,
-}: PropsWithChildren<{ scroll?: boolean; style?: StyleProp<ViewStyle>; scrollViewProps?: ScrollViewProps }>) {
+  scrollRef,
+}: PropsWithChildren<{ scroll?: boolean; style?: StyleProp<ViewStyle>; scrollViewProps?: ScrollViewProps; scrollRef?: Ref<ScrollView> }>) {
   const body = scroll ? (
     <ScrollView
       {...scrollViewProps}
+      ref={scrollRef}
       contentContainerStyle={[styles.screenContent, style, scrollViewProps?.contentContainerStyle]}
       keyboardShouldPersistTaps={scrollViewProps?.keyboardShouldPersistTaps || "handled"}
     >
@@ -35,7 +38,9 @@ export function Screen({
   ) : (
     <View style={[styles.screenContent, styles.flex, style]}>{children}</View>
   );
-  return <SafeAreaView edges={["top"]} style={styles.safe}>{body}</SafeAreaView>;
+  return <SafeAreaView edges={["top"]} style={styles.safe}>
+    <KeyboardResponsiveView>{body}</KeyboardResponsiveView>
+  </SafeAreaView>;
 }
 
 export function AppHeader({
@@ -168,12 +173,14 @@ export function LoadingState({ label = "Đang tải dữ liệu..." }: { label?:
 
 export function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <Card style={styles.state}>
-      <CircleAlert color={colors.danger} size={30} strokeWidth={1.8} />
-      <Text style={styles.stateTitle}>Không thể tải dữ liệu</Text>
-      <Text style={styles.stateMessage}>{message}</Text>
-      <Button tone="secondary" onPress={onRetry}>Thử lại</Button>
-    </Card>
+    <View style={styles.errorArea}>
+      <Card style={styles.state}>
+        <CircleAlert color={colors.danger} size={30} strokeWidth={1.8} />
+        <Text style={styles.stateTitle}>Không thể tải dữ liệu</Text>
+        <Text style={styles.stateMessage}>{message}</Text>
+        <Button tone="secondary" style={styles.retryButton} textStyle={styles.retryText} onPress={onRetry}>Thử lại</Button>
+      </Card>
+    </View>
   );
 }
 
@@ -226,8 +233,11 @@ const styles = StyleSheet.create({
   },
   sectionTitleText: { color: colors.text, fontSize: 13.5, fontWeight: "700" },
   state: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xl },
+  errorArea: { flexGrow: 1, justifyContent: "center" },
   stateTitle: { color: colors.text, fontSize: 15, fontWeight: "800" },
   stateMessage: { color: colors.muted, fontSize: 12.5, lineHeight: 18, textAlign: "center" },
+  retryButton: { backgroundColor: "#FFFFFF", borderWidth: 0 },
+  retryText: { color: colors.danger },
   loading: { flex: 1, minHeight: 180, alignItems: "center", justifyContent: "center", gap: spacing.md },
 });
 

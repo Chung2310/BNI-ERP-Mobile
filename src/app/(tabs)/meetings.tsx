@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { router, useFocusEffect } from "expo-router";
 import { Check, ChevronDown, Search, X } from "lucide-react-native";
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
@@ -10,7 +10,8 @@ import { MeetingCard } from "@/components/MeetingCard";
 import { MonthCalendar } from "@/components/MonthCalendar";
 import { useAuth } from "@/context/AuthContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
-import { meetingService } from "@/services/meeting";
+import { useRevealSearch } from "@/hooks/useRevealSearch";
+import { applyMeetingChange, meetingService, subscribeMeetingChanges } from "@/services/meeting";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 import { hasPermission } from "@/utils/permissions";
 
@@ -31,59 +32,80 @@ export default function MeetingsScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const [month, setMonth] = useState(() => new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [referenceDate, setReferenceDate] = useState(() => new Date());
   const [filter, setFilter] = useState<MeetingFilter>("today");
   const [filterSheetVisible, setFilterSheetVisible] = useState(false);
   const [search, setSearch] = useState("");
+  const { scrollRef, onSearchLayout, onSearchFocus, onSearchBlur } = useRevealSearch();
   const [visibleCount, setVisibleCount] = useState(pageSize);
   const canCreateMeeting = hasPermission(user, "meetings:manage");
-  const { data, error, isLoading, reload } = useAsyncData(async () => {
+  const monthKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`;
+  const { data, setData, error, isLoading, reload } = useAsyncData(async () => {
     const results = await Promise.allSettled([meetingService.list(), meetingService.history()]);
     if (results[0].status === "rejected" && results[1].status === "rejected") throw results[0].reason;
     const combined = results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
     return [...new Map(combined.map((meeting) => [meeting._id, meeting])).values()];
   });
+  const { data: monthData, setData: setMonthData, reload: reloadMonth, isLoading: monthLoading, error: monthError } = useAsyncData(() => meetingService.list(monthKey), monthKey);
+  useEffect(() => subscribeMeetingChanges((change) => {
+    setData((current) => applyMeetingChange(current, change));
+    setMonthData((current) => applyMeetingChange(current, change));
+  }), [setData, setMonthData]);
   const hasFocused = useRef(false);
   useFocusEffect(useCallback(() => {
     setReferenceDate(new Date());
-    if (hasFocused.current) void reload();
+    if (hasFocused.current) {
+      void reload();
+      void reloadMonth();
+    }
     else hasFocused.current = true;
-  }, [reload]));
+  }, [reload, reloadMonth]));
 
   const meetings = useMemo(() => data || [], [data]);
-  const { calendarEventDates, calendarCancelledDates } = useMemo(() => {
-    const monthMeetings = meetings.filter((meeting) => {
+  const calendarMeetings = useMemo(() => [...new Map([...meetings, ...(monthData || [])].map((meeting) => [meeting._id, meeting])).values()], [meetings, monthData]);
+  const { calendarEventDates, calendarLiveDates, calendarCancelledDates } = useMemo(() => {
+    const monthMeetings = calendarMeetings.filter((meeting) => {
       const date = new Date(meeting.startsAt);
       return date.getFullYear() === month.getFullYear() && date.getMonth() === month.getMonth();
     });
 
-    const map = new Map<string, { hasActive: boolean; hasCancelled: boolean; sampleDate: string }>();
+    const map = new Map<string, { hasActive: boolean; hasLive: boolean; hasCancelled: boolean; sampleDate: string }>();
     for (const m of monthMeetings) {
       const key = new Date(m.startsAt).toDateString();
       let entry = map.get(key);
       if (!entry) {
-        entry = { hasActive: false, hasCancelled: false, sampleDate: m.startsAt };
+        entry = { hasActive: false, hasLive: false, hasCancelled: false, sampleDate: m.startsAt };
         map.set(key, entry);
       }
       if (m.status === "cancelled") {
         entry.hasCancelled = true;
       } else {
         entry.hasActive = true;
+        if (m.status === "live" || m.status === "paused") entry.hasLive = true;
       }
     }
 
     const events: string[] = [];
+    const lives: string[] = [];
     const cancelled: string[] = [];
     for (const entry of map.values()) {
       if (entry.hasActive) {
         events.push(entry.sampleDate);
+        if (entry.hasLive) lives.push(entry.sampleDate);
       } else if (entry.hasCancelled) {
         cancelled.push(entry.sampleDate);
       }
     }
 
-    return { calendarEventDates: events, calendarCancelledDates: cancelled };
-  }, [meetings, month]);
+    return { calendarEventDates: events, calendarLiveDates: lives, calendarCancelledDates: cancelled };
+  }, [calendarMeetings, month]);
+  const selectedDateMeetings = useMemo(() => {
+    if (!selectedDate) return [];
+    const target = dayKey(selectedDate);
+    return calendarMeetings.filter((meeting) => dayKey(new Date(meeting.startsAt)) === target)
+      .sort((left, right) => +new Date(left.startsAt) - +new Date(right.startsAt));
+  }, [calendarMeetings, selectedDate]);
   const filteredMeetings = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("vi");
     const start = new Date(referenceDate);
@@ -117,10 +139,6 @@ export default function MeetingsScreen() {
     setMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
   };
 
-  const createOnDate = (date: Date) => {
-    router.push({ pathname: "/meeting/create", params: { date: dayKey(date) } });
-  };
-
   const selectFilter = (next: MeetingFilter) => {
     setFilter(next);
     setVisibleCount(pageSize);
@@ -128,7 +146,7 @@ export default function MeetingsScreen() {
   };
 
   return (
-    <Screen>
+    <Screen scrollRef={scrollRef}>
       <BackHeader
         title="Cuộc họp"
         compact
@@ -144,19 +162,25 @@ export default function MeetingsScreen() {
       <MonthCalendar
         date={month}
         eventDates={calendarEventDates}
+        liveDates={calendarLiveDates}
         cancelledDates={calendarCancelledDates}
-        onPrevious={() => changeMonth(-1)}
-        onNext={() => changeMonth(1)}
-        onSelectDate={canCreateMeeting ? createOnDate : undefined}
+        selectedDate={selectedDate ?? undefined}
+        onPrevious={() => { setSelectedDate(null); changeMonth(-1); }}
+        onNext={() => { setSelectedDate(null); changeMonth(1); }}
+        onSelectDate={setSelectedDate}
       />
-      <SectionTitle>Cuộc họp ({filteredMeetings.length})</SectionTitle>
-      <View style={styles.toolbar}>
+      <SectionTitle action={selectedDate ? <Pressable accessibilityRole="button" accessibilityLabel="Bỏ chọn ngày" hitSlop={8} onPress={() => setSelectedDate(null)}><Text style={styles.clearDate}>Bỏ chọn ngày</Text></Pressable> : undefined}>
+        {selectedDate ? `Lịch ngày ${selectedDate.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })} (${selectedDateMeetings.length})` : `Cuộc họp (${filteredMeetings.length})`}
+      </SectionTitle>
+      {!selectedDate ? <View style={styles.toolbar} onLayout={onSearchLayout}>
         <View style={styles.searchBox}>
           <Search color={colors.muted} size={16} />
           <TextInput
             accessibilityLabel="Tìm kiếm cuộc họp"
             value={search}
             onChangeText={(value) => { setSearch(value); setVisibleCount(pageSize); }}
+            onFocus={onSearchFocus}
+            onBlur={onSearchBlur}
             placeholder="Tìm kiếm cuộc họp"
             placeholderTextColor={colors.muted}
             returnKeyType="search"
@@ -172,9 +196,15 @@ export default function MeetingsScreen() {
           <Text style={styles.filterTriggerText}>{filters.find((option) => option.key === filter)?.label}</Text>
           <ChevronDown color={colors.primaryDark} size={16} />
         </Pressable>
-      </View>
+      </View> : null}
       {isLoading ? <LoadingState label="Đang tải lịch cuộc họp…" /> : error ? (
         <ErrorState message={error} onRetry={reload} />
+      ) : selectedDate ? (
+        monthLoading ? <LoadingState label="Đang tải cuộc họp trong ngày…" /> : monthError ? <ErrorState message={monthError} onRetry={reloadMonth} /> : selectedDateMeetings.length ? (
+          <View style={styles.list}>
+            {selectedDateMeetings.map((meeting) => <MeetingCard key={meeting._id} meeting={meeting} variant="list" showDate={false} />)}
+          </View>
+        ) : <EmptyState title="Không có cuộc họp" message="Chọn ngày khác trên lịch để xem cuộc họp." />
       ) : filteredMeetings.length ? (
         <>
           <View style={styles.list}>
@@ -232,6 +262,7 @@ export default function MeetingsScreen() {
 }
 
 const styles = StyleSheet.create({
+  clearDate: { color: colors.primaryDark, fontSize: 12, fontWeight: "700" },
   toolbar: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   searchBox: { flex: 1, height: 38, flexDirection: "row", alignItems: "center", gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, backgroundColor: colors.surface, paddingHorizontal: spacing.md },
   searchInput: { flex: 1, minWidth: 0, color: colors.text, fontSize: 12, paddingVertical: 0 },

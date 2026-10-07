@@ -21,7 +21,7 @@ export default function NotificationsScreen() {
   const markAll = async () => { await notificationService.markAllRead(); await reload(); };
   return (
     <Screen>
-      <BackHeader title="Thông báo" subtitle={`${data?.unreadCount || 0} mục chưa đọc`} />
+      <BackHeader title="Thông báo" subtitle={`${data?.unreadCount || 0} mục chưa đọc`} compact />
       <View style={styles.filters}>{filters.map(([value, label]) => <Pressable key={label} onPress={() => setType(value)} style={[styles.filter, type === value && styles.active]}><Text numberOfLines={1} style={[styles.filterText, type === value && styles.activeText]}>{label}</Text></Pressable>)}</View>
       {(data?.unreadCount || 0) > 0 ? <Button icon={CheckCheck} tone="secondary" onPress={markAll}>Đánh dấu tất cả đã đọc</Button> : null}
       {isLoading ? <LoadingState /> : error ? <ErrorState message={error} onRetry={reload} /> : !data?.data.length ? <EmptyState title="Không có thông báo" message="Các cập nhật mới sẽ xuất hiện tại đây." /> : <Card style={styles.list}>{data.data.map((item) => { const Icon = notificationIcons[item.type] || Bell; return <Pressable key={item._id} onPress={() => markRead(item)} style={styles.item}><View style={styles.icon}><Icon color={colors.primaryDark} size={20} /></View><View style={styles.grow}><Text style={styles.title}>{item.title}</Text><Text style={styles.meta}>{item.body}</Text><Text style={styles.time}>{new Date(item.createdAt).toLocaleString("vi-VN")}</Text></View>{!item.read ? <View style={styles.unread} /> : null}</Pressable>; })}</Card>}

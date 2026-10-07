@@ -1,10 +1,13 @@
+import { useState } from "react";
 import { Image, ImageBackground, Linking, Pressable, StyleSheet, Text, View } from "react-native";
-import { useLocalSearchParams } from "expo-router";
-import { Mail, Phone } from "lucide-react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import { Mail, MessageCircle, Phone } from "lucide-react-native";
+import { Alert } from "@/components/AppAlert";
 import { BackHeader } from "@/components/BackHeader";
-import { Avatar, Badge, Button, Card, ErrorState, LoadingState, Screen } from "@/components/ui";
+import { Avatar, Button, Card, ErrorState, LoadingState, Screen } from "@/components/ui";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { userService } from "@/services/users";
+import { chatService } from "@/services/chat";
 import { colors, radius, spacing } from "@/theme/tokens";
 
 const genderLabels = { male: 'Nam', female: 'Nữ', other: 'Khác' } as const;
@@ -17,7 +20,27 @@ function formatBirthDate(value?: string) {
 
 export default function MemberDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const [isStartingChat, setIsStartingChat] = useState(false);
   const { data: member, error, isLoading, reload } = useAsyncData(() => userService.get(id), id);
+  const handleMessage = async () => {
+    if (!member || isStartingChat) return;
+    setIsStartingChat(true);
+    try {
+      const memberId = member.uid || id;
+      const rooms = await chatService.rooms();
+      const existing = rooms.find((room) => !room.isGroup && room.members?.some((entry) => {
+        const userId = entry.userId as string | { _id: string };
+        return (typeof userId === "string" ? userId : userId?._id) === memberId;
+      }));
+      const room = existing || await chatService.createRoom({ isGroup: false, memberIds: [memberId] });
+      if (!room?._id) throw new Error("Không thể mở cuộc trò chuyện.");
+      router.push({ pathname: "/chat/[id]", params: { id: room._id, name: member.displayName } });
+    } catch (cause) {
+      Alert.alert("Không thể mở tin nhắn", cause instanceof Error ? cause.message : "Vui lòng thử lại.");
+    } finally {
+      setIsStartingChat(false);
+    }
+  };
   if (isLoading) return <Screen><BackHeader title="Hồ sơ thành viên" /><LoadingState /></Screen>;
   if (error || !member) return <Screen><BackHeader title="Hồ sơ thành viên" /><ErrorState message={error || "Không tìm thấy thành viên."} onRetry={reload} /></Screen>;
   const initials = member.displayName.split(" ").map((part: string) => part[0]).slice(-2).join("").toUpperCase();
@@ -48,21 +71,22 @@ export default function MemberDetailScreen() {
       <Avatar initials={initials} url={member.photoURL} size={88} />
       <Text style={styles.name}>{member.displayName}</Text>
       <Text style={styles.role}>{company}</Text>
-      <Badge tone='primary'>{member.industry || 'Chưa cập nhật lĩnh vực'}</Badge>
+      <View style={styles.industryBadge}><Text style={styles.industryText}>{member.industry || 'Chưa cập nhật lĩnh vực'}</Text></View>
     </Card>
     <View style={styles.actions}>
-      {phone ? <Button icon={Phone} tone='secondary' onPress={() => Linking.openURL('tel:' + phone)}>Gọi điện</Button> : null}
-      <Button icon={Mail} tone='secondary' onPress={() => Linking.openURL('mailto:' + member.email)}>Gửi email</Button>
+      {phone ? <Button icon={Phone} iconColor={colors.primaryDark} tone='secondary' style={styles.actionButton} textStyle={styles.actionText} hitSlop={4} onPress={() => Linking.openURL('tel:' + phone)}>Gọi điện</Button> : null}
+      <Button icon={Mail} iconColor={colors.primaryDark} tone='secondary' style={styles.actionButton} textStyle={styles.actionText} hitSlop={4} onPress={() => Linking.openURL('mailto:' + member.email)}>Email</Button>
+      <Button icon={MessageCircle} iconColor={colors.primaryDark} tone='secondary' style={styles.actionButton} textStyle={styles.actionText} hitSlop={4} disabled={isStartingChat} onPress={() => void handleMessage()}>{isStartingChat ? 'Đang mở' : 'Nhắn tin'}</Button>
     </View>
     <Card style={styles.info}>
-      <Info label='CÔNG TY' value={company} />
-      <Info label='LĨNH VỰC' value={member.industry || 'Chưa cập nhật'} />
-      <Info label='GIỚI TÍNH' value={gender} />
-      <Info label='NGÀY SINH' value={formatBirthDate(member.birthDate)} />
-      <Info label='EMAIL' value={member.email || 'Chưa cập nhật'} />
-      <Info label='SỐ ĐIỆN THOẠI' value={phone || 'Chưa cập nhật'} />
-      <Info label='ĐỊA CHỈ' value={member.address || 'Chưa cập nhật'} />
-      <Info label='THỊ TRƯỜNG MỤC TIÊU' value={member.targetMarket || 'Chưa cập nhật'} />
+      <Info label='Công ty' value={company} />
+      <Info label='Lĩnh vực' value={member.industry || 'Chưa cập nhật'} />
+      <Info label='Giới tính' value={gender} />
+      <Info label='Ngày sinh' value={formatBirthDate(member.birthDate)} />
+      <Info label='Email' value={member.email || 'Chưa cập nhật'} />
+      <Info label='Số điện thoại' value={phone || 'Chưa cập nhật'} />
+      <Info label='Địa chỉ' value={member.address || 'Chưa cập nhật'} />
+      <Info label='Thị trường mục tiêu' value={member.targetMarket || 'Chưa cập nhật'} />
     </Card>
     <Card style={styles.galleryCard}>
       <Text style={styles.galleryTitle}>Ảnh sản phẩm hoặc hoạt động</Text>
@@ -78,13 +102,17 @@ function Info({ label, value }: { label: string; value: string }) { return <View
 const styles = StyleSheet.create({
   profile: { alignItems: 'center', overflow: 'hidden', paddingTop: 0 },
   cover: { width: '130%', height: 86, marginBottom: -45, backgroundColor: colors.primarySoft },
-  name: { marginTop: spacing.md, color: colors.text, fontSize: 19, fontWeight: '900' },
-  role: { marginVertical: spacing.sm, color: colors.muted, fontSize: 12 },
-  actions: { flexDirection: 'row', gap: spacing.sm },
-  info: { gap: spacing.md },
-  infoRow: { gap: 3, paddingBottom: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  label: { color: colors.muted, fontSize: 10, fontWeight: '800' },
-  value: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  name: { marginTop: spacing.md, color: colors.text, fontSize: 19, fontWeight: '700', textAlign: 'center' },
+  role: { marginTop: spacing.xs, marginBottom: spacing.sm, color: colors.muted, fontSize: 12, textAlign: 'center' },
+  industryBadge: { alignSelf: 'center', borderRadius: radius.pill, backgroundColor: colors.primarySoft, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+  industryText: { color: colors.primaryDark, fontSize: 12, fontWeight: '500', textAlign: 'center' },
+  actions: { flexDirection: 'row', gap: spacing.xs },
+  actionButton: { flex: 1, minHeight: 40, paddingHorizontal: spacing.xs },
+  actionText: { fontSize: 12.5, fontWeight: '600' },
+  info: { gap: spacing.sm },
+  infoRow: { gap: 2, paddingBottom: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  label: { color: colors.muted, fontSize: 11.5, fontWeight: '400' },
+  value: { color: colors.text, fontSize: 13, fontWeight: '400', lineHeight: 18 },
   galleryCard: { gap: spacing.md },
   galleryTitle: { color: colors.text, fontSize: 15, fontWeight: '900' },
   gallery: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },

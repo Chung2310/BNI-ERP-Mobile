@@ -1,6 +1,6 @@
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { ArrowRight, Bell, Calendar, Trophy, X } from "lucide-react-native";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -19,7 +19,7 @@ import { MeetingCard } from "@/components/MeetingCard";
 import { MonthCalendar } from "@/components/MonthCalendar";
 import { useAuth } from "@/context/AuthContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
-import { meetingService } from "@/services/meeting";
+import { applyMeetingChange, meetingService, subscribeMeetingChanges } from "@/services/meeting";
 import { userService } from "@/services/users";
 import { colors, radius, shadow, spacing } from "@/theme/tokens";
 
@@ -36,6 +36,8 @@ export default function HomeScreen() {
   const [calendarDate, setCalendarDate] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
   const [isDateSheetVisible, setIsDateSheetVisible] = useState(false);
+  const calendarMonth = `${calendarDate.getFullYear()}-${String(calendarDate.getMonth() + 1).padStart(2, "0")}`;
+  const { data: monthData, setData: setMonthData, reload: reloadMonth, isLoading: monthLoading, error: monthError } = useAsyncData(() => meetingService.list(calendarMonth), calendarMonth);
 
   const { data: dashboardData } = useAsyncData(async () => {
     const history = await meetingService.history();
@@ -43,8 +45,18 @@ export default function HomeScreen() {
     return { history, members };
   }, "dashboard-charts");
 
-  const { data, error, isLoading, reload } = useAsyncData(() => meetingService.list());
+  const { data, setData, error, isLoading, reload } = useAsyncData(() => meetingService.list());
+  const hasFocused = useRef(false);
+  useFocusEffect(useCallback(() => {
+    if (hasFocused.current) { void reload(); void reloadMonth(); }
+    else hasFocused.current = true;
+  }, [reload, reloadMonth]));
+  useEffect(() => subscribeMeetingChanges((change) => {
+    setData((current) => applyMeetingChange(current, change));
+    setMonthData((current) => applyMeetingChange(current, change));
+  }), [setData, setMonthData]);
   const meetings = useMemo(() => data || [], [data]);
+  const calendarMeetings = useMemo(() => [...new Map([...meetings, ...(monthData || [])].map((meeting) => [meeting._id, meeting])).values()], [meetings, monthData]);
   const chartMeetings = dashboardData?.history || meetings;
   const memberCount =
     dashboardData?.members.length ||
@@ -101,7 +113,7 @@ export default function HomeScreen() {
       { hasActive: boolean; hasLive: boolean; hasCancelled: boolean; sampleDate: string }
     >();
 
-    for (const m of meetings) {
+    for (const m of calendarMeetings) {
       const key = new Date(m.startsAt).toDateString();
       let entry = map.get(key);
       if (!entry) {
@@ -134,13 +146,14 @@ export default function HomeScreen() {
     }
 
     return { eventDates: events, liveDates: lives, cancelledDates: cancelled };
-  }, [meetings]);
+  }, [calendarMeetings]);
 
   // Selected date meetings for the bottom sheet
   const selectedDateMeetings = useMemo(() => {
     const targetStr = selectedDate.toDateString();
-    return meetings.filter((m) => new Date(m.startsAt).toDateString() === targetStr);
-  }, [meetings, selectedDate]);
+    return calendarMeetings.filter((m) => new Date(m.startsAt).toDateString() === targetStr)
+      .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt));
+  }, [calendarMeetings, selectedDate]);
 
   const todayStr = useMemo(() => {
     const now = new Date();
@@ -393,7 +406,7 @@ export default function HomeScreen() {
               contentContainerStyle={styles.sheetScrollContainer}
               showsVerticalScrollIndicator={false}
             >
-              {selectedDateMeetings.length > 0 ? (
+              {monthLoading ? <LoadingState /> : monthError ? <ErrorState message={monthError} onRetry={reloadMonth} /> : selectedDateMeetings.length > 0 ? (
                 selectedDateMeetings.map((meeting) => (
                   <MeetingCard key={meeting._id} meeting={meeting} />
                 ))

@@ -65,10 +65,13 @@
         "expo-image-picker",
         {
           "photosPermission": "Cho phép iGen Connect truy cập thư viện ảnh để chọn ảnh cuộc họp và thành viên.",
-          "cameraPermission": "Cho phép iGen Connect sử dụng camera để quét mã QR và chụp ảnh thành viên, sản phẩm."
+          "cameraPermission": "Cho phép iGen Connect sử dụng camera để chụp ảnh và quay video gửi trong trò chuyện.",
+          "microphonePermission": "Cho phép iGen Connect sử dụng micro để ghi âm và quay video gửi trong trò chuyện."
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      ["expo-audio", { "microphonePermission": "Cho phép iGen Connect sử dụng micro để gửi tin nhắn thoại." }],
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true

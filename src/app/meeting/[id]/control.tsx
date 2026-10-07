@@ -1,12 +1,13 @@
+import { Alert } from "@/components/AppAlert";
 import { useCallback, useRef, useState } from "react";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
   ArrowDown,
   ArrowUp,
+  CalendarClock,
   ChevronRight,
   CircleStop,
   CornerDownRight,
-  Gift,
   MessageCircle,
   Pause,
   Pencil,
@@ -17,7 +18,7 @@ import {
   XCircle,
   type LucideIcon,
 } from "lucide-react-native";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import {  Pressable, StyleSheet, Text, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { Avatar, Button, Card, ErrorState, LoadingState, Screen, SectionTitle } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
@@ -148,7 +149,6 @@ export default function MeetingControlScreen() {
       <Card style={styles.tools}>
         {canManage && meetingOpen ? <ToolRow icon={Presentation} label="Điều hành & trình chiếu" onPress={() => router.push({ pathname: "/meeting/[id]/live", params: { id } })} /> : null}
         <ToolRow icon={MessageCircle} label="Tương tác" onPress={() => openInteraction("interaction")} />
-        <ToolRow icon={Gift} label="Quay thưởng" onPress={() => openInteraction("luckyDraw")} />
         <ToolRow icon={Trophy} label="Thành viên tích cực" onPress={() => router.push("/rankings")} />
       </Card>
 
@@ -186,7 +186,8 @@ export default function MeetingControlScreen() {
         <>
           <SectionTitle>Quản lý</SectionTitle>
           <Card style={styles.section}>
-            {meetingOpen ? <Button icon={Pencil} tone="secondary" fullWidth style={styles.actionButton} textStyle={styles.actionButtonText} onPress={() => router.push({ pathname: "/meeting/[id]/edit", params: { id } })}>{meeting.status === "scheduled" ? "Chỉnh sửa / Dời lịch" : "Chỉnh sửa cuộc họp"}</Button> : null}
+            {meetingOpen ? <Button icon={Pencil} tone="secondary" fullWidth style={styles.actionButton} textStyle={styles.actionButtonText} onPress={() => router.push({ pathname: "/meeting/[id]/edit", params: { id } })}>Sửa thông tin lịch</Button> : null}
+            {meeting.status === "scheduled" ? <Button icon={CalendarClock} tone="secondary" fullWidth style={styles.actionButton} textStyle={styles.actionButtonText} onPress={() => router.push({ pathname: "/meeting/[id]/reschedule", params: { id } })}>Dời ngày giờ họp</Button> : null}
             {meeting.status === "scheduled" ? <Button icon={XCircle} tone="secondary" fullWidth style={styles.actionButton} textStyle={styles.actionButtonText} disabled={busy} onPress={() => confirmControl("cancel", "Hủy cuộc họp", "Cuộc họp sẽ được đánh dấu đã hủy; các buổi khác trong chuỗi không thay đổi.")}>Hủy buổi họp</Button> : null}
             <Button icon={Trash2} tone="danger" fullWidth style={styles.actionButton} textStyle={styles.actionButtonText} disabled={busy} onPress={remove}>Xóa cuộc họp</Button>
           </Card>

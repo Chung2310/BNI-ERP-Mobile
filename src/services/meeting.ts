@@ -43,10 +43,22 @@ export type Meeting = {
   speakers: Speaker[];
   luckyDraw?: LuckyDrawConfig;
   gameWinners?: LuckyDrawWinner[];
+  presentation?: MeetingPresentationState;
+};
+
+export type PresentationView = "checkin" | "speaker" | "luckyDraw" | "activeMembers" | "waiting";
+export type MeetingPresentationState = {
+  view: PresentationView;
+  autoAdvance: boolean;
+  autoAdvanceDelay: number;
+  drawWinnerId?: string;
+  drawStartedAt?: string;
+  drawRevealsAt?: string;
 };
 
 export type LuckyDrawWinner = {
   id: string;
+  source?: "wheel" | "bingo" | "draw";
   prizeId: string;
   prizeName: string;
   winnerId: string;
@@ -87,6 +99,30 @@ export type LuckyDraw = {
   speakers: Speaker[];
   luckyDraw: LuckyDrawConfig;
 };
+export type GameWinnerInput = Pick<LuckyDrawWinner, "id" | "winnerId" | "name" | "prizeName" | "wonAt"> & {
+  source: "wheel" | "bingo";
+  photoURL?: string;
+  ticketNumber?: number;
+};
+
+export type ProfileSlide = {
+  id: string;
+  kind: "member" | "guest";
+  name: string;
+  company: string;
+  photoURL: string;
+  coverImage: string;
+  phone: string;
+  email?: string;
+  industry: string;
+  bio: string;
+  address?: string;
+  targetMarket?: string;
+  galleryImages?: string[];
+};
+export type SlideDeck = { slides: ProfileSlide[]; version: number };
+export type MeetingLiveSnapshot = { meeting: Meeting; slides: ProfileSlide[]; serverNow: number };
+export type MeetingLiveState = { meeting: Meeting; serverNow: number };
 
 export type MeetingInteractionStatus = "draft" | "open" | "closed";
 export type MeetingInteractionResponseStatus = "pending" | "approved" | "hidden" | "rejected";
@@ -162,20 +198,52 @@ export type MeetingSeriesChanges = {
 
 export const meetingVersion = (meeting: Pick<Meeting, "__v" | "revision">) => meeting.__v ?? meeting.revision ?? 0;
 
+export type MeetingChange = { type: "upsert"; meeting: Meeting } | { type: "remove"; id: string };
+const meetingChangeListeners = new Set<(change: MeetingChange) => void>();
+
+export function subscribeMeetingChanges(listener: (change: MeetingChange) => void) {
+  meetingChangeListeners.add(listener);
+  return () => { meetingChangeListeners.delete(listener); };
+}
+
+export function applyMeetingChange(current: Meeting[] | null, change: MeetingChange): Meeting[] | null {
+  if (!current) return current;
+  if (change.type === "remove") return current.filter((meeting) => meeting._id !== change.id);
+  const index = current.findIndex((meeting) => meeting._id === change.meeting._id);
+  if (index < 0) return [change.meeting, ...current];
+  return current.map((meeting, itemIndex) => itemIndex === index ? change.meeting : meeting);
+}
+
+const publishMeetingChange = (change: MeetingChange) => {
+  for (const listener of meetingChangeListeners) {
+    try { listener(change); } catch { /* A local screen update must not turn a successful API call into an error. */ }
+  }
+};
+const publishUpdatedMeeting = (meeting: Meeting) => { publishMeetingChange({ type: "upsert", meeting }); return meeting; };
+
 const unwrap = <T>(payload: { data: T }) => payload.data;
 
 export const meetingService = {
   list: (month?: string) => apiRequest<{ data: Meeting[] }>(`/api/v1/meetings${month ? `?month=${month}` : ""}`).then(unwrap),
   history: () => apiRequest<{ data: Meeting[] }>("/api/v1/meetings?history=all").then(unwrap),
   get: (id: string) => apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}`).then(unwrap),
+  slides: (id: string) => apiRequest<{ data: SlideDeck }>(`/api/v1/meetings/${encodeURIComponent(id)}/slides`).then(unwrap),
+  live: (id: string) => apiRequest<{ data: MeetingLiveSnapshot }>(`/api/v1/meetings/${encodeURIComponent(id)}/live`).then(unwrap),
+  liveState: (id: string) => apiRequest<{ data: MeetingLiveState }>(`/api/v1/meetings/${encodeURIComponent(id)}/live/state`).then(unwrap),
+  presentation: (id: string, speakerId: string, version: number) =>
+    apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}/presentation`, { method: "POST", body: JSON.stringify({ speakerId, version }) }).then(unwrap),
+  presentationState: (id: string, changes: Partial<Pick<MeetingPresentationState, "view" | "autoAdvance" | "autoAdvanceDelay">>, version: number) =>
+    apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}/presentation-state`, { method: "PATCH", body: JSON.stringify({ ...changes, version }) }).then(unwrap),
+  presentationDraw: (id: string, prizeId: string, version: number) =>
+    apiRequest<{ data: { winner: LuckyDrawWinner; prize: LuckyDrawPrize } }>(`/api/v1/meetings/${encodeURIComponent(id)}/presentation-draw`, { method: "POST", body: JSON.stringify({ prizeId, version }) }).then(unwrap),
   checkIn: (id: string, payload?: { latitude?: number; longitude?: number; name?: string; email?: string }) =>
     apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}/checkin`, { method: "POST", body: JSON.stringify(payload || {}) }).then(unwrap),
   control: (id: string, action: "start" | "pause" | "resume" | "next" | "previous" | "finish" | "cancel" | "start_speaker" | "reset_speaker", version: number) =>
-    apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}/control`, { method: "POST", body: JSON.stringify({ action, version }) }).then(unwrap),
+    apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}/control`, { method: "POST", body: JSON.stringify({ action, version }) }).then(unwrap).then(publishUpdatedMeeting),
   update: (id: string, input: MeetingUpdateInput) =>
-    apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(input) }).then(unwrap),
+    apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(input) }).then(unwrap).then(publishUpdatedMeeting),
   remove: (id: string) =>
-    apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}`, { method: "DELETE" }).then(unwrap),
+    apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}`, { method: "DELETE" }).then(unwrap).then((meeting) => { publishMeetingChange({ type: "remove", id }); return meeting; }),
   deferSpeaker: (id: string, speakerId: string, version: number) =>
     apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}/defer`, { method: "POST", body: JSON.stringify({ speakerId, version }) }).then(unwrap),
   reorderSpeakers: (id: string, speakerIds: string[], version: number) =>
@@ -184,6 +252,8 @@ export const meetingService = {
     apiRequest<{ data: Meeting[] }>(`/api/v1/meetings/${encodeURIComponent(id)}/series`, { method: "PUT", body: JSON.stringify({ meetingIds, changes }) }).then(unwrap),
   luckyDraw: (id: string) => apiRequest<{ data: LuckyDraw }>(`/api/v1/meetings/${encodeURIComponent(id)}/lucky-draw`).then(unwrap),
   spin: (id: string, prizeId: string) => apiRequest<{ data: { winner: LuckyDrawWinner; prize: LuckyDrawPrize } }>(`/api/v1/meetings/${encodeURIComponent(id)}/lucky-draw/spin`, { method: "POST", body: JSON.stringify({ prizeId }) }).then(unwrap),
+  recordGameWinner: (id: string, input: GameWinnerInput) =>
+    apiRequest<{ data: LuckyDrawWinner }>(`/api/v1/meetings/${encodeURIComponent(id)}/lucky-draw/results`, { method: "POST", body: JSON.stringify(input) }).then(unwrap),
   updateLuckyDrawConfig: (id: string, input: Partial<Omit<LuckyDrawConfig, "prizes">>) =>
     apiRequest<{ data: LuckyDrawConfig }>(`/api/v1/meetings/${encodeURIComponent(id)}/lucky-draw/config`, { method: "PUT", body: JSON.stringify(input) }).then(unwrap),
   savePrize: (id: string, input: Partial<LuckyDrawPrize>) =>
