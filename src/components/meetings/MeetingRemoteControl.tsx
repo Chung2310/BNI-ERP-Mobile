@@ -190,12 +190,13 @@ export function MeetingRemoteControl({ id }: { id: string }) {
             <Text style={styles.muted}>Chọn giải và bắt đầu quay. Kết quả được đồng bộ lên laptop.</Text>
             {!meeting.luckyDraw?.prizes.length ? <Text style={styles.muted}>Chưa có giải thưởng.</Text> : meeting.luckyDraw.prizes.map((prize) => <Pressable key={prize.id} accessibilityRole="button" accessibilityState={{ selected: prize.id === chosenPrize?.id }} onPress={() => setSelectedPrize(prize.id)} style={[styles.prize, prize.id === chosenPrize?.id && styles.prizeActive]}><Gift color={colors.primaryDark} size={19} /><View style={styles.grow}><Text style={styles.prizeName}>{prize.name}</Text><Text style={styles.muted}>{prize.winners.length}/{prize.quantity} đã trao</Text></View>{prize.id === chosenPrize?.id ? <ChevronRight color={colors.primaryDark} size={17} /> : null}</Pressable>)}
             <Button icon={Sparkles} fullWidth disabled={disabled || meeting.status === "scheduled" || meeting.luckyDraw?.enabled === false || !chosenPrize || chosenPrize.winners.length >= chosenPrize.quantity || (meeting.presentation?.drawRevealsAt ? Date.parse(meeting.presentation.drawRevealsAt) > now : false)} onPress={() => void run((current) => meetingService.presentationDraw(id, chosenPrize!.id, meetingVersion(current)))}>Bắt đầu quay trên laptop</Button>
-            <Button icon={Gift} tone="secondary" fullWidth disabled={!canManage || closed} onPress={() => router.push({ pathname: "/meeting/[id]/games", params: { id } })}>Mở trò quay thưởng</Button>
+            <Button icon={Gift} tone="secondary" fullWidth disabled={!canManage || closed} onPress={() => router.push({ pathname: "/meeting/[id]/games", params: { id } })}>Vòng quay / Bingo trên điện thoại</Button>
             <Button icon={Gift} tone="secondary" fullWidth onPress={() => router.push({ pathname: "/meeting/[id]/interaction", params: { id, section: "luckyDraw" } })}>Quản lý giải thưởng</Button>
           </Card> : null}
 
           {panel === "tools" ? <Card style={styles.section}>
             <Text style={styles.sectionHeading}>Quy trình khác</Text>
+            <Button icon={QrCode} fullWidth disabled={disabled || view === "checkin"} onPress={() => setView("checkin")}>Chiếu QR check-in trên laptop</Button>
             <ToolRow icon={CalendarCheck} label="Danh sách check-in" onPress={() => router.push({ pathname: "/meeting/[id]/attendees", params: { id } })} />
             <ToolRow icon={MessageCircle} label="Thu ý kiến" onPress={() => router.push({ pathname: "/meeting/[id]/interaction", params: { id, section: "interaction" } })} />
             <ToolRow icon={Trophy} label="Kết quả Vòng quay may mắn" onPress={() => router.push({ pathname: "/meeting/[id]/game-results", params: { id, source: "wheel" } })} />

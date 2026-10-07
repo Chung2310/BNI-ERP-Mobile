@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import * as Location from "expo-location";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
   Bell,
@@ -21,7 +20,7 @@ import {
   XCircle,
   type LucideIcon,
 } from "lucide-react-native";
-import { Alert, Image, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Image, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BackHeader } from "@/components/BackHeader";
 import { Avatar, Badge, Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionTitle } from "@/components/ui";
@@ -75,22 +74,6 @@ export default function MeetingDetailScreen() {
   const attendancePosition = attendance ? meeting.speakers.findIndex((speaker) => speaker.id === attendance.id) + 1 : 0;
   const meetingOpen = ["scheduled", "live", "paused"].includes(meeting.status);
   const currentSpeaker = meeting.currentIndex >= 0 ? meeting.speakers[meeting.currentIndex] : undefined;
-
-  const checkInAtLocation = async () => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (!permission.granted) throw new Error("Bạn cần cấp quyền vị trí để điểm danh.");
-      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      setData(await meetingService.checkIn(id, { latitude: position.coords.latitude, longitude: position.coords.longitude }));
-      Alert.alert("Điểm danh thành công", "Bạn đã được ghi nhận tham dự cuộc họp.");
-    } catch (cause) {
-      Alert.alert("Không thể điểm danh", cause instanceof Error ? cause.message : "Vui lòng thử lại.");
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const closeSettings = () => {
     if (actionPending.current) return;
@@ -154,7 +137,7 @@ export default function MeetingDetailScreen() {
       <SectionTitle>Quy trình cuộc họp</SectionTitle>
       <Card style={styles.processCard}>
         <ProcessRow icon={MapPin} label="Check-in" detail={`${meeting.speakers.length} người đã điểm danh`} onPress={() => router.push({ pathname: "/meeting/[id]/attendees", params: { id } })} />
-        <ProcessRow icon={Gift} label="Quay thưởng" detail="Vòng quay may mắn và Lồng cầu bingo" onPress={() => router.push({ pathname: "/meeting/[id]/games", params: { id } })} />
+        <ProcessRow icon={Gift} label="Quay thưởng" detail="Kết quả Vòng quay may mắn và Lồng cầu bingo" onPress={() => router.push({ pathname: "/meeting/[id]/game-results", params: { id } })} />
         <ProcessRow icon={MessageCircle} label="Thu ý kiến" detail="Câu hỏi và phản hồi của người tham dự" onPress={() => router.push({ pathname: "/meeting/[id]/interaction", params: { id, section: "interaction", readOnly: "1" } })} />
         <ProcessRow icon={Presentation} label="Thuyết trình" detail="Danh sách slide của người trình bày" onPress={() => router.push({ pathname: "/meeting/[id]/slides", params: { id } })} />
       </Card>
@@ -185,8 +168,7 @@ export default function MeetingDetailScreen() {
             </>
           ) : (
             <>
-              <Text style={styles.body}>{meetingOpen ? `Điểm danh bằng GPS trong bán kính ${meeting.gpsRadiusMeters || 200} m quanh địa điểm họp.` : "Cuộc họp đã đóng điểm danh."}</Text>
-              <Button icon={MapPin} fullWidth disabled={!meetingOpen || busy} onPress={checkInAtLocation}>{busy ? "Đang xác minh vị trí…" : "Điểm danh ngay"}</Button>
+              <Text style={styles.body}>{meetingOpen ? "Quét mã QR trên màn hình trình chiếu để check-in." : "Cuộc họp đã đóng điểm danh."}</Text>
             </>
           )}
         </Card>

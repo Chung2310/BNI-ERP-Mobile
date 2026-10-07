@@ -1,6 +1,6 @@
-import { useLocalSearchParams } from "expo-router";
-import { Gift, RefreshCw, Trophy } from "lucide-react-native";
-import { StyleSheet, Text, View } from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import { ChevronRight, Gift, RefreshCw, Trophy } from "lucide-react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { Avatar, Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionTitle } from "@/components/ui";
 import { useAsyncData } from "@/hooks/useAsyncData";
@@ -17,13 +17,25 @@ export default function MeetingGameResultsScreen() {
   const winners = (meeting?.gameWinners || []).filter((winner) => winner.source === game).slice().reverse();
 
   return <Screen>
-    <BackHeader title={`Kết quả ${titles[game]}`} subtitle={meeting?.title} />
+    <BackHeader title={source ? `Kết quả ${titles[game]}` : "Kết quả quay thưởng"} subtitle={meeting?.title} />
     {isLoading && !meeting ? <LoadingState /> : error && !meeting ? <ErrorState message={error} onRetry={reload} /> : !meeting ? null : <>
-      <SectionTitle>{titles[game]} · {winners.length} kết quả</SectionTitle>
-      {winners.length ? <Card style={styles.list}>{winners.map((winner) => <WinnerRow key={winner.id} winner={winner} />)}</Card>
-        : <EmptyState title="Chưa có kết quả" message={`Kết quả ${titles[game].toLocaleLowerCase("vi")} sẽ xuất hiện tại đây.`} />}
+      {source ? <>
+        <SectionTitle>{titles[game]} · {winners.length} kết quả</SectionTitle>
+        {winners.length ? <Card style={styles.list}>{winners.map((winner) => <WinnerRow key={winner.id} winner={winner} />)}</Card>
+          : <EmptyState title="Chưa có kết quả" message={`Kết quả ${titles[game].toLocaleLowerCase("vi")} sẽ xuất hiện tại đây.`} />}
+      </> : <>
+        <SectionTitle>Chọn trò để xem kết quả</SectionTitle>
+        {(["wheel", "bingo"] as const).map((item) => {
+          const count = (meeting.gameWinners || []).filter((entry) => entry.source === item).length;
+          return <Pressable key={item} accessibilityRole="button" onPress={() => router.push({ pathname: "/meeting/[id]/game-results", params: { id, source: item } })} style={styles.gameRow}>
+            <View style={styles.icon}><Trophy color={colors.primaryDark} size={21} /></View>
+            <View style={styles.grow}><Text style={styles.name}>{titles[item]}</Text><Text style={styles.meta}>{count} kết quả đã lưu</Text></View>
+            <ChevronRight color={colors.muted} size={18} />
+          </Pressable>;
+        })}
+      </>}
     </>}
-    {meeting ? <Button tone="secondary" icon={RefreshCw} onPress={reload}>Làm mới kết quả</Button> : null}
+    {meeting && source ? <Button tone="secondary" icon={RefreshCw} onPress={reload}>Làm mới kết quả</Button> : null}
   </Screen>;
 }
 
@@ -42,6 +54,7 @@ function WinnerRow({ winner }: { winner: LuckyDrawWinner }) {
 
 const styles = StyleSheet.create({
   list: { paddingVertical: 0 },
+  gameRow: { minHeight: 76, flexDirection: "row", alignItems: "center", gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.surface, paddingHorizontal: spacing.md },
   row: { minHeight: 68, flexDirection: "row", alignItems: "center", gap: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, paddingVertical: spacing.sm },
   icon: { width: 42, height: 42, alignItems: "center", justifyContent: "center", borderRadius: 21, backgroundColor: colors.primarySoft },
   grow: { flex: 1 },
