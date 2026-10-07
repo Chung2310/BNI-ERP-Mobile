@@ -42,6 +42,7 @@ export function MonthCalendar({
           <ChevronRight color={colors.primaryDark} size={22} />
         </Pressable>
       </View>
+
       <View style={styles.weekdaysRow}>
         {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((day) => (
           <Text key={day} style={styles.weekday}>
@@ -49,6 +50,7 @@ export function MonthCalendar({
           </Text>
         ))}
       </View>
+
       <View style={styles.grid}>
         {days.map((day) => {
           const outside = day.getMonth() !== month;
@@ -62,45 +64,46 @@ export function MonthCalendar({
               key={day.toISOString()}
               disabled={!onSelectDate}
               onPress={() => onSelectDate?.(day)}
-              style={[
-                styles.day,
-                isToday && styles.dayToday,
-                isLive && styles.dayLive,
-                isSelected && !isLive && styles.daySelected,
-                outside && styles.dayOutside,
-              ]}
+              style={[styles.dayCell, outside && styles.dayOutside]}
             >
-              <Text
+              <View
                 style={[
-                  styles.dayText,
-                  isToday && styles.dayTextToday,
-                  isLive && styles.dayTextLive,
-                  outside && styles.dayTextOutside,
+                  styles.dayCircle,
+                  hasEvent && styles.dayCircleEvent,
+                  isLive && styles.dayCircleLive,
+                  isToday && !isLive && !hasEvent && styles.dayCircleToday,
+                  isSelected && !isLive && !hasEvent && styles.dayCircleSelected,
                 ]}
               >
-                {day.getDate()}
-              </Text>
-              {isLive ? (
-                <View style={styles.livePulseDot} />
-              ) : hasEvent ? (
-                <View style={[styles.dot, isToday && styles.dotActive]} />
-              ) : null}
+                <Text
+                  style={[
+                    styles.dayText,
+                    hasEvent && styles.dayTextEvent,
+                    isLive && styles.dayTextLive,
+                    isToday && !isLive && !hasEvent && styles.dayTextToday,
+                    outside && styles.dayTextOutside,
+                  ]}
+                >
+                  {day.getDate()}
+                </Text>
+              </View>
             </Pressable>
           );
         })}
       </View>
+
       {/* Legend guide */}
       <View style={styles.legendContainer}>
         <View style={styles.legendItem}>
-          <View style={[styles.legendBox, styles.legendBoxLive]} />
+          <View style={[styles.legendCircle, styles.legendCircleLive]} />
           <Text style={styles.legendText}>Đang diễn ra</Text>
         </View>
         <View style={styles.legendItem}>
-          <View style={[styles.legendBox, styles.legendBoxEvent]} />
+          <View style={[styles.legendCircle, styles.legendCircleEvent]} />
           <Text style={styles.legendText}>Có cuộc họp</Text>
         </View>
         <View style={styles.legendItem}>
-          <View style={[styles.legendBox, styles.legendBoxToday]} />
+          <View style={[styles.legendCircle, styles.legendCircleToday]} />
           <Text style={styles.legendText}>Hôm nay</Text>
         </View>
       </View>
@@ -148,50 +151,63 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     textAlign: "center",
   },
-  day: {
+  dayCell: {
     width: "14.2857%",
     height: 38,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: radius.md,
   },
-  dayToday: {
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    backgroundColor: "#F0FAFC",
+  dayCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  dayLive: {
-    backgroundColor: "#00AECA", // Brand jade cyan / ngọc bích
+  dayCircleEvent: {
+    borderWidth: 2,
+    borderColor: "#00AECA", // Khoanh tròn màu xanh thương hiệu
+    backgroundColor: "#E6F8FB", // Nền xanh nhạt thương hiệu
+  },
+  dayCircleLive: {
+    backgroundColor: "#00AECA", // Tô kín màu xanh thương hiệu khi đang diễn ra
+    borderWidth: 0,
     shadowColor: "#00AECA",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.35,
     shadowRadius: 4,
     elevation: 3,
   },
-  daySelected: {
+  dayCircleToday: {
+    borderWidth: 1.5,
+    borderColor: "#94A3B8",
+    backgroundColor: "#F1F5F9",
+  },
+  dayCircleSelected: {
     backgroundColor: colors.primarySoft,
   },
-  dayOutside: { opacity: 0.28 },
-  dayText: { color: colors.text, fontSize: 13, fontWeight: "600" },
-  dayTextToday: { color: colors.primaryDark, fontWeight: "800" },
-  dayTextLive: { color: "#FFFFFF", fontWeight: "900" },
-  dayTextOutside: { color: colors.muted },
-  dot: {
-    position: "absolute",
-    bottom: 3,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.primary,
+  dayOutside: {
+    opacity: 0.28,
   },
-  dotActive: { backgroundColor: colors.primaryDark },
-  livePulseDot: {
-    position: "absolute",
-    bottom: 3,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#FFFFFF",
+  dayText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  dayTextEvent: {
+    color: "#008EA6",
+    fontWeight: "900",
+  },
+  dayTextLive: {
+    color: "#FFFFFF",
+    fontWeight: "900",
+  },
+  dayTextToday: {
+    color: colors.text,
+    fontWeight: "800",
+  },
+  dayTextOutside: {
+    color: colors.muted,
   },
   legendContainer: {
     flexDirection: "row",
@@ -209,24 +225,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
   },
-  legendBox: {
-    width: 8,
-    height: 8,
-    borderRadius: 2,
+  legendCircle: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
-  legendBoxLive: {
+  legendCircleLive: {
     backgroundColor: "#00AECA",
   },
-  legendBoxEvent: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.primary,
+  legendCircleEvent: {
+    borderWidth: 1.8,
+    borderColor: "#00AECA",
+    backgroundColor: "#E6F8FB",
   },
-  legendBoxToday: {
-    borderWidth: 1,
-    borderColor: colors.primary,
-    backgroundColor: "#F0FAFC",
+  legendCircleToday: {
+    borderWidth: 1.2,
+    borderColor: "#94A3B8",
+    backgroundColor: "#F1F5F9",
   },
   legendText: {
     color: colors.muted,
