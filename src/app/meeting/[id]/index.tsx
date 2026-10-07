@@ -17,6 +17,7 @@ import {
   Timer,
   Trash2,
   XCircle,
+  type LucideIcon,
 } from "lucide-react-native";
 import { Alert, Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
@@ -135,17 +136,13 @@ export default function MeetingDetailScreen() {
         </View>
         <View style={styles.summaryMeta}><Clock3 color={colors.primaryDark} size={16} /><Text style={styles.summaryMetaText}>{dateTime(meeting.startsAt)}</Text></View>
         <View style={styles.summaryMeta}><MapPin color={colors.primaryDark} size={16} /><Text style={styles.summaryMetaText}>{meeting.location || "Chưa cập nhật địa điểm"}</Text></View>
+        {manage ? <View style={styles.scheduleRow}>
+          <ScheduleAction icon={Pencil} label="Sửa lịch" disabled={busy || !meetingOpen} onPress={() => router.push({ pathname: "/meeting/[id]/edit", params: { id } })} />
+          <ScheduleAction icon={CalendarClock} label="Dời lịch" disabled={busy || meeting.status !== "scheduled"} onPress={() => router.push({ pathname: "/meeting/[id]/reschedule", params: { id } })} />
+          <ScheduleAction icon={XCircle} label="Hủy lịch" disabled={busy || meeting.status !== "scheduled"} onPress={cancelMeeting} />
+          <ScheduleAction icon={Trash2} label="Xóa lịch" disabled={busy} danger onPress={removeMeeting} />
+        </View> : null}
       </Card>
-
-      {manage ? <>
-        <SectionTitle>Quản lý lịch họp</SectionTitle>
-        <Card style={styles.scheduleActions}>
-          {meetingOpen ? <Button icon={Pencil} tone="secondary" fullWidth disabled={busy} onPress={() => router.push({ pathname: "/meeting/[id]/edit", params: { id } })}>Sửa thông tin lịch</Button> : null}
-          {meeting.status === "scheduled" ? <Button icon={CalendarClock} tone="secondary" fullWidth disabled={busy} onPress={() => router.push({ pathname: "/meeting/[id]/reschedule", params: { id } })}>Dời ngày giờ họp</Button> : null}
-          {meeting.status === "scheduled" ? <Button icon={XCircle} tone="secondary" fullWidth disabled={busy} onPress={cancelMeeting}>Hủy lịch họp</Button> : null}
-          <Button icon={Trash2} tone="danger" fullWidth disabled={busy} onPress={removeMeeting}>Xóa lịch họp</Button>
-        </Card>
-      </> : null}
 
       <View style={styles.metrics}>
         <Metric label="CHECK-IN" value={String(meeting.speakers.length)} />
@@ -224,6 +221,13 @@ function Metric({ label, value }: { label: string; value: string }) {
   return <Card style={styles.metric}><Text style={styles.metricLabel}>{label}</Text><Text style={styles.metricValue}>{value}</Text></Card>;
 }
 
+function ScheduleAction({ icon: Icon, label, disabled, danger = false, onPress }: { icon: LucideIcon; label: string; disabled: boolean; danger?: boolean; onPress: () => void }) {
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.scheduleAction, disabled && styles.scheduleDisabled, pressed && styles.processPressed]}>
+    <View style={[styles.scheduleIcon, danger && styles.scheduleIconDanger]}><Icon size={20} color={danger ? colors.danger : colors.primaryDark} /></View>
+    <Text numberOfLines={1} style={[styles.scheduleLabel, danger && styles.scheduleLabelDanger]}>{label}</Text>
+  </Pressable>;
+}
+
 function InfoRow({ icon: Icon, label, value }: { icon: typeof Clock3; label: string; value: string }) {
   return <View style={styles.infoRow}><Icon color={colors.primaryDark} size={20} /><View style={styles.grow}><Text style={styles.infoLabel}>{label}</Text><Text style={styles.infoValue}>{value}</Text></View></View>;
 }
@@ -238,7 +242,13 @@ function ProcessRow({ icon: Icon, label, detail, onPress }: { icon: typeof Clock
 
 const styles = StyleSheet.create({
   detailScreen: { gap: spacing.xs },
-  scheduleActions: { gap: spacing.sm },
+  scheduleRow: { flexDirection: "row", borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingTop: spacing.xs },
+  scheduleAction: { flex: 1, minWidth: 0, minHeight: 68, alignItems: "center", justifyContent: "center", gap: spacing.xs },
+  scheduleDisabled: { opacity: 0.38 },
+  scheduleIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: colors.primarySoft },
+  scheduleIconDanger: { backgroundColor: "#FFF0F2" },
+  scheduleLabel: { color: colors.primaryDark, fontSize: 11, fontWeight: "700" },
+  scheduleLabelDanger: { color: colors.danger },
   processCard: { paddingVertical: 0, paddingHorizontal: spacing.sm },
   processRow: { minHeight: 64, flexDirection: "row", alignItems: "center", gap: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, paddingHorizontal: spacing.xs, paddingVertical: spacing.sm },
   processPressed: { opacity: 0.6 },
