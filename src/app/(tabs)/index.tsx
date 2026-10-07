@@ -1,8 +1,7 @@
 import { router, useFocusEffect } from "expo-router";
-import { ArrowRight, Bell, Calendar, Trophy, X } from "lucide-react-native";
+import { ArrowRight, Bell, Trophy } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import {
   AppHeader,
   Avatar,
@@ -21,7 +20,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { applyMeetingChange, meetingService, subscribeMeetingChanges } from "@/services/meeting";
 import { userService } from "@/services/users";
-import { colors, radius, shadow, spacing } from "@/theme/tokens";
+import { colors, radius, spacing } from "@/theme/tokens";
 
 function capitalizeName(name?: string): string {
   if (!name) return "bạn";
@@ -32,10 +31,10 @@ function capitalizeName(name?: string): string {
 
 export default function HomeScreen() {
   const { user } = useAuth();
-  const insets = useSafeAreaInsets();
   const [calendarDate, setCalendarDate] = useState(() => new Date());
-  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
-  const [isDateSheetVisible, setIsDateSheetVisible] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const calendarMonth = `${calendarDate.getFullYear()}-${String(calendarDate.getMonth() + 1).padStart(2, "0")}`;
+  const { data: monthData, setData: setMonthData, reload: reloadMonth, isLoading: monthLoading, error: monthError } = useAsyncData(() => meetingService.list(calendarMonth), calendarMonth);
 
   const { data: dashboardData } = useAsyncData(async () => {
     const history = await meetingService.history();
@@ -46,11 +45,15 @@ export default function HomeScreen() {
   const { data, setData, error, isLoading, reload } = useAsyncData(() => meetingService.list());
   const hasFocused = useRef(false);
   useFocusEffect(useCallback(() => {
-    if (hasFocused.current) void reload();
+    if (hasFocused.current) { void reload(); void reloadMonth(); }
     else hasFocused.current = true;
-  }, [reload]));
-  useEffect(() => subscribeMeetingChanges((change) => setData((current) => applyMeetingChange(current, change))), [setData]);
+  }, [reload, reloadMonth]));
+  useEffect(() => subscribeMeetingChanges((change) => {
+    setData((current) => applyMeetingChange(current, change));
+    setMonthData((current) => applyMeetingChange(current, change));
+  }), [setData, setMonthData]);
   const meetings = useMemo(() => data || [], [data]);
+  const calendarMeetings = useMemo(() => [...new Map([...meetings, ...(monthData || [])].map((meeting) => [meeting._id, meeting])).values()], [meetings, monthData]);
   const chartMeetings = dashboardData?.history || meetings;
   const memberCount =
     dashboardData?.members.length ||
@@ -107,7 +110,7 @@ export default function HomeScreen() {
       { hasActive: boolean; hasLive: boolean; hasCancelled: boolean; sampleDate: string }
     >();
 
-    for (const m of meetings) {
+    for (const m of calendarMeetings) {
       const key = new Date(m.startsAt).toDateString();
       let entry = map.get(key);
       if (!entry) {
@@ -140,13 +143,14 @@ export default function HomeScreen() {
     }
 
     return { eventDates: events, liveDates: lives, cancelledDates: cancelled };
-  }, [meetings]);
+  }, [calendarMeetings]);
 
-  // Selected date meetings for the bottom sheet
   const selectedDateMeetings = useMemo(() => {
+    if (!selectedDate) return [];
     const targetStr = selectedDate.toDateString();
-    return meetings.filter((m) => new Date(m.startsAt).toDateString() === targetStr);
-  }, [meetings, selectedDate]);
+    return calendarMeetings.filter((m) => new Date(m.startsAt).toDateString() === targetStr)
+      .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt));
+  }, [calendarMeetings, selectedDate]);
 
   const todayStr = useMemo(() => {
     const now = new Date();
@@ -174,7 +178,6 @@ export default function HomeScreen() {
 
   const handleSelectDate = (date: Date) => {
     setSelectedDate(date);
-    setIsDateSheetVisible(true);
   };
 
   return (
@@ -271,15 +274,22 @@ export default function HomeScreen() {
               eventDates={eventDates}
               liveDates={liveDates}
               cancelledDates={cancelledDates}
-              selectedDate={selectedDate}
+              selectedDate={selectedDate ?? undefined}
               onSelectDate={handleSelectDate}
-              onPrevious={() =>
-                setCalendarDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))
-              }
-              onNext={() =>
-                setCalendarDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))
-              }
+              onPrevious={() => { setSelectedDate(null); setCalendarDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1)); }}
+              onNext={() => { setSelectedDate(null); setCalendarDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1)); }}
             />
+
+            {selectedDate ? (
+              <View style={styles.dayMeetings}>
+                <Text style={styles.dayMeetingsTitle}>Cuộc họp ngày {selectedDate.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" })} ({selectedDateMeetings.length})</Text>
+                {monthLoading ? <LoadingState /> : monthError ? <ErrorState message={monthError} onRetry={reloadMonth} /> : selectedDateMeetings.length ? (
+                  <View style={styles.dayMeetingsList}>
+                    {selectedDateMeetings.map((meeting) => <MeetingCard key={meeting._id} meeting={meeting} variant="list" showDate={false} />)}
+                  </View>
+                ) : <Text style={styles.dayMeetingsEmpty}>Không có cuộc họp trong ngày này.</Text>}
+              </View>
+            ) : null}
 
             {/* Biểu đồ tổng quan */}
             <SectionTitle>Biểu đồ tổng quan</SectionTitle>
@@ -356,66 +366,7 @@ export default function HomeScreen() {
         )}
       </Screen>
 
-      {/* Bottom Sheet chi tiết lịch họp khi bấm vào ngày */}
-      <Modal
-        visible={isDateSheetVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setIsDateSheetVisible(false)}
-        statusBarTranslucent
-      >
-        <View style={styles.sheetOverlay}>
-          <Pressable
-            style={styles.sheetBackdrop}
-            accessibilityLabel="Đóng lịch ngày"
-            onPress={() => setIsDateSheetVisible(false)}
-          />
-          <View style={[styles.sheetContent, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-            <View style={styles.sheetHandle} />
 
-            <View style={styles.sheetHeader}>
-              <View style={styles.sheetHeaderInfo}>
-                <Text style={styles.sheetTitle}>
-                  Lịch ngày {selectedDate.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" })}
-                </Text>
-                <Text style={styles.sheetSubtitle}>
-                  {selectedDateMeetings.length > 0
-                    ? `${selectedDateMeetings.length} cuộc họp được tìm thấy`
-                    : "Chưa có cuộc họp trong ngày này"}
-                </Text>
-              </View>
-              <Pressable
-                accessibilityLabel="Đóng"
-                hitSlop={10}
-                style={styles.sheetCloseBtn}
-                onPress={() => setIsDateSheetVisible(false)}
-              >
-                <X color={colors.muted} size={20} strokeWidth={2.4} />
-              </Pressable>
-            </View>
-
-            <ScrollView
-              style={styles.sheetScroll}
-              contentContainerStyle={styles.sheetScrollContainer}
-              showsVerticalScrollIndicator={false}
-            >
-              {selectedDateMeetings.length > 0 ? (
-                selectedDateMeetings.map((meeting) => (
-                  <MeetingCard key={meeting._id} meeting={meeting} />
-                ))
-              ) : (
-                <View style={styles.sheetEmpty}>
-                  <Calendar color={colors.primary} size={36} strokeWidth={1.8} />
-                  <Text style={styles.sheetEmptyTitle}>Không có cuộc họp</Text>
-                  <Text style={styles.sheetEmptyText}>
-                    Ngày này chưa có lịch họp nào. Bạn có thể chọn ngày khác hoặc lên lịch cuộc họp mới.
-                  </Text>
-                </View>
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
     </>
   );
 }
@@ -508,92 +459,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  /* Bottom sheet styles */
-  sheetOverlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(0, 0, 0, 0.45)",
-  },
-  sheetBackdrop: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  sheetContent: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    maxHeight: "75%",
-    ...shadow,
-  },
-  sheetHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#CBD5E1",
-    alignSelf: "center",
-    marginBottom: 12,
-  },
-  sheetHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
-    marginBottom: 12,
-  },
-  sheetHeaderInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  sheetTitle: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  sheetSubtitle: {
-    color: colors.muted,
-    fontSize: 12,
-  },
-  sheetCloseBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.pill,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.background,
-  },
-  sheetScroll: {
-    flexGrow: 0,
-  },
-  sheetScrollContainer: {
-    gap: spacing.sm,
-    paddingBottom: spacing.md,
-  },
-  sheetEmpty: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: spacing.xl,
-    gap: spacing.xs,
-  },
-  sheetEmptyTitle: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: "800",
-    marginTop: spacing.xs,
-  },
-  sheetEmptyText: {
-    color: colors.muted,
-    fontSize: 13,
-    textAlign: "center",
-    lineHeight: 18,
-    paddingHorizontal: spacing.md,
-  },
+  dayMeetings: { gap: spacing.sm },
+  dayMeetingsTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },
+  dayMeetingsList: { backgroundColor: colors.surface, borderRadius: radius.lg, paddingHorizontal: spacing.sm },
+  dayMeetingsEmpty: { color: colors.muted, fontSize: 13, padding: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg },
   rankingsCard: {
     paddingVertical: 4,
     paddingHorizontal: 12,

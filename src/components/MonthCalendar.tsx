@@ -58,6 +58,7 @@ export function MonthCalendar({
         {days.map((day) => {
           const outside = day.getMonth() !== month;
           const isToday = day.toDateString() === today;
+          const isSelected = selectedDate?.toDateString() === day.toDateString();
           const isLive = liveEvents.has(day.toDateString()) && !outside;
           const hasEvent = events.has(day.toDateString()) && !outside;
           const isCancelled = cancelledEvents.has(day.toDateString()) && !outside && !hasEvent;
@@ -65,6 +66,7 @@ export function MonthCalendar({
           return (
             <Pressable
               accessibilityRole="button"
+              accessibilityState={{ selected: isSelected }}
               accessibilityLabel={`${day.getDate()} tháng ${day.getMonth() + 1}${
                 isCancelled ? ", cuộc họp bị hủy" : hasEvent ? ", có cuộc họp" : ", không có cuộc họp"
               }`}
@@ -79,6 +81,7 @@ export function MonthCalendar({
                   hasEvent && styles.dayCircleEvent,
                   isLive && styles.dayCircleLive,
                   isCancelled && styles.dayCircleCancelled,
+                  isSelected && styles.dayCircleSelected,
                 ]}
               >
                 <Text
@@ -187,6 +190,7 @@ const styles = StyleSheet.create({
     borderRadius: 14.5,
     overflow: "hidden",
   },
+  dayCircleSelected: { borderWidth: 2, borderColor: colors.primaryDark },
   dayOutside: {
     opacity: 0.25,
   },
