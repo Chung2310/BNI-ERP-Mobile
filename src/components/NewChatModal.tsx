@@ -196,8 +196,8 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 20,
-    fontWeight: '900',
+    fontSize: 16.5,
+    fontWeight: '800',
   },
   close: {
     width: 36,
