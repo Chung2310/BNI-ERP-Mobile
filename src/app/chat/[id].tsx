@@ -2,10 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { Reply, Send, X } from 'lucide-react-native';
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
+  LayoutChangeEvent,
   Linking,
   Platform,
   Pressable,
@@ -14,12 +17,13 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackHeader } from '@/components/BackHeader';
 import { EmptyState, ErrorState, LoadingState, Screen } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
 import { useAsyncData } from '@/hooks/useAsyncData';
 import { chatService, type ChatMessage } from '@/services/chat';
-import { colors, radius, spacing, touchTarget } from '@/theme/tokens';
+import { colors, radius, spacing } from '@/theme/tokens';
 
 const senderId = (message: ChatMessage) =>
   typeof message.senderId === 'string' ? message.senderId : message.senderId._id;
@@ -46,7 +50,11 @@ const replyMessage = (value?: ChatMessage | string) =>
 export default function ChatRoomScreen() {
   const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList<ChatMessage>>(null);
+  const initialHeightRef = useRef(0);
+  const [windowDidResize, setWindowDidResize] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [message, setMessage] = useState('');
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
   const [sending, setSending] = useState(false);
@@ -70,6 +78,38 @@ export default function ChatRoomScreen() {
     }, 10000);
     return () => clearInterval(timer);
   }, [id, setData]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+      setTimeout(() => {
+        listRef.current?.scrollToEnd({ animated: true });
+      }, 80);
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+      setWindowDidResize(false);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const handleRootLayout = (event: LayoutChangeEvent) => {
+    const { height } = event.nativeEvent.layout;
+    if (height > initialHeightRef.current) {
+      initialHeightRef.current = height;
+    }
+    if (initialHeightRef.current > 0) {
+      setWindowDidResize(initialHeightRef.current - height > 100);
+    }
+  };
 
   const send = async () => {
     const content = message.trim();
@@ -154,7 +194,7 @@ export default function ChatRoomScreen() {
                   <Image source={{ uri: attachment.url }} style={styles.attachmentImage} resizeMode='cover' />
                 </Pressable>
               ) : (
-                <Pressable key={attachment.url + attachmentIndex} onPress={() => void Linking.openURL(attachment.url)} style={styles.file}>
+                <Pressable key={attachment.url + attachmentIndex} onPress={() => void Linking.openURL(attachment.url)} style={[styles.file, mine && styles.myFile]}>
                   <Text numberOfLines={1} style={[styles.fileText, mine && styles.mineText]}>
                     {attachment.name || 'Mở tệp đính kèm'}
                   </Text>
@@ -176,87 +216,173 @@ export default function ChatRoomScreen() {
     );
   };
 
+  const bottomPadding =
+    Platform.OS === 'android'
+      ? keyboardHeight > 0
+        ? windowDidResize
+          ? spacing.xs
+          : keyboardHeight + spacing.xs
+        : Math.max(insets.bottom, spacing.sm)
+      : keyboardHeight > 0
+        ? spacing.xs
+        : Math.max(insets.bottom, spacing.sm);
+
   return (
     <Screen scroll={false} style={styles.screen}>
-      <BackHeader title={name || 'Trò chuyện'} subtitle='Tin nhắn nội bộ' />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
-        style={styles.flex}
-      >
-        {isLoading && !data ? (
-          <LoadingState />
-        ) : error && !data ? (
-          <ErrorState message={error} onRetry={reload} />
-        ) : (
-          <FlatList
-            ref={listRef}
-            data={messages}
-            keyExtractor={(item) => item._id}
-            renderItem={renderMessage}
-            contentContainerStyle={[styles.messages, !messages.length && styles.emptyMessages]}
-            keyboardShouldPersistTaps='handled'
-            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-            onContentSizeChange={() => messages.length && listRef.current?.scrollToEnd({ animated: false })}
-            ListEmptyComponent={<EmptyState title='Chưa có tin nhắn' message='Hãy bắt đầu cuộc trò chuyện.' />}
-          />
-        )}
-
-        {replyingTo ? (
-          <View style={styles.replying}>
-            <Reply color={colors.primaryDark} size={17} />
-            <View style={styles.replyingCopy}>
-              <Text style={styles.replyingName}>Đang trả lời {replyingTo.senderName}</Text>
-              <Text numberOfLines={1} style={styles.replyingText}>{replyingTo.content}</Text>
-            </View>
-            <Pressable accessibilityLabel='Hủy trả lời' onPress={() => setReplyingTo(null)} style={styles.cancelReply}>
-              <X color={colors.muted} size={18} />
-            </Pressable>
-          </View>
-        ) : null}
-
-        {sendError ? <Text style={styles.sendError}>{sendError}</Text> : null}
-        <View style={styles.composer}>
-          <TextInput
-            value={message}
-            onChangeText={(value) => { setMessage(value); setSendError(''); }}
-            placeholder='Nhập tin nhắn...'
-            placeholderTextColor={colors.muted}
-            multiline
-            maxLength={4000}
-            onFocus={() => requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }))}
-            style={styles.input}
-          />
-          <Pressable
-            accessibilityLabel='Gửi tin nhắn'
-            onPress={() => void send()}
-            disabled={!message.trim() || sending}
-            style={({ pressed }) => [styles.send, (!message.trim() || sending) && styles.sendDisabled, pressed && styles.pressed]}
-          >
-            {sending ? <Text style={styles.sendText}>…</Text> : <Send color='#FFFFFF' size={20} />}
-          </Pressable>
+      <View onLayout={handleRootLayout} style={styles.rootContainer}>
+        <View style={styles.headerContainer}>
+          <BackHeader title={name || 'Trò chuyện'} subtitle='Tin nhắn nội bộ' />
         </View>
-      </KeyboardAvoidingView>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={0}
+          style={styles.flex}
+        >
+          {isLoading && !data ? (
+            <LoadingState />
+          ) : error && !data ? (
+            <ErrorState message={error} onRetry={reload} />
+          ) : (
+            <FlatList
+              ref={listRef}
+              data={messages}
+              keyExtractor={(item) => item._id}
+              renderItem={renderMessage}
+              contentContainerStyle={[styles.messages, !messages.length && styles.emptyMessages]}
+              keyboardShouldPersistTaps='handled'
+              keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+              onLayout={() => messages.length > 0 && listRef.current?.scrollToEnd({ animated: false })}
+              onContentSizeChange={() => messages.length > 0 && listRef.current?.scrollToEnd({ animated: false })}
+              ListEmptyComponent={<EmptyState title='Chưa có tin nhắn' message='Hãy bắt đầu cuộc trò chuyện.' />}
+            />
+          )}
+
+          {replyingTo ? (
+            <View style={styles.replying}>
+              <Reply color={colors.primaryDark} size={17} />
+              <View style={styles.replyingCopy}>
+                <Text style={styles.replyingName}>Đang trả lời {replyingTo.senderName}</Text>
+                <Text numberOfLines={1} style={styles.replyingText}>{replyingTo.content}</Text>
+              </View>
+              <Pressable accessibilityLabel='Hủy trả lời' onPress={() => setReplyingTo(null)} style={styles.cancelReply}>
+                <X color={colors.muted} size={18} />
+              </Pressable>
+            </View>
+          ) : null}
+
+          <View style={[styles.composerContainer, { paddingBottom: bottomPadding }]}>
+            {sendError ? <Text style={styles.sendError}>{sendError}</Text> : null}
+            <View style={styles.composer}>
+              <TextInput
+                value={message}
+                onChangeText={(value) => { setMessage(value); setSendError(''); }}
+                placeholder='Nhập tin nhắn...'
+                placeholderTextColor={colors.muted}
+                multiline
+                maxLength={4000}
+                onFocus={() => {
+                  setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+                }}
+                style={styles.input}
+              />
+              <Pressable
+                accessibilityLabel='Gửi tin nhắn'
+                onPress={() => void send()}
+                disabled={!message.trim() || sending}
+                style={({ pressed }) => [
+                  styles.send,
+                  (!message.trim() || sending) && styles.sendDisabled,
+                  pressed && styles.pressed,
+                ]}
+              >
+                {sending ? (
+                  <ActivityIndicator size='small' color='#FFFFFF' />
+                ) : (
+                  <Send color='#FFFFFF' size={20} />
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { paddingBottom: spacing.md },
+  screen: {
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    paddingBottom: 0,
+    gap: 0,
+  },
+  rootContainer: {
+    flex: 1,
+  },
+  headerContainer: {
+    paddingHorizontal: 8,
+    paddingBottom: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
+  },
   flex: { flex: 1 },
-  messages: { paddingVertical: spacing.sm, gap: spacing.sm },
+  messages: {
+    paddingHorizontal: 12,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+  },
   emptyMessages: { flexGrow: 1, justifyContent: 'center' },
-  day: { alignSelf: 'center', marginVertical: spacing.md, paddingHorizontal: spacing.md, paddingVertical: 5, borderRadius: radius.pill, overflow: 'hidden', color: colors.muted, backgroundColor: '#EAF0F3', fontSize: 10, fontWeight: '700' },
+  day: {
+    alignSelf: 'center',
+    marginVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
+    color: colors.muted,
+    backgroundColor: '#EAF0F3',
+    fontSize: 10,
+    fontWeight: '700',
+  },
   messageRow: { flexDirection: 'row', justifyContent: 'flex-start' },
   myMessageRow: { justifyContent: 'flex-end' },
-  bubble: { maxWidth: '84%', paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: 7, borderRadius: radius.lg, borderBottomLeftRadius: 5, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  mine: { borderBottomLeftRadius: radius.lg, borderBottomRightRadius: 5, backgroundColor: colors.primary, borderColor: colors.primary },
+  bubble: {
+    maxWidth: '82%',
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 8,
+    borderRadius: 18,
+    borderBottomLeftRadius: 4,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#102533',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  mine: {
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 4,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
   deletedBubble: { backgroundColor: '#F2F5F6', borderColor: colors.border },
   sender: { marginBottom: 3, color: colors.primaryDark, fontSize: 10, fontWeight: '900' },
   content: { color: colors.text, fontSize: 14, lineHeight: 20 },
   mineText: { color: '#FFFFFF' },
   deletedText: { color: colors.muted, fontStyle: 'italic' },
-  quote: { marginBottom: spacing.sm, paddingLeft: spacing.sm, paddingVertical: 4, borderLeftWidth: 3, borderLeftColor: colors.primary, borderRadius: radius.sm, backgroundColor: colors.primarySoft },
+  quote: {
+    marginBottom: spacing.sm,
+    paddingLeft: spacing.sm,
+    paddingVertical: 4,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+    borderRadius: radius.sm,
+    backgroundColor: colors.primarySoft,
+  },
   myQuote: { borderLeftColor: '#FFFFFF', backgroundColor: 'rgba(255,255,255,0.17)' },
   quoteName: { color: colors.primaryDark, fontSize: 10, fontWeight: '900' },
   quoteText: { marginTop: 2, color: colors.muted, fontSize: 11 },
@@ -264,23 +390,93 @@ const styles = StyleSheet.create({
   meta: { marginTop: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 5 },
   time: { color: colors.muted, fontSize: 9 },
   edited: { color: colors.muted, fontSize: 9, fontStyle: 'italic' },
-  reaction: { position: 'absolute', bottom: -13, paddingHorizontal: 7, paddingVertical: 2, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  reaction: {
+    position: 'absolute',
+    bottom: -13,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
   reactionMine: { left: 8 },
   reactionOther: { right: 8 },
   reactionText: { color: colors.text, fontSize: 10, fontWeight: '700' },
-  attachmentImage: { width: 210, height: 150, marginTop: spacing.sm, borderRadius: radius.md, backgroundColor: colors.border },
-  file: { marginTop: spacing.sm, padding: spacing.sm, borderRadius: radius.sm, backgroundColor: 'rgba(16,37,51,0.09)' },
+  attachmentImage: {
+    width: 220,
+    height: 155,
+    marginTop: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.border,
+  },
+  file: {
+    marginTop: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: radius.sm,
+    backgroundColor: 'rgba(16,37,51,0.08)',
+  },
+  myFile: {
+    backgroundColor: 'rgba(255,255,255,0.22)',
+  },
   fileText: { color: colors.primaryDark, fontSize: 12, fontWeight: '700' },
-  replying: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.primarySoft },
+  replying: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.primarySoft,
+  },
   replyingCopy: { flex: 1 },
   replyingName: { color: colors.primaryDark, fontSize: 11, fontWeight: '900' },
   replyingText: { marginTop: 2, color: colors.muted, fontSize: 11 },
   cancelReply: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  sendError: { paddingHorizontal: spacing.md, paddingTop: spacing.xs, color: colors.danger, fontSize: 11 },
-  composer: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm, paddingTop: spacing.sm },
-  input: { flex: 1, minHeight: touchTarget, maxHeight: 120, paddingHorizontal: spacing.md, paddingVertical: Platform.OS === 'ios' ? spacing.md : spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, color: colors.text, fontSize: 14, lineHeight: 20 },
-  send: { width: touchTarget, height: touchTarget, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill, backgroundColor: colors.primary },
-  sendDisabled: { opacity: 0.42 },
-  pressed: { opacity: 0.75 },
+  composerContainer: {
+    backgroundColor: colors.surface,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    paddingHorizontal: 10,
+    paddingTop: 8,
+  },
+  sendError: {
+    paddingHorizontal: 4,
+    paddingBottom: spacing.xs,
+    color: colors.danger,
+    fontSize: 11,
+  },
+  composer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  input: {
+    flex: 1,
+    minHeight: 44,
+    maxHeight: 120,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 10 : 8,
+    paddingBottom: Platform.OS === 'ios' ? 10 : 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 22,
+    backgroundColor: '#F8FAFC',
+    color: colors.text,
+    fontSize: 14.5,
+    lineHeight: 20,
+  },
+  send: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    backgroundColor: colors.primary,
+  },
+  sendDisabled: { opacity: 0.38 },
+  pressed: { opacity: 0.75, transform: [{ scale: 0.96 }] },
   sendText: { color: '#FFFFFF', fontSize: 18, fontWeight: '900' },
 });
+
