@@ -110,7 +110,7 @@ export function MeetingRemoteControl({ id }: { id: string }) {
 
   const run = async (task: (meeting: Meeting) => Promise<unknown>) => {
     const current = snapshotRef.current?.meeting;
-    if (!canManage || !current || busyRef.current || syncError) return;
+    if (!canManage || !current || busyRef.current || syncError) return false;
     busyRef.current = true;
     setBusy(true);
     try {
@@ -120,9 +120,11 @@ export function MeetingRemoteControl({ id }: { id: string }) {
       } catch {
         setSyncError("Lệnh đã gửi, nhưng chưa tải được trạng thái mới. Hãy đồng bộ lại.");
       }
+      return true;
     } catch (cause) {
       Alert.alert("Không thể điều khiển", cause instanceof Error ? cause.message : "Vui lòng thử lại.");
       void refresh(true);
+      return false;
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -232,7 +234,7 @@ export function MeetingRemoteControl({ id }: { id: string }) {
         <Pressable accessibilityLabel="Đóng cài đặt trình chiếu" style={styles.sheetBackdrop} onPress={() => setSettingsOpen(false)} />
         <View style={[styles.sheetContent, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
           <View style={styles.sheetHeader}><Text style={styles.sheetTitle}>Cài đặt trình chiếu</Text><Pressable accessibilityRole="button" accessibilityLabel="Đóng" onPress={() => setSettingsOpen(false)} style={styles.sheetClose}><X color={colors.text} size={20} /></Pressable></View>
-          <View style={styles.switchRow}><View style={styles.grow}><Text style={styles.sectionHeading}>Tự chuyển lượt</Text><Text style={styles.muted}>Tiếp tục chạy khi khóa điện thoại</Text></View><Switch value={Boolean(meeting.presentation?.autoAdvance)} disabled={disabled} trackColor={{ false: colors.border, true: brandSoft }} thumbColor={meeting.presentation?.autoAdvance ? brandBlue : colors.surface} onValueChange={(autoAdvance) => void run((current) => meetingService.presentationState(id, { autoAdvance }, meetingVersion(current)))} /></View>
+          <View style={styles.switchRow}><View style={styles.grow}><Text style={styles.sectionHeading}>Tự chuyển lượt</Text><Text style={styles.muted}>Tiếp tục chạy khi khóa điện thoại</Text></View><AutoAdvanceToggle key={String(Boolean(meeting.presentation?.autoAdvance))} value={Boolean(meeting.presentation?.autoAdvance)} disabled={disabled} onChange={(autoAdvance) => run((current) => meetingService.presentationState(id, { autoAdvance }, meetingVersion(current)))} /></View>
           <Text style={styles.muted}>Chờ sau khi hết giờ phát biểu</Text>
           <View style={styles.delayRow}>{[0, 3, 5, 10].map((seconds) => <Pressable key={seconds} accessibilityRole="button" accessibilityLabel={`${seconds} giây`} accessibilityState={{ selected: (meeting.presentation?.autoAdvanceDelay ?? 3) === seconds, disabled }} disabled={disabled} onPress={() => void run((current) => meetingService.presentationState(id, { autoAdvanceDelay: seconds }, meetingVersion(current)))} style={[styles.delay, (meeting.presentation?.autoAdvanceDelay ?? 3) === seconds && styles.delayActive]}><Text style={styles.delayText}>{seconds}s</Text></Pressable>)}</View>
         </View>
@@ -269,6 +271,14 @@ function CompactAction({ icon: Icon, label, accessibilityLabel, onPress, disable
 }
 function SpeakerAction({ icon: Icon, accessibilityLabel, onPress, disabled, primary = false }: { icon: LucideIcon; accessibilityLabel: string; onPress: () => void; disabled?: boolean; primary?: boolean }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.speakerAction, primary && styles.compactPrimary, disabled && styles.disabled, pressed && styles.compactPressed]}><Icon color={primary ? colors.text : brandBlue} size={19} /></Pressable>;
+}
+function AutoAdvanceToggle({ value, disabled, onChange }: { value: boolean; disabled: boolean; onChange: (next: boolean) => Promise<boolean> }) {
+  const [checked, setChecked] = useState(value);
+  const toggle = (next: boolean) => {
+    setChecked(next);
+    void onChange(next).then((saved) => { if (!saved) setChecked(value); });
+  };
+  return <Switch accessibilityLabel="Tự chuyển lượt" value={checked} disabled={disabled} trackColor={{ false: colors.border, true: brandSoft }} thumbColor={checked ? brandBlue : colors.surface} onValueChange={toggle} />;
 }
 const styles = StyleSheet.create({
   screen: { paddingHorizontal: 0, paddingVertical: 0, paddingBottom: 0, gap: 0 },
