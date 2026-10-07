@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { Reply, Send, X } from 'lucide-react-native';
 import {
@@ -16,7 +16,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackHeader } from '@/components/BackHeader';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
@@ -49,6 +49,10 @@ const replyMessage = (value?: ChatMessage | string) =>
 export default function ChatRoomScreen() {
   const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
+  const rootRef = useRef<View>(null);
+  const keyboardTopRef = useRef<number | null>(null);
+  const [keyboardInset, setKeyboardInset] = useState(0);
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const [isFocused, setIsFocused] = useState(false);
   const [message, setMessage] = useState('');
@@ -75,16 +79,36 @@ export default function ChatRoomScreen() {
     return () => clearInterval(timer);
   }, [id, setData]);
 
+  const updateKeyboardInset = useCallback(() => {
+    if (Platform.OS !== 'android') return;
+    requestAnimationFrame(() => {
+      rootRef.current?.measureInWindow((_, y, __, height) => {
+        const keyboardTop = keyboardTopRef.current;
+        if (keyboardTop !== null) {
+          setKeyboardInset(Math.max(0, Math.ceil(y + height - keyboardTop + spacing.xl)));
+        }
+      });
+    });
+  }, []);
+
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const showSub = Keyboard.addListener(showEvent, () => {
+    const showSub = Keyboard.addListener(showEvent, (event) => {
+      if (Platform.OS === 'android') {
+        keyboardTopRef.current = event.endCoordinates.screenY;
+        updateKeyboardInset();
+      }
       setTimeout(() => {
         listRef.current?.scrollToEnd({ animated: true });
       }, 100);
     });
+    const hideSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => {
+      keyboardTopRef.current = null;
+      setKeyboardInset(0);
+    });
 
-    return () => showSub.remove();
-  }, []);
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, [updateKeyboardInset]);
 
   const send = async () => {
     const content = message.trim();
@@ -191,14 +215,21 @@ export default function ChatRoomScreen() {
     );
   };
 
+  const bottomInset = Platform.OS === 'android' ? insets.bottom || 48 : insets.bottom;
+
   return (
-    <SafeAreaView edges={['top', 'bottom']} style={styles.screen}>
-      <View style={styles.rootContainer}>
+    <SafeAreaView edges={['top']} style={styles.screen}>
+      <View
+        ref={rootRef}
+        onLayout={() => { if (keyboardTopRef.current !== null) updateKeyboardInset(); }}
+        style={[styles.rootContainer, { paddingBottom: Math.max(bottomInset, keyboardInset) }]}
+      >
         <View style={styles.headerContainer}>
           <BackHeader title={name || 'Trò chuyện'} subtitle='Tin nhắn nội bộ' />
         </View>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior='padding'
+          enabled={Platform.OS === 'ios'}
           style={styles.keyboardArea}
         >
           {isLoading && !data ? (
