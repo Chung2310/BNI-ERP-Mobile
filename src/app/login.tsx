@@ -19,7 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { authService } from "@/services/auth";
-import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
+import { colors, radius, spacing } from "@/theme/tokens";
 
 export default function LoginScreen() {
   const { signIn, signInWithBiometrics } = useAuth();
@@ -137,15 +137,11 @@ export default function LoginScreen() {
               </View>
 
               <View style={styles.sheetHeader}>
-                <View style={styles.sheetHeaderLeft}>
-                  <Image
-                    source={require("../../assets/images/igen-connect-transparent.png")}
-                    style={styles.sheetLogo}
-                    resizeMode="contain"
-                  />
-                  <View style={styles.headerDivider} />
-                  <Text style={styles.sheetTitle}>Đăng nhập</Text>
-                </View>
+                <Image
+                  source={require("../../assets/images/igen-connect-transparent.png")}
+                  style={styles.sheetLogo}
+                  resizeMode="contain"
+                />
                 <Pressable
                   accessibilityLabel="Đóng"
                   accessibilityRole="button"
@@ -153,7 +149,7 @@ export default function LoginScreen() {
                   onPress={closeSheet}
                   style={styles.closeButton}
                 >
-                  <X color={colors.muted} size={18} />
+                  <X color={colors.muted} size={20} />
                 </Pressable>
               </View>
 
@@ -320,75 +316,60 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xs,
     paddingBottom: spacing.sm,
   },
-  sheetHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
   sheetLogo: {
-    width: 58,
-    height: 29,
-  },
-  headerDivider: {
-    width: 1,
-    height: 16,
-    backgroundColor: colors.border,
-    marginHorizontal: 2,
-  },
-  sheetTitle: {
-    color: colors.text,
-    fontSize: 17,
-    fontWeight: "800",
+    width: 96,
+    height: 48,
   },
   closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: colors.background,
     alignItems: "center",
     justifyContent: "center",
   },
   form: {
-    gap: 10,
+    gap: 12,
   },
   fieldGroup: {
-    gap: 4,
+    gap: 6,
   },
   label: {
     color: colors.text,
     fontSize: 13,
     fontWeight: "600",
+    marginLeft: spacing.xs,
   },
   input: {
-    minHeight: touchTarget,
+    minHeight: 48,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     backgroundColor: colors.background,
     color: colors.text,
     fontSize: 14,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
   passwordWrapper: {
-    minHeight: touchTarget,
+    minHeight: 48,
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     backgroundColor: colors.background,
-    paddingRight: spacing.sm,
+    paddingLeft: spacing.lg,
+    paddingRight: spacing.xs,
   },
   passwordInput: {
     flex: 1,
-    minHeight: touchTarget,
+    minHeight: 48,
     color: colors.text,
     fontSize: 14,
-    paddingHorizontal: spacing.md,
   },
   eyeButton: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     alignItems: "center",
     justifyContent: "center",
   },
