@@ -143,6 +143,7 @@ export default function LoginScreen() {
                     style={styles.sheetLogo}
                     resizeMode="contain"
                   />
+                  <View style={styles.headerDivider} />
                   <Text style={styles.sheetTitle}>Đăng nhập</Text>
                 </View>
                 <Pressable
@@ -152,7 +153,7 @@ export default function LoginScreen() {
                   onPress={closeSheet}
                   style={styles.closeButton}
                 >
-                  <X color={colors.muted} size={20} />
+                  <X color={colors.muted} size={18} />
                 </Pressable>
               </View>
 
@@ -295,7 +296,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xs,
-    paddingBottom: Platform.OS === "ios" ? 44 : 36,
+    paddingBottom: Platform.OS === "ios" ? 54 : 48,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.12,
@@ -322,16 +323,22 @@ const styles = StyleSheet.create({
   sheetHeaderLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
   },
   sheetLogo: {
-    width: 76,
-    height: 38,
+    width: 58,
+    height: 29,
+  },
+  headerDivider: {
+    width: 1,
+    height: 16,
+    backgroundColor: colors.border,
+    marginHorizontal: 2,
   },
   sheetTitle: {
     color: colors.text,
-    fontSize: 18,
-    fontWeight: "900",
+    fontSize: 17,
+    fontWeight: "800",
   },
   closeButton: {
     width: 32,
@@ -414,6 +421,7 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 11,
     textAlign: "center",
-    marginTop: 6,
+    marginTop: 8,
+    marginBottom: 4,
   },
 });
