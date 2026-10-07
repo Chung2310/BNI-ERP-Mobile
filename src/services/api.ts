@@ -50,15 +50,16 @@ async function refreshAccessToken() {
   return refreshPromise;
 }
 
-export async function apiRequest<T>(path: string, options: RequestInit = {}, hasRetried = false): Promise<T> {
+export async function apiRequest<T>(path: string, options: RequestInit & { timeoutMs?: number } = {}, hasRetried = false): Promise<T> {
+  const { timeoutMs = 15000, ...requestOptions } = options;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const abort = () => controller.abort();
   options.signal?.addEventListener("abort", abort, { once: true });
   let response: Response;
   try {
     response = await fetch(API_URL + path, {
-      ...options,
+      ...requestOptions,
       signal: controller.signal,
       credentials: "include",
       headers: {
