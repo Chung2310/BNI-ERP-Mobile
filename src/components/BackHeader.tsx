@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { router } from "expo-router";
 import { ChevronLeft } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -8,11 +9,13 @@ export function BackHeader({
   subtitle,
   compact = false,
   onBack,
+  action,
 }: {
   title: string;
   subtitle?: string;
   compact?: boolean;
   onBack?: () => void;
+  action?: ReactNode;
 }) {
   const handleBack = () => {
     if (onBack) {
@@ -33,6 +36,7 @@ export function BackHeader({
         <Text style={[styles.title, compact && styles.compactTitle]}>{title}</Text>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
       </View>
+      {action}
     </View>
   );
 }

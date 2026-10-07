@@ -6,6 +6,7 @@ import { Camera, RefreshCw, ScanLine } from "lucide-react-native";
 import { StyleSheet, Text, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { Badge, Button, Card, Screen } from "@/components/ui";
+import { authService } from "@/services/auth";
 import { meetingService } from "@/services/meeting";
 import { colors, radius, spacing } from "@/theme/tokens";
 
@@ -26,6 +27,7 @@ export default function CheckInScreen() {
       if (!token) throw new Error("Mã QR không hợp lệ.");
       const target = await meetingService.resolveQr(token);
       if (target.id !== id) throw new Error(`QR này dành cho cuộc họp “${target.title}”.`);
+      await authService.authenticateCheckInIfEnabled();
       const permission = await Location.requestForegroundPermissionsAsync();
       if (!permission.granted) throw new Error("Cần cho phép truy cập vị trí để check-in.");
       const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });

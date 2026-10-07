@@ -39,20 +39,21 @@
         "expo-secure-store",
         {
           "configureAndroidBackup": true,
-          "faceIDPermission": "Cho phép iGen Connect sử dụng Face ID để đăng nhập."
+          "faceIDPermission": "Cho phép iGen Connect sử dụng Face ID để đăng nhập và xác nhận check-in."
         }
       ],
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "Cho phép iGen Connect sử dụng Face ID để đăng nhập."
+          "faceIDPermission": "Cho phép iGen Connect sử dụng Face ID để đăng nhập và xác nhận check-in."
         }
       ],
       [
         "expo-camera",
         {
           "cameraPermission": "Cho phép iGen Connect sử dụng camera để quét mã QR check-in.",
-          "recordAudioAndroid": false
+          "microphonePermission": "Cho phép iGen Connect sử dụng micro để ghi âm trong các chức năng có hỗ trợ âm thanh.",
+          "recordAudioAndroid": true
         }
       ],
       [
@@ -62,12 +63,26 @@
         }
       ],
       [
+        "expo-notifications",
+        {
+          "color": "#00AECA",
+          "defaultChannel": "default"
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "Cho phép iGen Connect truy cập thư viện ảnh để chọn ảnh bìa cuộc họp."
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Cho phép iGen Connect sử dụng micro để ghi âm trong các chức năng có hỗ trợ âm thanh.",
+          "recordAudioAndroid": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

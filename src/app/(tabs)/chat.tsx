@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { router, useFocusEffect } from 'expo-router';
-import { MessageCircleMore, Plus, Search, Users } from 'lucide-react-native';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { MessageCircleMore, Pin, Plus, Search, Users } from 'lucide-react-native';
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { NewChatModal } from '@/components/NewChatModal';
 import { AppHeader, Avatar, Card, EmptyState, ErrorState, LoadingState, Screen } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
@@ -48,13 +48,17 @@ export default function ChatScreen() {
       .filter((room) => !keyword || [roomName(room), ...room.members.map((member) => member.userId.displayName)]
         .some((value) => value.toLocaleLowerCase('vi').includes(keyword)))
       .sort((a, b) => {
+        const aPinned = a.members.some((member) => (member.userId._id === user?.uid || member.userId.uid === user?.uid) && member.isPinned);
+        const bPinned = b.members.some((member) => (member.userId._id === user?.uid || member.userId.uid === user?.uid) && member.isPinned);
+        const pinnedDifference = Number(bPinned) - Number(aPinned);
+        if (pinnedDifference) return pinnedDifference;
         const unreadDifference = Number(Boolean(b.unreadCount)) - Number(Boolean(a.unreadCount));
         if (unreadDifference) return unreadDifference;
         const bTime = new Date(b.lastMessage?.createdAt || b.updatedAt || 0).getTime();
         const aTime = new Date(a.lastMessage?.createdAt || a.updatedAt || 0).getTime();
         return bTime - aTime;
       });
-  }, [data, query, roomName]);
+  }, [data, query, roomName, user?.uid]);
 
   const openRoom = (room: ChatRoom) => {
     const name = roomName(room);
@@ -65,6 +69,19 @@ export default function ChatScreen() {
     setShowNewChat(false);
     void reload();
     openRoom(room);
+  };
+
+  const togglePin = (room: ChatRoom) => {
+    const pinned = room.members.some((member) => (member.userId._id === user?.uid || member.userId.uid === user?.uid) && member.isPinned);
+    Alert.alert(pinned ? 'Bỏ ghim cuộc trò chuyện?' : 'Ghim cuộc trò chuyện?', undefined, [
+      { text: 'Hủy', style: 'cancel' },
+      {
+        text: pinned ? 'Bỏ ghim' : 'Ghim',
+        onPress: () => void chatService.togglePinRoom(room._id).then(() => reload()).catch((cause) => {
+          Alert.alert('Không thể cập nhật', cause instanceof Error ? cause.message : 'Vui lòng thử lại.');
+        }),
+      },
+    ]);
   };
 
   const unreadTotal = (data || []).reduce((sum, room) => sum + (room.unreadCount || 0), 0);
@@ -107,6 +124,7 @@ export default function ChatScreen() {
             {rooms.map((room) => {
               const name = roomName(room);
               const other = room.members.find((member) => member.userId._id !== user?.uid)?.userId;
+              const pinned = room.members.some((member) => (member.userId._id === user?.uid || member.userId.uid === user?.uid) && member.isPinned);
               const last = room.lastMessage;
               const preview = last?.isDeleted
                 ? 'Tin nhắn đã được thu hồi'
@@ -116,6 +134,7 @@ export default function ChatScreen() {
                   key={room._id}
                   accessibilityRole='button'
                   onPress={() => openRoom(room)}
+                  onLongPress={() => togglePin(room)}
                   style={({ pressed }) => [styles.room, pressed && styles.pressed]}
                 >
                   <View>
@@ -124,6 +143,7 @@ export default function ChatScreen() {
                   </View>
                   <View style={styles.grow}>
                     <View style={styles.roomHeading}>
+                      {pinned ? <Pin color={colors.primaryDark} size={13} fill={colors.primarySoft} /> : null}
                       <Text numberOfLines={1} style={[styles.name, room.unreadCount ? styles.unreadName : null]}>{name}</Text>
                       <Text style={styles.time}>{formatTime(last?.createdAt || room.updatedAt)}</Text>
                     </View>

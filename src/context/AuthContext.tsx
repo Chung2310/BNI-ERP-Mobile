@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from "react";
 import { authService } from "@/services/auth";
+import type { ProfileUpdateInput } from "@/services/auth";
 import type { UserProfile } from "@/types";
 
 type AuthState = {
@@ -8,6 +9,9 @@ type AuthState = {
   user: UserProfile | null;
   signIn(identifier: string, password: string): Promise<void>;
   signInWithBiometrics(): Promise<void>;
+  refreshProfile(): Promise<UserProfile>;
+  updateProfile(input: ProfileUpdateInput): Promise<UserProfile>;
+  deleteAccount(password: string): Promise<void>;
   signOut(): Promise<void>;
 };
 
@@ -39,6 +43,24 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setUser(null);
   }, []);
 
+  const refreshProfile = useCallback(async () => {
+    const profile = await authService.getMe();
+    setUser(profile);
+    return profile;
+  }, []);
+
+  const updateProfile = useCallback(async (input: ProfileUpdateInput) => {
+    const profile = await authService.updateProfile(input);
+    setUser(profile);
+    return profile;
+  }, []);
+
+  const deleteAccount = useCallback(async (password: string) => {
+    await authService.deleteOwnAccount(password);
+    setToken(null);
+    setUser(null);
+  }, []);
+
   const signInWithBiometrics = useCallback(async () => {
     const session = await authService.loginWithBiometrics();
     setToken(session.token);
@@ -46,8 +68,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const value = useMemo(
-    () => ({ isLoading, token, user, signIn, signInWithBiometrics, signOut }),
-    [isLoading, token, user, signIn, signInWithBiometrics, signOut],
+    () => ({ isLoading, token, user, signIn, signInWithBiometrics, refreshProfile, updateProfile, deleteAccount, signOut }),
+    [isLoading, token, user, signIn, signInWithBiometrics, refreshProfile, updateProfile, deleteAccount, signOut],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Search, X } from 'lucide-react-native';
+import { Check, MessageCircle, Search, Users, X } from 'lucide-react-native';
 import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar, Button } from '@/components/ui';
@@ -18,11 +18,12 @@ const initials = (name: string) =>
   name.split(' ').filter(Boolean).map((part) => part[0]).slice(-2).join('').toUpperCase();
 
 export function NewChatModal({ currentUserId, onClose, onCreated }: Props) {
+  const [mode, setMode] = useState<'direct' | 'group'>('direct');
   const [members, setMembers] = useState<UserProfile[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [query, setQuery] = useState('');
   const [groupName, setGroupName] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
 
@@ -44,18 +45,32 @@ export function NewChatModal({ currentUserId, onClose, onCreated }: Props) {
   }, [members, query]);
 
   const toggle = (id: string) => {
-    setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+    setSelectedIds((current) => {
+      if (mode === 'direct') return current.includes(id) ? [] : [id];
+      return current.includes(id) ? current.filter((item) => item !== id) : [...current, id];
+    });
+  };
+
+  const changeMode = (nextMode: 'direct' | 'group') => {
+    setMode(nextMode);
+    setSelectedIds([]);
+    setGroupName('');
+    setError('');
   };
 
   const create = async () => {
     if (!selectedIds.length || creating) return;
+    if (mode === 'group' && !groupName.trim()) {
+      setError('Vui lòng nhập tên nhóm.');
+      return;
+    }
     setCreating(true);
     setError('');
     try {
       const room = await chatService.createRoom({
-        isGroup: selectedIds.length > 1,
+        isGroup: mode === 'group',
         memberIds: selectedIds,
-        ...(selectedIds.length > 1 && groupName.trim() ? { name: groupName.trim() } : {}),
+        ...(mode === 'group' ? { name: groupName.trim() } : {}),
       });
       onCreated(room);
     } catch (cause) {
@@ -71,12 +86,34 @@ export function NewChatModal({ currentUserId, onClose, onCreated }: Props) {
         <View style={styles.header}>
           <View style={styles.headerCopy}>
             <Text style={styles.title}>Cuộc trò chuyện mới</Text>
-            <Text style={styles.subtitle}>Chọn một người để nhắn riêng hoặc nhiều người để tạo nhóm.</Text>
+            <Text style={styles.subtitle}>{mode === 'group' ? 'Đặt tên và chọn các thành viên cho nhóm.' : 'Chọn một thành viên để bắt đầu nhắn riêng.'}</Text>
           </View>
           <Pressable accessibilityLabel='Đóng' onPress={onClose} style={styles.close}>
             <X color={colors.text} size={22} />
           </Pressable>
         </View>
+
+        <View style={styles.modeTabs}>
+          <Pressable onPress={() => changeMode('direct')} style={[styles.modeTab, mode === 'direct' && styles.modeTabActive]}>
+            <MessageCircle color={mode === 'direct' ? '#FFFFFF' : colors.primaryDark} size={18} />
+            <Text style={[styles.modeText, mode === 'direct' && styles.modeTextActive]}>Nhắn riêng</Text>
+          </Pressable>
+          <Pressable onPress={() => changeMode('group')} style={[styles.modeTab, mode === 'group' && styles.modeTabActive]}>
+            <Users color={mode === 'group' ? '#FFFFFF' : colors.primaryDark} size={18} />
+            <Text style={[styles.modeText, mode === 'group' && styles.modeTextActive]}>Tạo nhóm</Text>
+          </Pressable>
+        </View>
+
+        {mode === 'group' ? (
+          <TextInput
+            value={groupName}
+            onChangeText={(value) => { setGroupName(value); setError(''); }}
+            placeholder='Tên nhóm *'
+            placeholderTextColor={colors.muted}
+            maxLength={80}
+            style={styles.groupInput}
+          />
+        ) : null}
 
         <View style={styles.search}>
           <Search color={colors.muted} size={19} />
@@ -89,15 +126,8 @@ export function NewChatModal({ currentUserId, onClose, onCreated }: Props) {
           />
         </View>
 
-        {selectedIds.length > 1 ? (
-          <TextInput
-            value={groupName}
-            onChangeText={setGroupName}
-            placeholder='Tên nhóm (không bắt buộc)'
-            placeholderTextColor={colors.muted}
-            maxLength={80}
-            style={styles.groupInput}
-          />
+        {mode === 'group' && selectedIds.length ? (
+          <Text style={styles.selectedCount}>Đã chọn {selectedIds.length} thành viên</Text>
         ) : null}
 
         {loading ? (
@@ -135,8 +165,8 @@ export function NewChatModal({ currentUserId, onClose, onCreated }: Props) {
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <View style={styles.footer}>
           <Button tone='secondary' onPress={onClose}>Hủy</Button>
-          <Button disabled={!selectedIds.length || creating} onPress={create}>
-            {creating ? 'Đang tạo...' : selectedIds.length > 1 ? 'Tạo nhóm (' + selectedIds.length + ')' : 'Bắt đầu trò chuyện'}
+          <Button disabled={!selectedIds.length || (mode === 'group' && !groupName.trim()) || creating} onPress={create}>
+            {creating ? 'Đang tạo...' : mode === 'group' ? 'Tạo nhóm (' + selectedIds.length + ')' : 'Bắt đầu trò chuyện'}
           </Button>
         </View>
       </SafeAreaView>
@@ -151,9 +181,15 @@ const styles = StyleSheet.create({
   title: { color: colors.text, fontSize: 21, fontWeight: '900' },
   subtitle: { marginTop: spacing.xs, color: colors.muted, fontSize: 12, lineHeight: 18 },
   close: { width: touchTarget, height: touchTarget, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill, backgroundColor: colors.surface },
+  modeTabs: { flexDirection: 'row', gap: spacing.sm, padding: 4, borderRadius: radius.md, backgroundColor: colors.primarySoft },
+  modeTab: { flex: 1, minHeight: touchTarget, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, borderRadius: radius.sm },
+  modeTabActive: { backgroundColor: colors.primary },
+  modeText: { color: colors.primaryDark, fontSize: 13, fontWeight: '800' },
+  modeTextActive: { color: '#FFFFFF' },
   search: { minHeight: touchTarget, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface },
   searchInput: { flex: 1, color: colors.text, fontSize: 14 },
   groupInput: { minHeight: touchTarget, paddingHorizontal: spacing.md, color: colors.text, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface },
+  selectedCount: { color: colors.primaryDark, fontSize: 11, fontWeight: '800' },
   list: { paddingBottom: spacing.md },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   member: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
