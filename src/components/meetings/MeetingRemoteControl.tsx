@@ -46,7 +46,6 @@ export function MeetingRemoteControl({ id }: { id: string }) {
   const [now, setNow] = useState(0);
   const [panel, setPanel] = useState<Panel>("speaker");
   const [selectedPrize, setSelectedPrize] = useState("");
-  const [previewExpanded, setPreviewExpanded] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const applySnapshot = useCallback((next: MeetingLiveSnapshot) => {
@@ -154,13 +153,10 @@ export function MeetingRemoteControl({ id }: { id: string }) {
     <View style={styles.header}><BackHeader title="Bảng điều khiển trình chiếu" compact action={<Pressable accessibilityRole="button" accessibilityLabel="Cài đặt tự chuyển lượt" onPress={() => setSettingsOpen(true)} style={styles.settingsButton}><Settings2 color={colors.text} size={21} /></Pressable>} /></View>
       <>
         <View style={styles.previewCard}>
-          <View style={styles.previewHeader}>
-            <Pressable accessibilityRole="button" accessibilityLabel={previewExpanded ? "Thu gọn màn hình xem trước" : "Mở màn hình xem trước"} accessibilityState={{ expanded: previewExpanded }} onPress={() => setPreviewExpanded((value) => !value)} style={styles.previewStatus}><View style={[styles.dot, syncError && styles.dotError]} /><Text style={styles.previewLabel}>Màn hình laptop · {views.find((item) => item.value === view)?.label}</Text><ChevronRight color={colors.muted} size={16} style={{ transform: [{ rotate: previewExpanded ? "90deg" : "0deg" }] }} /></Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="Đồng bộ màn chiếu" onPress={() => void refresh(true)} style={styles.refreshButton}>
-              <RefreshCw color={colors.primaryDark} size={18} />
-            </Pressable>
-          </View>
-          {previewExpanded ? <StagePreview snapshot={snapshot} now={now} /> : null}
+          <StagePreview snapshot={snapshot} now={now} />
+          <Pressable accessibilityRole="button" accessibilityLabel="Đồng bộ màn chiếu" onPress={() => void refresh(true)} style={styles.refreshButton}>
+            <RefreshCw color={colors.primaryDark} size={18} />
+          </Pressable>
           {syncError ? <Text style={styles.syncError}>{syncError} · Chạm nút làm mới để thử lại.</Text> : null}
         </View>
         <ScrollView style={styles.controls} contentContainerStyle={[styles.controlsContent, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]} showsVerticalScrollIndicator={false}>
@@ -279,12 +275,7 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: spacing.sm },
   settingsButton: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center", backgroundColor: "transparent" },
   previewCard: { width: "96%", maxWidth: 560, alignSelf: "center", marginBottom: spacing.xs, overflow: "hidden", borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  previewHeader: { minHeight: touchTarget, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingLeft: spacing.md },
-  previewStatus: { flexDirection: "row", alignItems: "center", gap: spacing.sm, flex: 1, minHeight: touchTarget },
-  refreshButton: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center" },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.success },
-  dotError: { backgroundColor: colors.warning },
-  previewLabel: { color: colors.text, fontSize: 12, fontWeight: "600", flexShrink: 1 },
+  refreshButton: { position: "absolute", top: spacing.xs, right: spacing.xs, width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: "#FFFFFFE6" },
   syncError: { padding: spacing.sm, color: colors.danger, fontSize: 11 },
   stage: { width: "100%", aspectRatio: 16 / 9, backgroundColor: "#102533", alignItems: "center", justifyContent: "center", gap: 5, padding: spacing.lg },
   stageSlide: { width: "100%", aspectRatio: 16 / 9, backgroundColor: colors.surface, overflow: "hidden" },
