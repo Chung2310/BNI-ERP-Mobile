@@ -77,8 +77,46 @@ export default function HomeScreen() {
     return `${timeStr} · ${dateStr} · ${featuredMeeting.location || "Trực tiếp"}`;
   })();
 
-  const eventDates = useMemo(() => meetings.map((m) => m.startsAt), [meetings]);
-  const liveDates = useMemo(() => (liveMeeting ? [liveMeeting.startsAt] : []), [liveMeeting]);
+  const { eventDates, liveDates, cancelledDates } = useMemo(() => {
+    const map = new Map<
+      string,
+      { hasActive: boolean; hasLive: boolean; hasCancelled: boolean; sampleDate: string }
+    >();
+
+    for (const m of meetings) {
+      const key = new Date(m.startsAt).toDateString();
+      let entry = map.get(key);
+      if (!entry) {
+        entry = { hasActive: false, hasLive: false, hasCancelled: false, sampleDate: m.startsAt };
+        map.set(key, entry);
+      }
+      if (m.status === "cancelled") {
+        entry.hasCancelled = true;
+      } else {
+        entry.hasActive = true;
+        if (m.status === "live" || m.status === "paused") {
+          entry.hasLive = true;
+        }
+      }
+    }
+
+    const events: string[] = [];
+    const lives: string[] = [];
+    const cancelled: string[] = [];
+
+    for (const entry of map.values()) {
+      if (entry.hasActive) {
+        events.push(entry.sampleDate);
+        if (entry.hasLive) {
+          lives.push(entry.sampleDate);
+        }
+      } else if (entry.hasCancelled) {
+        cancelled.push(entry.sampleDate);
+      }
+    }
+
+    return { eventDates: events, liveDates: lives, cancelledDates: cancelled };
+  }, [meetings]);
 
   // Selected date meetings for the bottom sheet
   const selectedDateMeetings = useMemo(() => {
@@ -208,6 +246,7 @@ export default function HomeScreen() {
               date={calendarDate}
               eventDates={eventDates}
               liveDates={liveDates}
+              cancelledDates={cancelledDates}
               selectedDate={selectedDate}
               onSelectDate={handleSelectDate}
               onPrevious={() =>

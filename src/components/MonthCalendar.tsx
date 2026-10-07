@@ -1,11 +1,12 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { ChevronLeft, ChevronRight } from "lucide-react-native";
+import { ChevronLeft, ChevronRight, X as LucideX } from "lucide-react-native";
 import { colors, radius, spacing } from "@/theme/tokens";
 
 export function MonthCalendar({
   date,
   eventDates,
   liveDates = [],
+  cancelledDates = [],
   onPrevious,
   onNext,
   onSelectDate,
@@ -14,6 +15,7 @@ export function MonthCalendar({
   date: Date;
   eventDates: string[];
   liveDates?: string[];
+  cancelledDates?: string[];
   onPrevious: () => void;
   onNext: () => void;
   onSelectDate?: (date: Date) => void;
@@ -27,6 +29,7 @@ export function MonthCalendar({
   const days = Array.from({ length: 42 }, (_, index) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + index));
   const events = new Set(eventDates.map((item) => new Date(item).toDateString()));
   const liveEvents = new Set(liveDates.map((item) => new Date(item).toDateString()));
+  const cancelledEvents = new Set(cancelledDates.map((item) => new Date(item).toDateString()));
   const today = new Date().toDateString();
 
   return (
@@ -57,11 +60,14 @@ export function MonthCalendar({
           const isToday = day.toDateString() === today;
           const isLive = liveEvents.has(day.toDateString()) && !outside;
           const hasEvent = events.has(day.toDateString()) && !outside;
+          const isCancelled = cancelledEvents.has(day.toDateString()) && !outside && !hasEvent;
 
           return (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`${day.getDate()} tháng ${day.getMonth() + 1}${hasEvent ? ", có cuộc họp" : ", không có cuộc họp"}`}
+              accessibilityLabel={`${day.getDate()} tháng ${day.getMonth() + 1}${
+                isCancelled ? ", cuộc họp bị hủy" : hasEvent ? ", có cuộc họp" : ", không có cuộc họp"
+              }`}
               key={day.toISOString()}
               disabled={outside || !onSelectDate}
               onPress={() => onSelectDate?.(day)}
@@ -72,6 +78,7 @@ export function MonthCalendar({
                   styles.dayCircle,
                   hasEvent && styles.dayCircleEvent,
                   isLive && styles.dayCircleLive,
+                  isCancelled && styles.dayCircleCancelled,
                 ]}
               >
                 <Text
@@ -79,12 +86,21 @@ export function MonthCalendar({
                     styles.dayText,
                     hasEvent && styles.dayTextEvent,
                     isLive && styles.dayTextLive,
-                    isToday && !isLive && !hasEvent && styles.dayTextToday,
+                    isCancelled && styles.dayTextCancelled,
+                    isToday && !isLive && !hasEvent && !isCancelled && styles.dayTextToday,
                     outside && styles.dayTextOutside,
                   ]}
                 >
                   {day.getDate()}
                 </Text>
+                {isCancelled ? (
+                  <LucideX
+                    color={colors.danger}
+                    size={20}
+                    strokeWidth={2.8}
+                    style={styles.cancelledIcon}
+                  />
+                ) : null}
               </View>
             </Pressable>
           );
@@ -100,6 +116,10 @@ export function MonthCalendar({
         <View style={styles.legendItem}>
           <View style={[styles.legendCircle, styles.legendCircleEvent]} />
           <Text style={styles.legendText}>Có cuộc họp</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <LucideX color={colors.danger} size={11} strokeWidth={2.6} />
+          <Text style={styles.legendText}>Bị hủy</Text>
         </View>
       </View>
     </View>
@@ -174,6 +194,15 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderWidth: 0,
   },
+  dayCircleCancelled: {
+    backgroundColor: "#FDF0F2",
+    borderRadius: 14.5,
+    overflow: "hidden",
+  },
+  cancelledIcon: {
+    position: "absolute",
+    alignSelf: "center",
+  },
   dayOutside: {
     opacity: 0.25,
   },
@@ -189,6 +218,10 @@ const styles = StyleSheet.create({
   dayTextLive: {
     color: "#FFFFFF",
     fontWeight: "600",
+  },
+  dayTextCancelled: {
+    color: "#C53B4F",
+    fontWeight: "500",
   },
   dayTextToday: {
     color: colors.primaryDark,
