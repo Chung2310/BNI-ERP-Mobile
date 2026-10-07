@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Check, ChevronDown, Filter, Search, X } from "lucide-react-native";
 import type { Meeting } from "@/services/meeting";
-import { colors } from "@/theme/tokens";
+import { colors, radius } from "@/theme/tokens";
 
 import Svg, { Circle } from 'react-native-svg';
 import { Card } from '@/components/ui';
@@ -87,19 +88,205 @@ function DonutChart({ totals, meetings, selectedId, onSelect }: { totals: Totals
   </Card>;
 }
 
-function MeetingSelector({ meetings, selectedId, onSelect }: { meetings: Meeting[]; selectedId?: string; onSelect: (id: string) => void }) {
-  return <View style={s.selector}>
-    <Text style={s.selectorLabel}>Chọn cuộc họp</Text>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.options}>
-      {meetings.map((meeting) => {
-        const active = meeting._id === selectedId;
-        const date = new Date(meeting.startsAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
-        return <Pressable key={meeting._id} accessibilityRole='button' accessibilityState={{ selected: active }} onPress={() => onSelect(meeting._id)} style={[s.option, active && s.optionActive]}>
-          <Text numberOfLines={1} style={[s.optionText, active && s.optionTextActive]}>{date} · {meeting.title}</Text>
-        </Pressable>;
-      })}
-    </ScrollView>
-  </View>;
+function MeetingSelector({
+  meetings,
+  selectedId,
+  onSelect,
+}: {
+  meetings: Meeting[];
+  selectedId?: string;
+  onSelect: (id: string) => void;
+}) {
+  const [isSheetVisible, setIsSheetVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const selectedMeeting = useMemo(
+    () => meetings.find((m) => m._id === selectedId) || meetings[0],
+    [meetings, selectedId],
+  );
+
+  const selectedLabel = useMemo(() => {
+    if (!selectedMeeting) return "Chọn cuộc họp / Chapter";
+    const date = new Date(selectedMeeting.startsAt).toLocaleDateString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+    });
+    return `${date} · ${selectedMeeting.title}`;
+  }, [selectedMeeting]);
+
+  const filteredMeetings = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return meetings;
+    return meetings.filter((m) => {
+      const titleMatch = m.title.toLowerCase().includes(q);
+      const locMatch = (m.location || "").toLowerCase().includes(q);
+      const dateStr = new Date(m.startsAt).toLocaleDateString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+      });
+      return titleMatch || locMatch || dateStr.includes(q);
+    });
+  }, [meetings, searchQuery]);
+
+  const handleSelect = (id: string) => {
+    onSelect(id);
+    setIsSheetVisible(false);
+    setSearchQuery("");
+  };
+
+  return (
+    <>
+      <View style={s.selectorContainer}>
+        <Text style={s.selectorLabel}>Chọn cuộc họp</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Lọc chapter hoặc cuộc họp"
+          style={({ pressed }) => [s.selectorTrigger, pressed && s.triggerPressed]}
+          onPress={() => setIsSheetVisible(true)}
+        >
+          <View style={s.triggerLeft}>
+            <Filter color={colors.primaryDark} size={15} strokeWidth={2.2} />
+            <Text style={s.triggerText} numberOfLines={1}>
+              {selectedLabel}
+            </Text>
+          </View>
+          <View style={s.triggerRight}>
+            <Text style={s.triggerActionText}>Đổi</Text>
+            <ChevronDown color={colors.muted} size={16} strokeWidth={2.2} />
+          </View>
+        </Pressable>
+      </View>
+
+      {/* Bottom Sheet Lọc cuộc họp / Chapter */}
+      <Modal
+        visible={isSheetVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          setIsSheetVisible(false);
+          setSearchQuery("");
+        }}
+        statusBarTranslucent
+      >
+        <View style={s.sheetOverlay}>
+          <Pressable
+            style={s.sheetBackdrop}
+            accessibilityLabel="Đóng bộ lọc"
+            onPress={() => {
+              setIsSheetVisible(false);
+              setSearchQuery("");
+            }}
+          />
+          <View style={s.sheetContent}>
+            <View style={s.sheetHandle} />
+
+            {/* Header */}
+            <View style={s.sheetHeader}>
+              <View style={s.sheetHeaderInfo}>
+                <Text style={s.sheetTitle}>Chọn cuộc họp / Chapter</Text>
+                <Text style={s.sheetSubtitle}>
+                  {meetings.length} cuộc họp có dữ liệu thống kê
+                </Text>
+              </View>
+              <Pressable
+                accessibilityLabel="Đóng"
+                hitSlop={10}
+                style={s.sheetCloseBtn}
+                onPress={() => {
+                  setIsSheetVisible(false);
+                  setSearchQuery("");
+                }}
+              >
+                <X color={colors.muted} size={20} strokeWidth={2.4} />
+              </Pressable>
+            </View>
+
+            {/* Search Bar */}
+            <View style={s.searchBar}>
+              <Search color={colors.muted} size={16} strokeWidth={2.2} />
+              <TextInput
+                style={s.searchInput}
+                placeholder="Tìm theo tên chapter, ngày (dd/mm)..."
+                placeholderTextColor={colors.muted}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                clearButtonMode="while-editing"
+                returnKeyType="search"
+              />
+              {searchQuery.length > 0 ? (
+                <Pressable
+                  accessibilityLabel="Xóa tìm kiếm"
+                  hitSlop={8}
+                  onPress={() => setSearchQuery("")}
+                >
+                  <X color={colors.muted} size={16} strokeWidth={2.2} />
+                </Pressable>
+              ) : null}
+            </View>
+
+            {/* List */}
+            <ScrollView
+              style={s.sheetList}
+              contentContainerStyle={s.sheetListContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              {filteredMeetings.length > 0 ? (
+                filteredMeetings.map((meeting) => {
+                  const isSelected = meeting._id === (selectedId || selectedMeeting?._id);
+                  const date = new Date(meeting.startsAt).toLocaleDateString("vi-VN", {
+                    day: "2-digit",
+                    month: "2-digit",
+                  });
+                  return (
+                    <Pressable
+                      key={meeting._id}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${meeting.title}, ngày ${date}`}
+                      style={({ pressed }) => [
+                        s.sheetItem,
+                        isSelected && s.sheetItemActive,
+                        pressed && s.sheetItemPressed,
+                      ]}
+                      onPress={() => handleSelect(meeting._id)}
+                    >
+                      <View style={[s.itemDateBadge, isSelected && s.itemDateBadgeActive]}>
+                        <Text style={[s.itemDateText, isSelected && s.itemDateTextActive]}>
+                          {date}
+                        </Text>
+                      </View>
+                      <View style={s.itemInfo}>
+                        <Text
+                          style={[s.itemTitle, isSelected && s.itemTitleActive]}
+                          numberOfLines={1}
+                        >
+                          {meeting.title}
+                        </Text>
+                        <Text style={s.itemMeta} numberOfLines={1}>
+                          {meeting.speakers.length} check-in · {meeting.location || "Trực tiếp"}
+                        </Text>
+                      </View>
+                      {isSelected ? (
+                        <View style={s.checkIconWrap}>
+                          <Check color={colors.primaryDark} size={18} strokeWidth={2.8} />
+                        </View>
+                      ) : null}
+                    </Pressable>
+                  );
+                })
+              ) : (
+                <View style={s.sheetEmpty}>
+                  <Text style={s.sheetEmptyText}>
+                    {`Không tìm thấy cuộc họp nào phù hợp với "${searchQuery}"`}
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </>
+  );
 }
 
 export function DashboardCharts({ meetings, memberCount }: { meetings: Meeting[]; memberCount: number }) {
@@ -143,13 +330,134 @@ export function DashboardCharts({ meetings, memberCount }: { meetings: Meeting[]
 }
 
 const s = StyleSheet.create({
+  selectorContainer: { gap: 6, marginBottom: 4 },
+  selectorLabel: { color: colors.muted, fontSize: 11.5, fontWeight: '700' },
+  selectorTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F4F9FA',
+    borderWidth: 1,
+    borderColor: '#D4EBF0',
+    borderRadius: radius.md,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+  },
+  triggerPressed: { opacity: 0.85 },
+  triggerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, marginRight: 8 },
+  triggerText: { color: colors.text, fontSize: 12.5, fontWeight: '700' },
+  triggerRight: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  triggerActionText: { color: colors.primaryDark, fontSize: 11.5, fontWeight: '700' },
+  sheetOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+  },
+  sheetBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  sheetContent: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 24,
+    maxHeight: '80%',
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  sheetHeaderInfo: { flex: 1, gap: 2 },
+  sheetTitle: { color: colors.text, fontSize: 15.5, fontWeight: '800' },
+  sheetSubtitle: { color: colors.muted, fontSize: 11.5 },
+  sheetCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: radius.md,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 8,
+    marginTop: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.text,
+    paddingVertical: 0,
+  },
+  sheetList: { flexGrow: 0, maxHeight: 380 },
+  sheetListContent: { gap: 6, paddingVertical: 4 },
+  sheetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: radius.md,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    backgroundColor: '#FAFCFD',
+  },
+  sheetItemActive: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  sheetItemPressed: { opacity: 0.8 },
+  itemDateBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: '#EEF3F5',
+  },
+  itemDateBadgeActive: {
+    backgroundColor: colors.primary,
+  },
+  itemDateText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.muted,
+  },
+  itemDateTextActive: {
+    color: '#FFFFFF',
+  },
+  itemInfo: { flex: 1 },
+  itemTitle: { fontSize: 13, fontWeight: '700', color: colors.text },
+  itemTitleActive: { color: colors.primaryDark, fontWeight: '800' },
+  itemMeta: { fontSize: 11, color: colors.muted, marginTop: 2 },
+  checkIconWrap: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
+  sheetEmpty: { alignItems: 'center', justifyContent: 'center', paddingVertical: 28 },
+  sheetEmptyText: { color: colors.muted, fontSize: 12.5, textAlign: 'center' },
   selector: { gap: 8 },
-  selectorLabel: { color: colors.text, fontSize: 12, fontWeight: '800' },
-  options: { gap: 8, paddingRight: 16 },
-  option: { maxWidth: 230, borderWidth: 1, borderColor: colors.border, borderRadius: 999, backgroundColor: colors.surface, paddingHorizontal: 12, paddingVertical: 9 },
-  optionActive: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
-  optionText: { color: colors.muted, fontSize: 11, fontWeight: '700' },
-  optionTextActive: { color: colors.primaryDark, fontWeight: '900' },
   wrap: { gap: 12 },
   card: { padding: 12 },
   title: { color: colors.text, fontSize: 13, fontWeight: '800' },

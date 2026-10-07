@@ -1,11 +1,12 @@
 import { router } from "expo-router";
-import { ArrowRight, Bell, Calendar, X } from "lucide-react-native";
+import { ArrowRight, Bell, Calendar, Trophy, X } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   AppHeader,
   Avatar,
+  Card,
   EmptyState,
   ErrorState,
   LoadingState,
@@ -62,6 +63,23 @@ export default function HomeScreen() {
         .slice(0, 3),
     [meetings],
   );
+
+  const memberRankings = useMemo(() => {
+    const totals = new Map<string, { name: string; appearances: number; seconds: number }>();
+    chartMeetings.forEach((meeting) =>
+      meeting.speakers.forEach((speaker) => {
+        const key = speaker.userId || speaker.email || speaker.name;
+        if (!key) return;
+        const current = totals.get(key) || { name: speaker.name, appearances: 0, seconds: 0 };
+        current.appearances += 1;
+        current.seconds += speaker.spokenSeconds || 0;
+        totals.set(key, current);
+      }),
+    );
+    return [...totals.values()]
+      .sort((a, b) => b.appearances * 1000 + b.seconds - (a.appearances * 1000 + a.seconds))
+      .slice(0, 5);
+  }, [chartMeetings]);
 
   const featuredMeeting = liveMeeting || upcoming[0] || null;
   const isFeaturedLive = Boolean(liveMeeting);
@@ -261,26 +279,71 @@ export default function HomeScreen() {
             <SectionTitle>Biểu đồ tổng quan</SectionTitle>
             <DashboardCharts meetings={chartMeetings} memberCount={memberCount} />
 
-            {/* Cuộc họp sắp tới */}
+            {/* BXH thành viên */}
             <SectionTitle
               action={
                 <Pressable
-                  accessibilityLabel="Xem toàn bộ lịch"
+                  accessibilityLabel="Xem tất cả bảng xếp hạng"
                   hitSlop={8}
-                  onPress={() => router.push("/(tabs)/meetings")}
+                  onPress={() => router.push("/rankings")}
                 >
                   <Text style={styles.link}>Xem tất cả</Text>
                 </Pressable>
               }
             >
-              Sắp diễn ra
+              BXH thành viên
             </SectionTitle>
-            {upcoming.length ? (
-              upcoming.map((meeting) => <MeetingCard key={meeting._id} meeting={meeting} />)
+            {memberRankings.length ? (
+              <Card style={styles.rankingsCard}>
+                {memberRankings.map((item, index) => {
+                  const rank = index + 1;
+                  const isTop1 = rank === 1;
+                  const isTop2 = rank === 2;
+                  const isTop3 = rank === 3;
+                  const badgeColor = isTop1 ? "#D99020" : isTop2 ? "#64748B" : isTop3 ? "#B45309" : colors.muted;
+                  const badgeBg = isTop1 ? "#FEF9EC" : isTop2 ? "#F1F5F9" : isTop3 ? "#FEF3EB" : "#F8FAFC";
+
+                  return (
+                    <View
+                      key={item.name + index}
+                      style={[
+                        styles.rankRow,
+                        index !== memberRankings.length - 1 && styles.rankRowBorder,
+                      ]}
+                    >
+                      <View style={[styles.rankBadge, { backgroundColor: badgeBg }]}>
+                        <Text style={[styles.rankBadgeText, { color: badgeColor }]}>#{rank}</Text>
+                      </View>
+                      <Avatar
+                        initials={item.name
+                          .split(" ")
+                          .map((part) => part[0])
+                          .slice(-2)
+                          .join("")
+                          .toUpperCase()}
+                        size={34}
+                      />
+                      <View style={styles.rankInfo}>
+                        <Text numberOfLines={1} style={styles.rankName}>
+                          {item.name}
+                        </Text>
+                        <Text style={styles.rankMeta}>
+                          {item.appearances} buổi tham dự · {Math.round(item.seconds / 60)} phút phát biểu
+                        </Text>
+                      </View>
+                      {isTop1 ? (
+                        <View style={styles.trophyWrap}>
+                          <Trophy color="#D99020" size={16} strokeWidth={2.4} />
+                        </View>
+                      ) : null}
+                    </View>
+                  );
+                })}
+              </Card>
             ) : (
               <EmptyState
-                title="Chưa có lịch họp sắp tới"
-                message="Các cuộc họp mới sẽ tự động hiển thị tại đây khi được lên lịch."
+                title="Chưa có dữ liệu xếp hạng"
+                message="Bảng xếp hạng sẽ xuất hiện sau khi các cuộc họp diễn ra."
               />
             )}
           </>
@@ -524,5 +587,51 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 18,
     paddingHorizontal: spacing.md,
+  },
+  rankingsCard: {
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+  },
+  rankRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    gap: 10,
+  },
+  rankRowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#F0F4F6",
+  },
+  rankBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rankBadgeText: {
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  rankInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  rankName: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  rankMeta: {
+    color: colors.muted,
+    fontSize: 11,
+  },
+  trophyWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#FEF9EC",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
