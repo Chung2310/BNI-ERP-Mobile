@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
     borderWidth: 0,
   },
   dayCircleCancelled: {
-    backgroundColor: "#FDF0F2",
+    backgroundColor: "#FBE5E9",
     borderRadius: 14.5,
     overflow: "hidden",
   },
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   dayTextCancelled: {
-    color: "#C53B4F",
+    color: "#B83247",
     fontWeight: "500",
   },
   dayTextToday: {
