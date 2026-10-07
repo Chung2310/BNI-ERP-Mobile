@@ -178,12 +178,12 @@ export function MeetingRemoteControl({ id }: { id: string }) {
               <View style={styles.summaryRow}><Text style={styles.sectionHeading}>Đang phát biểu</Text><Text style={styles.muted}>{meeting.status === "paused" ? "Tạm dừng" : currentSpeaker ? `Lượt ${meeting.currentIndex + 1}/${meeting.speakers.length}` : "Chưa bắt đầu"}</Text></View>
               <Text style={[styles.personName, currentSpeaker && (meeting.status === "live" || meeting.status === "paused") && styles.activeSpeakerName]}>{currentSpeaker?.name || "Chưa có người phát biểu"}</Text>
               {meeting.status === "scheduled" ? <View style={styles.compactGrid}><CompactAction icon={Play} label="Bắt đầu họp" accessibilityLabel="Bắt đầu cuộc họp" columns={2} primary disabled={disabled} onPress={() => control("start")} /></View> : null}
-              {(meeting.status === "live" || meeting.status === "paused") && currentSpeaker ? <View style={styles.compactGrid}>
-                {meeting.status === "paused" ? <CompactAction icon={Play} label="Tiếp tục" accessibilityLabel="Tiếp tục và chiếu" columns={4} primary disabled={disabled} onPress={() => void run((current) => meetingService.presentation(id, current.speakers[current.currentIndex].id, meetingVersion(current)))} />
-                  : <CompactAction icon={meeting.speakerStartedAt ? Pause : Play} label={meeting.speakerStartedAt ? "Tạm dừng" : "Đếm giờ"} accessibilityLabel={meeting.speakerStartedAt ? "Tạm dừng phát biểu" : "Bắt đầu đếm giờ"} columns={4} disabled={disabled} onPress={() => control(meeting.speakerStartedAt ? "pause" : "start_speaker")} />}
-                <CompactAction icon={SkipBack} label="Trước" accessibilityLabel="Người phát biểu trước" columns={4} disabled={disabled || meeting.currentIndex <= 0} onPress={() => control("previous")} />
-                <CompactAction icon={SkipForward} label="Tiếp" accessibilityLabel="Người phát biểu tiếp theo" columns={4} primary disabled={disabled} onPress={() => control("next")} />
-                <CompactAction icon={RotateCcw} label="Đặt lại" accessibilityLabel="Đặt lại đồng hồ phát biểu" columns={4} disabled={disabled} onPress={() => control("reset_speaker")} />
+              {(meeting.status === "live" || meeting.status === "paused") && currentSpeaker ? <View style={styles.speakerActions}>
+                {meeting.status === "paused" ? <SpeakerAction icon={Play} accessibilityLabel="Tiếp tục và chiếu" primary disabled={disabled} onPress={() => void run((current) => meetingService.presentation(id, current.speakers[current.currentIndex].id, meetingVersion(current)))} />
+                  : <SpeakerAction icon={meeting.speakerStartedAt ? Pause : Play} accessibilityLabel={meeting.speakerStartedAt ? "Tạm dừng phát biểu" : "Bắt đầu đếm giờ"} disabled={disabled} onPress={() => control(meeting.speakerStartedAt ? "pause" : "start_speaker")} />}
+                <SpeakerAction icon={SkipBack} accessibilityLabel="Người phát biểu trước" disabled={disabled || meeting.currentIndex <= 0} onPress={() => control("previous")} />
+                <SpeakerAction icon={SkipForward} accessibilityLabel="Người phát biểu tiếp theo" primary disabled={disabled} onPress={() => control("next")} />
+                <SpeakerAction icon={RotateCcw} accessibilityLabel="Đặt lại đồng hồ phát biểu" disabled={disabled} onPress={() => control("reset_speaker")} />
               </View> : null}
             </Card>
 
@@ -267,6 +267,9 @@ function PanelTab({ label, active, onPress }: { label: string; active: boolean; 
 function CompactAction({ icon: Icon, label, accessibilityLabel, onPress, disabled, primary = false, columns = 3 }: { icon: LucideIcon; label: string; accessibilityLabel: string; onPress: () => void; disabled?: boolean; primary?: boolean; columns?: 2 | 3 | 4 }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.compactAction, columns === 2 ? styles.compactHalf : columns === 4 ? styles.compactQuarter : styles.compactThird, primary && styles.compactPrimary, disabled && styles.disabled, pressed && styles.compactPressed]}><Icon color={primary ? colors.text : brandBlue} size={19} /><Text numberOfLines={1} style={[styles.compactActionText, primary && styles.compactPrimaryText]}>{label}</Text></Pressable>;
 }
+function SpeakerAction({ icon: Icon, accessibilityLabel, onPress, disabled, primary = false }: { icon: LucideIcon; accessibilityLabel: string; onPress: () => void; disabled?: boolean; primary?: boolean }) {
+  return <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.speakerAction, primary && styles.compactPrimary, disabled && styles.disabled, pressed && styles.compactPressed]}><Icon color={primary ? colors.text : brandBlue} size={19} /></Pressable>;
+}
 function ToolRow({ icon: Icon, label, onPress, disabled, danger = false, showChevron = true }: { icon: LucideIcon; label: string; onPress: () => void; disabled?: boolean; danger?: boolean; showChevron?: boolean }) {
   return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={[styles.toolRow, disabled && styles.disabled]}><Icon color={danger ? colors.danger : colors.primaryDark} size={19} /><Text style={[styles.toolText, danger && styles.dangerText]}>{label}</Text>{showChevron ? <ChevronRight color={danger ? colors.danger : colors.muted} size={17} /> : null}</Pressable>;
 }
@@ -312,8 +315,10 @@ const styles = StyleSheet.create({
   sectionHeading: { color: colors.text, fontSize: 13, fontWeight: "600" },
   summaryRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
   personName: { color: colors.text, fontSize: 15, fontWeight: "600" },
-  activeSpeakerName: { color: brandBlue },
+  activeSpeakerName: { color: "#FF3B30" },
   muted: { color: colors.muted, fontSize: 12, lineHeight: 17 },
+  speakerActions: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.lg },
+  speakerAction: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: colors.surface },
   compactGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   compactAction: { minHeight: 52, alignItems: "center", justifyContent: "center", gap: 2, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: colors.surface, paddingHorizontal: 2 },
   compactHalf: { width: "48%" },
