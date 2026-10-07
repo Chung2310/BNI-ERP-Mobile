@@ -1,12 +1,12 @@
 import { useCallback, useRef, useState } from "react";
 import { router, useFocusEffect } from "expo-router";
 import { io } from "socket.io-client";
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View, useWindowDimensions } from "react-native";
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   CalendarCheck, ChevronRight, CircleStop, Clock3, Gift, ListOrdered, MessageCircle,
   Monitor, Pause, Play, Presentation, QrCode, RefreshCw, RotateCcw, SkipBack,
-  SkipForward, Sparkles, Trophy, Users, type LucideIcon,
+  SkipForward, Sparkles, Settings2, Trophy, Users, X, type LucideIcon,
 } from "lucide-react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { ProfileSlideCanvas } from "@/components/meetings/ProfileSlideCanvas";
@@ -25,6 +25,8 @@ const views: { value: PresentationView; label: string; icon: LucideIcon }[] = [
   { value: "activeMembers", label: "Xếp hạng", icon: Trophy },
   { value: "waiting", label: "Màn chờ", icon: Monitor },
 ];
+const brandBlue = "#01BAF9";
+const brandSoft = "#E7F9FF";
 type Panel = "speaker" | "draw" | "tools";
 
 export function MeetingRemoteControl({ id }: { id: string }) {
@@ -43,9 +45,9 @@ export function MeetingRemoteControl({ id }: { id: string }) {
   const busyRef = useRef(false);
   const [now, setNow] = useState(0);
   const [panel, setPanel] = useState<Panel>("speaker");
-  const [selectedSpeaker, setSelectedSpeaker] = useState("");
   const [selectedPrize, setSelectedPrize] = useState("");
   const [previewExpanded, setPreviewExpanded] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const applySnapshot = useCallback((next: MeetingLiveSnapshot) => {
     if (!activeRef.current) return;
@@ -138,7 +140,6 @@ export function MeetingRemoteControl({ id }: { id: string }) {
 
   const meeting = snapshot?.meeting;
   const currentSpeaker = meeting?.speakers[meeting.currentIndex];
-  const chosenSpeaker = meeting?.speakers.find((person) => person.id === selectedSpeaker) || currentSpeaker || meeting?.speakers[0];
   const chosenPrize = meeting?.luckyDraw?.prizes.find((prize) => prize.id === selectedPrize) || meeting?.luckyDraw?.prizes.find((prize) => prize.winners.length < prize.quantity);
   const view = meeting?.presentation?.view || "checkin";
   const closed = meeting?.status === "ended" || meeting?.status === "cancelled";
@@ -150,7 +151,7 @@ export function MeetingRemoteControl({ id }: { id: string }) {
   </Screen>;
 
   return <Screen scroll={false} style={styles.screen}>
-    <View style={styles.header}><BackHeader title="Bảng điều khiển trình chiếu" compact /></View>
+    <View style={styles.header}><BackHeader title="Bảng điều khiển trình chiếu" compact action={<Pressable accessibilityRole="button" accessibilityLabel="Cài đặt tự chuyển lượt" onPress={() => setSettingsOpen(true)} style={styles.settingsButton}><Settings2 color={colors.text} size={21} /></Pressable>} /></View>
       <>
         <View style={styles.previewCard}>
           <View style={styles.previewHeader}>
@@ -164,7 +165,7 @@ export function MeetingRemoteControl({ id }: { id: string }) {
         </View>
         <ScrollView style={styles.controls} contentContainerStyle={[styles.controlsContent, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]} showsVerticalScrollIndicator={false}>
           <Text style={styles.inlineLabel}>Chuyển màn hình</Text>
-          <View style={styles.modes}>{views.map(({ value, label, icon: Icon }) => <Pressable key={value} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: view === value, disabled }} disabled={disabled || view === value} onPress={() => setView(value)} style={[styles.mode, view === value && styles.modeActive, disabled && styles.disabled]}><Icon color={view === value ? "#FFFFFF" : colors.primaryDark} size={21} /></Pressable>)}</View>
+          <View style={styles.modes}>{views.map(({ value, label, icon: Icon }) => <Pressable key={value} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: view === value, disabled }} disabled={disabled || view === value} onPress={() => setView(value)} style={[styles.mode, view === value && styles.modeActive, disabled && styles.disabled]}><Icon color={view === value ? colors.text : brandBlue} size={21} /></Pressable>)}</View>
 
           <View style={styles.panelTabs}>
             <PanelTab label="Phát biểu" active={panel === "speaker"} onPress={() => setPanel("speaker")} />
@@ -187,20 +188,18 @@ export function MeetingRemoteControl({ id }: { id: string }) {
             </Card>
 
             <Card style={styles.section}>
-              <Text style={styles.sectionHeading}>Chọn người để trình chiếu</Text>
+              <View style={styles.summaryRow}><Text style={styles.sectionHeading}>Người thuyết trình</Text><Text style={styles.muted}>{meeting.speakers.length} người</Text></View>
+              <Text style={styles.muted}>Chạm tên để trình chiếu · icon bên phải để đưa xuống cuối lượt</Text>
               {!meeting.speakers.length ? <Text style={styles.muted}>Chưa có người check-in.</Text> : <View style={styles.people}>
-                {meeting.speakers.map((person, index) => <Pressable key={person.id} accessibilityRole="button" accessibilityLabel={`Chọn ${person.name}`} accessibilityState={{ selected: person.id === chosenSpeaker?.id }} onPress={() => setSelectedSpeaker(person.id)} style={[styles.personChip, person.id === chosenSpeaker?.id && styles.personChipActive]}><Text numberOfLines={1} style={[styles.personChipText, person.id === chosenSpeaker?.id && styles.selectedText]}>{index + 1}. {person.name}</Text></Pressable>)}
+                {meeting.speakers.map((person, index) => {
+                  const isCurrent = view === "speaker" && index === meeting.currentIndex;
+                  const cannotDefer = disabled || index < Math.max(0, meeting.currentIndex) || index === meeting.speakers.length - 1;
+                  return <View key={person.id} style={[styles.personRow, isCurrent && styles.personRowActive]}>
+                    <Pressable accessibilityRole="button" accessibilityLabel={`Chiếu slide của ${person.name}`} accessibilityState={{ disabled, selected: isCurrent }} disabled={disabled} onPress={() => void run((current) => meetingService.presentation(id, person.id, meetingVersion(current)))} style={styles.personMain}><Text style={styles.personIndex}>{index + 1}</Text><Text numberOfLines={1} style={styles.personRowName}>{person.name}</Text>{isCurrent ? <Text style={styles.currentLabel}>Đang chiếu</Text> : <Play color={colors.muted} size={17} />}</Pressable>
+                    <Pressable accessibilityRole="button" accessibilityLabel={`Đưa ${person.name} xuống cuối lượt`} accessibilityState={{ disabled: cannotDefer }} disabled={cannotDefer} onPress={() => void run((current) => meetingService.deferSpeaker(id, person.id, meetingVersion(current)))} style={[styles.deferButton, cannotDefer && styles.disabled]}><ListOrdered color={colors.text} size={19} /></Pressable>
+                  </View>;
+                })}
               </View>}
-              <View style={styles.compactGrid}>
-                <CompactAction icon={Presentation} label="Chiếu" accessibilityLabel="Bắt đầu thuyết trình và chiếu slide" primary disabled={disabled || !chosenSpeaker} onPress={() => void run((current) => meetingService.presentation(id, chosenSpeaker!.id, meetingVersion(current)))} />
-                <CompactAction icon={ListOrdered} label="Cuối lượt" accessibilityLabel="Đưa người đã chọn xuống cuối lượt" disabled={disabled || !chosenSpeaker || meeting.speakers.findIndex((person) => person.id === chosenSpeaker.id) < Math.max(0, meeting.currentIndex) || meeting.speakers.at(-1)?.id === chosenSpeaker?.id} onPress={() => void run((current) => meetingService.deferSpeaker(id, chosenSpeaker!.id, meetingVersion(current)))} />
-                <CompactAction icon={Presentation} label="Slide" accessibilityLabel="Xem danh sách slide" onPress={() => router.push({ pathname: "/meeting/[id]/slides", params: { id } })} />
-              </View>
-            </Card>
-
-            <Card style={styles.section}>
-              <View style={styles.switchRow}><View style={styles.grow}><Text style={styles.sectionHeading}>Tự chuyển lượt</Text><Text style={styles.muted}>Chạy tiếp khi khóa điện thoại</Text></View><Switch value={Boolean(meeting.presentation?.autoAdvance)} disabled={disabled} onValueChange={(autoAdvance) => void run((current) => meetingService.presentationState(id, { autoAdvance }, meetingVersion(current)))} /></View>
-              {meeting.presentation?.autoAdvance ? <View style={styles.delayRow}><Text style={styles.muted}>Chờ sau lượt</Text>{[0, 3, 5, 10].map((seconds) => <Pressable key={seconds} accessibilityRole="button" accessibilityState={{ selected: (meeting.presentation?.autoAdvanceDelay ?? 3) === seconds, disabled }} disabled={disabled} onPress={() => void run((current) => meetingService.presentationState(id, { autoAdvanceDelay: seconds }, meetingVersion(current)))} style={[styles.delay, (meeting.presentation?.autoAdvanceDelay ?? 3) === seconds && styles.delayActive]}><Text style={styles.delayText}>{seconds}s</Text></Pressable>)}</View> : null}
             </Card>
           </> : null}
 
@@ -228,6 +227,17 @@ export function MeetingRemoteControl({ id }: { id: string }) {
           {(meeting.status === "live" || meeting.status === "paused") ? <ToolRow icon={CircleStop} label="Kết thúc cuộc họp" danger showChevron={false} disabled={disabled} onPress={confirmFinish} /> : null}
         </ScrollView>
       </>
+    <Modal visible={settingsOpen} transparent animationType="slide" statusBarTranslucent onRequestClose={() => setSettingsOpen(false)}>
+      <View style={styles.sheetOverlay}>
+        <Pressable accessibilityLabel="Đóng cài đặt trình chiếu" style={styles.sheetBackdrop} onPress={() => setSettingsOpen(false)} />
+        <View style={[styles.sheetContent, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+          <View style={styles.sheetHeader}><Text style={styles.sheetTitle}>Cài đặt trình chiếu</Text><Pressable accessibilityRole="button" accessibilityLabel="Đóng" onPress={() => setSettingsOpen(false)} style={styles.sheetClose}><X color={colors.text} size={20} /></Pressable></View>
+          <View style={styles.switchRow}><View style={styles.grow}><Text style={styles.sectionHeading}>Tự chuyển lượt</Text><Text style={styles.muted}>Tiếp tục chạy khi khóa điện thoại</Text></View><Switch value={Boolean(meeting.presentation?.autoAdvance)} disabled={disabled} trackColor={{ false: colors.border, true: brandSoft }} thumbColor={meeting.presentation?.autoAdvance ? brandBlue : colors.surface} onValueChange={(autoAdvance) => void run((current) => meetingService.presentationState(id, { autoAdvance }, meetingVersion(current)))} /></View>
+          <Text style={styles.muted}>Chờ sau khi hết giờ phát biểu</Text>
+          <View style={styles.delayRow}>{[0, 3, 5, 10].map((seconds) => <Pressable key={seconds} accessibilityRole="button" accessibilityLabel={`${seconds} giây`} accessibilityState={{ selected: (meeting.presentation?.autoAdvanceDelay ?? 3) === seconds, disabled }} disabled={disabled} onPress={() => void run((current) => meetingService.presentationState(id, { autoAdvanceDelay: seconds }, meetingVersion(current)))} style={[styles.delay, (meeting.presentation?.autoAdvanceDelay ?? 3) === seconds && styles.delayActive]}><Text style={styles.delayText}>{seconds}s</Text></Pressable>)}</View>
+        </View>
+      </View>
+    </Modal>
   </Screen>;
 }
 
@@ -255,7 +265,7 @@ function PanelTab({ label, active, onPress }: { label: string; active: boolean; 
   return <Pressable accessibilityRole="tab" accessibilityState={{ selected: active }} onPress={onPress} style={[styles.panelTab, active && styles.panelTabActive]}><Text style={[styles.panelTabText, active && styles.panelTabTextActive]}>{label}</Text></Pressable>;
 }
 function CompactAction({ icon: Icon, label, accessibilityLabel, onPress, disabled, primary = false, columns = 3 }: { icon: LucideIcon; label: string; accessibilityLabel: string; onPress: () => void; disabled?: boolean; primary?: boolean; columns?: 2 | 3 | 4 }) {
-  return <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.compactAction, columns === 2 ? styles.compactHalf : columns === 4 ? styles.compactQuarter : styles.compactThird, primary && styles.compactPrimary, disabled && styles.disabled, pressed && styles.compactPressed]}><Icon color={primary ? "#FFFFFF" : colors.primaryDark} size={19} /><Text numberOfLines={1} style={[styles.compactActionText, primary && styles.compactPrimaryText]}>{label}</Text></Pressable>;
+  return <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.compactAction, columns === 2 ? styles.compactHalf : columns === 4 ? styles.compactQuarter : styles.compactThird, primary && styles.compactPrimary, disabled && styles.disabled, pressed && styles.compactPressed]}><Icon color={primary ? colors.text : brandBlue} size={19} /><Text numberOfLines={1} style={[styles.compactActionText, primary && styles.compactPrimaryText]}>{label}</Text></Pressable>;
 }
 function ToolRow({ icon: Icon, label, onPress, disabled, danger = false, showChevron = true }: { icon: LucideIcon; label: string; onPress: () => void; disabled?: boolean; danger?: boolean; showChevron?: boolean }) {
   return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={[styles.toolRow, disabled && styles.disabled]}><Icon color={danger ? colors.danger : colors.primaryDark} size={19} /><Text style={[styles.toolText, danger && styles.dangerText]}>{label}</Text>{showChevron ? <ChevronRight color={danger ? colors.danger : colors.muted} size={17} /> : null}</Pressable>;
@@ -264,6 +274,7 @@ function ToolRow({ icon: Icon, label, onPress, disabled, danger = false, showChe
 const styles = StyleSheet.create({
   screen: { paddingHorizontal: 0, paddingVertical: 0, paddingBottom: 0, gap: 0 },
   header: { paddingHorizontal: spacing.sm },
+  settingsButton: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center", backgroundColor: "transparent" },
   previewCard: { width: "96%", maxWidth: 560, alignSelf: "center", marginBottom: spacing.xs, overflow: "hidden", borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   previewHeader: { minHeight: touchTarget, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingLeft: spacing.md },
   previewStatus: { flexDirection: "row", alignItems: "center", gap: spacing.sm, flex: 1, minHeight: touchTarget },
@@ -290,42 +301,51 @@ const styles = StyleSheet.create({
   inlineLabel: { color: colors.muted, fontSize: 12, paddingHorizontal: spacing.xs },
   modes: { flexDirection: "row", gap: spacing.xs },
   mode: { flex: 1, minHeight: touchTarget, minWidth: touchTarget, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface },
-  modeActive: { backgroundColor: colors.primaryDark, borderColor: colors.primaryDark },
+  modeActive: { backgroundColor: brandBlue, borderColor: brandBlue },
   disabled: { opacity: 0.65 },
   panelTabs: { flexDirection: "row", borderRadius: radius.md, padding: 2, backgroundColor: colors.primarySoft },
   panelTab: { flex: 1, minHeight: touchTarget, alignItems: "center", justifyContent: "center", borderRadius: radius.sm },
-  panelTabActive: { backgroundColor: colors.surface },
+  panelTabActive: { backgroundColor: brandSoft },
   panelTabText: { color: colors.muted, fontSize: 12, fontWeight: "500" },
-  panelTabTextActive: { color: colors.primaryDark, fontWeight: "600" },
+  panelTabTextActive: { color: colors.text, fontWeight: "600" },
   section: { gap: spacing.xs, padding: spacing.sm },
   sectionHeading: { color: colors.text, fontSize: 13, fontWeight: "600" },
   summaryRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
   personName: { color: colors.text, fontSize: 15, fontWeight: "600" },
   muted: { color: colors.muted, fontSize: 12, lineHeight: 17 },
-  compactGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
-  compactAction: { minHeight: 58, alignItems: "center", justifyContent: "center", gap: 2, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: colors.surface, paddingHorizontal: 2 },
-  compactHalf: { width: "49%" },
-  compactThird: { width: "32%" },
-  compactQuarter: { width: "24%" },
-  compactPrimary: { backgroundColor: colors.primaryDark, borderColor: colors.primaryDark },
+  compactGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  compactAction: { minHeight: 52, alignItems: "center", justifyContent: "center", gap: 2, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: colors.surface, paddingHorizontal: 2 },
+  compactHalf: { width: "48%" },
+  compactThird: { width: "31%" },
+  compactQuarter: { width: "22.5%" },
+  compactPrimary: { backgroundColor: brandBlue, borderColor: brandBlue },
   compactActionText: { color: colors.text, fontSize: 12, fontWeight: "500", textAlign: "center" },
-  compactPrimaryText: { color: "#FFFFFF", fontWeight: "600" },
+  compactPrimaryText: { color: colors.text, fontWeight: "600" },
   compactPressed: { opacity: 0.78 },
-  people: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
-  personChip: { width: "49%", minHeight: touchTarget, justifyContent: "center", borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md },
-  personChipActive: { backgroundColor: colors.primarySoft, borderColor: colors.primaryDark },
-  personChipText: { color: colors.text, fontSize: 12, fontWeight: "500" },
-  selectedText: { color: colors.primaryDark },
+  people: { gap: spacing.sm },
+  personRow: { minHeight: touchTarget, flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: colors.surface },
+  personRowActive: { backgroundColor: brandSoft, borderColor: brandBlue },
+  personMain: { minHeight: touchTarget, flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingLeft: spacing.sm, paddingRight: spacing.xs },
+  personIndex: { width: 22, color: colors.muted, fontSize: 12, textAlign: "center" },
+  personRowName: { flex: 1, color: colors.text, fontSize: 13, fontWeight: "500" },
+  currentLabel: { color: colors.text, fontSize: 12, fontWeight: "600" },
+  deferButton: { width: touchTarget, minHeight: touchTarget, alignItems: "center", justifyContent: "center", borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: colors.border },
   switchRow: { minHeight: touchTarget, flexDirection: "row", alignItems: "center", gap: spacing.sm },
   delayRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
   delay: { flex: 1, minHeight: touchTarget, alignItems: "center", justifyContent: "center", borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
-  delayActive: { backgroundColor: colors.primarySoft, borderColor: colors.primaryDark },
-  delayText: { color: colors.primaryDark, fontSize: 12, fontWeight: "500" },
+  delayActive: { backgroundColor: brandSoft, borderColor: brandBlue },
+  delayText: { color: colors.text, fontSize: 12, fontWeight: "500" },
   prizes: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
   prize: { width: "49%", minHeight: touchTarget, justifyContent: "center", borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.sm },
-  prizeActive: { borderColor: colors.primaryDark, backgroundColor: colors.primarySoft },
+  prizeActive: { borderColor: brandBlue, backgroundColor: brandSoft },
   prizeName: { color: colors.text, fontSize: 12, fontWeight: "500" },
   toolRow: { minHeight: touchTarget, flexDirection: "row", alignItems: "center", gap: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   toolText: { flex: 1, color: colors.text, fontSize: 13, fontWeight: "500" },
   dangerText: { color: colors.danger },
+  sheetOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.overlay },
+  sheetBackdrop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
+  sheetContent: { gap: spacing.md, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, backgroundColor: colors.surface, paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  sheetHeader: { minHeight: touchTarget, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  sheetTitle: { color: colors.text, fontSize: 16, fontWeight: "600" },
+  sheetClose: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center" },
 });
