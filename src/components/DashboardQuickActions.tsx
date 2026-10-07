@@ -13,19 +13,19 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { ActionIcon3D, type ActionIcon3DType } from '@/components/ActionIcon3D';
 import type { UserProfile } from '@/types';
 import { colors, radius, shadow, spacing } from '@/theme/tokens';
 import { hasPermission } from '@/utils/permissions';
 
 interface QuickActionDef {
-  type: ActionIcon3DType;
   icon: LucideIcon;
   title: string;
   href: Href;
+  color: string;
+  bgColor: string;
 }
 
-function ActionItem({ type, icon, title, href }: QuickActionDef) {
+function ActionItem({ icon: Icon, title, href, color, bgColor }: QuickActionDef) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -33,7 +33,9 @@ function ActionItem({ type, icon, title, href }: QuickActionDef) {
       style={({ pressed }) => [styles.item, pressed && styles.pressed]}
       onPress={() => router.push(href)}
     >
-      <ActionIcon3D type={type} icon={icon} size={46} />
+      <View style={[styles.iconBox, { backgroundColor: bgColor }]}>
+        <Icon color={color} size={22} strokeWidth={2} />
+      </View>
       <Text style={styles.itemTitle} numberOfLines={2}>
         {title}
       </Text>
@@ -58,76 +60,86 @@ export function DashboardQuickActions({
 
   if (liveMeetingId) {
     actions.push({
-      type: 'checkin',
       icon: QrCode,
       title: 'Check-in',
       href: { pathname: '/meeting/[id]/check-in', params: { id: liveMeetingId } },
+      color: '#00A86B',
+      bgColor: '#E6FAF2',
     });
   }
 
   if (canCreateMeeting) {
     actions.push({
-      type: 'create',
       icon: CalendarPlus,
       title: 'Tạo cuộc họp',
       href: '/meeting/create',
+      color: '#00AECA',
+      bgColor: '#E6F8FB',
     });
   }
 
   actions.push(
     {
-      type: 'fees',
       icon: WalletCards,
       title: 'Hội phí',
       href: '/fees',
+      color: '#D97706',
+      bgColor: '#FFFBEB',
     },
     {
-      type: 'rankings',
       icon: Trophy,
       title: 'Xếp hạng',
       href: '/rankings',
+      color: '#EA580C',
+      bgColor: '#FFF4ED',
     },
     {
-      type: 'resources',
       icon: FolderOpen,
       title: 'Tài nguyên',
       href: '/resources',
+      color: '#2563EB',
+      bgColor: '#EFF6FF',
     },
     {
-      type: 'org',
       icon: Network,
       title: 'Sơ đồ Chapter',
       href: '/org-chart',
+      color: '#7C3AED',
+      bgColor: '#F5F3FF',
     },
     {
-      type: 'notifications',
       icon: Bell,
       title: 'Thông báo',
       href: '/notifications',
+      color: '#DB2777',
+      bgColor: '#FDF2F8',
     },
     {
-      type: 'settings',
       icon: Settings,
       title: 'Cài đặt',
       href: '/settings',
+      color: '#475569',
+      bgColor: '#F1F5F9',
     }
   );
 
   if (canViewUsers) {
     actions.push({
-      type: 'users',
       icon: UserCog,
       title: 'Quản trị user',
       href: '/admin/users',
+      color: '#0284C7',
+      bgColor: '#F0F9FF',
     });
   }
 
   if (canManageRoles) {
     actions.push({
-      type: 'roles',
       icon: ShieldCheck,
       title: 'Phân quyền',
       href: '/admin/roles',
+      color: '#0D9488',
+      bgColor: '#F0FDFA',
     });
   }
 
@@ -165,11 +177,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
     marginBottom: spacing.xs,
   },
+  iconBox: {
+    width: 46,
+    height: 46,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   itemTitle: {
     marginTop: 6,
     color: colors.text,
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
     textAlign: 'center',
     lineHeight: 14,
   },
