@@ -51,7 +51,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Cho phép iGen Connect sử dụng camera để quét mã QR check-in.",
+          "cameraPermission": "Cho phép iGen Connect sử dụng camera để quét mã QR và chụp ảnh thành viên, sản phẩm.",
           "recordAudioAndroid": false
         }
       ],
@@ -64,7 +64,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Cho phép iGen Connect truy cập thư viện ảnh để chọn ảnh bìa cuộc họp."
+          "photosPermission": "Cho phép iGen Connect truy cập thư viện ảnh để chọn ảnh cuộc họp và thành viên.",
+          "cameraPermission": "Cho phép iGen Connect sử dụng camera để quét mã QR và chụp ảnh thành viên, sản phẩm."
         }
       ],
       "@react-native-community/datetimepicker"

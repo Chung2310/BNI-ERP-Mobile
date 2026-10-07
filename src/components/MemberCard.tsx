@@ -69,7 +69,7 @@ export function MemberCard({ member }: { member: MemberSummary }) {
         style={({ pressed }) => [styles.mainPressable, pressed && styles.mainPressed]}
         onPress={() => router.push({ pathname: "/member/[id]", params: { id: member.id } })}
       >
-        <Avatar initials={member.initials} url={member.avatarUrl} size={44} />
+        <Avatar initials={member.initials} url={member.avatarUrl} size={38} />
 
         <View style={styles.infoCol}>
           <Text numberOfLines={1} style={styles.name}>
@@ -90,7 +90,7 @@ export function MemberCard({ member }: { member: MemberSummary }) {
 
           {member.phone ? (
             <Pressable onPress={handleCall} hitSlop={6} style={styles.phoneRow}>
-              <Phone size={12} color={colors.primaryDark} strokeWidth={2.2} />
+              <Phone size={11} color={colors.primaryDark} strokeWidth={2.2} />
               <Text numberOfLines={1} style={styles.phone}>
                 {member.phone}
               </Text>
@@ -112,7 +112,7 @@ export function MemberCard({ member }: { member: MemberSummary }) {
           {isStartingChat ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <MessageCircle size={19} color={colors.primaryDark} strokeWidth={2.2} />
+            <MessageCircle size={17} color={colors.primaryDark} strokeWidth={2.2} />
           )}
         </Pressable>
       </View>
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
   item: {
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: "#EEF2F6",
     flexDirection: "row",
@@ -141,43 +141,43 @@ const styles = StyleSheet.create({
   },
   infoCol: {
     flex: 1,
-    gap: 2,
+    gap: 1.5,
     justifyContent: "center",
   },
   name: {
     color: colors.text,
-    fontSize: 15.5,
+    fontSize: 14,
     fontWeight: "700",
   },
   company: {
-    color: "#2C3E50",
-    fontSize: 13,
+    color: "#374151",
+    fontSize: 12,
     fontWeight: "500",
   },
   industry: {
     color: colors.primaryDark,
-    fontSize: 12.5,
+    fontSize: 11.5,
   },
   phoneRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    gap: 4,
     alignSelf: "flex-start",
     marginTop: 1,
   },
   phone: {
     color: colors.primaryDark,
-    fontSize: 12.5,
+    fontSize: 11.5,
     fontWeight: "600",
   },
   actionCol: {
     justifyContent: "center",
     alignItems: "center",
-    paddingLeft: spacing.sm,
+    paddingLeft: spacing.xs,
   },
   chatBtn: {
-    width: 38,
-    height: 38,
+    width: 34,
+    height: 34,
     borderRadius: radius.pill,
     backgroundColor: colors.primarySoft,
     alignItems: "center",

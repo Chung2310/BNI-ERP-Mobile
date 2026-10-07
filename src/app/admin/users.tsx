@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { Plus, Search, X } from "lucide-react-native";
+import { Search, X } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
+import { HeaderAddButton } from "@/components/HeaderAddButton";
 import { AddAccountSheet } from "@/components/AddAccountSheet";
 import { Avatar, EmptyState, ErrorState, LoadingState, Screen } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
@@ -51,15 +52,10 @@ export default function AdminUsersScreen() {
           title="Quản trị người dùng"
           compact
           action={canManage ? (
-            <Pressable
-              accessibilityRole="button"
+            <HeaderAddButton
               accessibilityLabel="Thêm tài khoản"
-              hitSlop={8}
               onPress={() => setShowCreate(true)}
-              style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
-            >
-              <Plus color="#FFFFFF" size={20} strokeWidth={2.5} />
-            </Pressable>
+            />
           ) : undefined}
         />
       </View>
@@ -123,7 +119,6 @@ export default function AdminUsersScreen() {
 const styles = StyleSheet.create({
   screen: { paddingHorizontal: 0, gap: 0, backgroundColor: colors.surface },
   header: { paddingHorizontal: spacing.lg, paddingTop: spacing.xs },
-  addButton: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.primary },
   pressed: { opacity: 0.75 },
   searchWrap: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
   searchBox: { height: 38, flexDirection: "row", alignItems: "center", gap: spacing.sm, borderRadius: radius.pill, backgroundColor: "#F3F6F8", paddingHorizontal: spacing.md },

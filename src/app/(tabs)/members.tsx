@@ -3,7 +3,9 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import { Search, X } from "lucide-react-native";
 import { EmptyState, ErrorState, LoadingState, Screen } from "@/components/ui";
 import { BackHeader } from "@/components/BackHeader";
+import { HeaderAddButton } from "@/components/HeaderAddButton";
 import { MemberCard } from "@/components/MemberCard";
+import { AddMemberModal } from "@/components/AddMemberModal";
 import { userService } from "@/services/users";
 import { colors, radius, spacing } from "@/theme/tokens";
 import type { MemberSummary, UserProfile } from "@/types";
@@ -104,6 +106,7 @@ export default function MembersScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState("");
+  const [showAddModal, setShowAddModal] = useState(false);
   const loadingRef = useRef(false);
 
   const loadPage = useCallback(async (nextPage: number, reset = false) => {
@@ -198,6 +201,12 @@ export default function MembersScreen() {
               ? `Tìm thấy ${members.length} thành viên`
               : `${total} thành viên`
           }
+          action={
+            <HeaderAddButton
+              accessibilityLabel="Thêm thành viên"
+              onPress={() => setShowAddModal(true)}
+            />
+          }
         />
       </View>
 
@@ -274,6 +283,14 @@ export default function MembersScreen() {
         <Text style={styles.endText}>Đã hiển thị toàn bộ {total} thành viên</Text>
       ) : null}
 
+      <AddMemberModal
+        visible={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onCreated={() => {
+          setShowAddModal(false);
+          reload();
+        }}
+      />
     </Screen>
   );
 }
@@ -337,7 +354,7 @@ const styles = StyleSheet.create({
   },
   loadMoreText: {
     color: colors.primary, // Màu brand iGen Connect (#00AECA)
-    fontSize: 14.5,
+    fontSize: 12,
     fontWeight: "700",
   },
   loadingMoreRow: {

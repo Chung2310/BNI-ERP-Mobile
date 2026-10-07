@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
 import { router, useFocusEffect } from 'expo-router';
-import { MessageCircleMore, Plus, Search, Users } from 'lucide-react-native';
+import { MessageCircleMore, Search, Users } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { NewChatModal } from '@/components/NewChatModal';
 import { BackHeader } from '@/components/BackHeader';
+import { HeaderAddButton } from '@/components/HeaderAddButton';
 import { Avatar, Card, EmptyState, ErrorState, LoadingState, Screen } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
 import { useAsyncData } from '@/hooks/useAsyncData';
@@ -79,15 +80,10 @@ export default function ChatScreen() {
           subtitle={unreadTotal ? `${unreadTotal} tin chưa đọc` : 'Trò chuyện nội bộ'}
           onBack={() => router.navigate('/(tabs)')}
           action={
-            <Pressable
-              accessibilityRole="button"
+            <HeaderAddButton
               accessibilityLabel='Tạo cuộc trò chuyện mới'
-              hitSlop={6}
               onPress={() => setShowNewChat(true)}
-              style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
-            >
-              <Plus color='#FFFFFF' size={18} strokeWidth={2.5} />
-            </Pressable>
+            />
           }
         />
 
@@ -173,14 +169,6 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  addButton: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.pill,
-    backgroundColor: colors.primary,
-  },
   search: { minHeight: touchTarget, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface, paddingHorizontal: spacing.md },
   searchInput: { flex: 1, color: colors.text, fontSize: 14 },
   list: { paddingVertical: 0, paddingHorizontal: spacing.md },
