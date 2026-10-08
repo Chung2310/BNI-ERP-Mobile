@@ -101,13 +101,17 @@ function AnimatedBarItem({
 
   useEffect(() => {
     anim.setValue(0);
-    Animated.timing(anim, {
-      toValue: 1,
-      duration: 650,
-      delay: index * 60,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
+    const timer = setTimeout(() => {
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: 700,
+        delay: index * 70,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }).start();
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, [anim, index, height]);
 
   const animatedHeight = anim.interpolate({
@@ -201,65 +205,70 @@ function DonutChart({
 }) {
   const total = totals.present + totals.guest + totals.absent;
   const circumference = Math.PI * 116;
-  let used = 0;
 
-  const [donutAnim] = useState(() => new Animated.Value(0));
+  const [drawProgress, setDrawProgress] = useState(0);
 
   useEffect(() => {
-    donutAnim.setValue(0);
-    Animated.spring(donutAnim, {
-      toValue: 1,
-      tension: 40,
-      friction: 7,
-      useNativeDriver: true,
-    }).start();
-  }, [donutAnim, selectedId, total]);
+    let startTime: number | null = null;
+    let rafId: number;
+    const duration = 950; // 950ms smooth sweep
 
-  const donutScale = donutAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.65, 1],
-  });
+    const step = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(1, elapsed / duration);
+      // Easing out cubic: 1 - (1 - progress)^3
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDrawProgress(eased);
 
-  const donutRotate = donutAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["-40deg", "0deg"],
-  });
+      if (progress < 1) {
+        rafId = requestAnimationFrame(step);
+      }
+    };
 
-  const donutOpacity = donutAnim.interpolate({
-    inputRange: [0, 0.4, 1],
-    outputRange: [0, 0.7, 1],
-  });
+    const timer = setTimeout(() => {
+      setDrawProgress(0);
+      rafId = requestAnimationFrame(step);
+    }, 120);
 
-  const centerScale = donutAnim.interpolate({
-    inputRange: [0, 0.6, 1],
-    outputRange: [0.4, 1.08, 1],
-  });
+    return () => {
+      clearTimeout(timer);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [selectedId, totals.present, totals.guest, totals.absent, total]);
 
-  const legendTranslate = donutAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [14, 0],
-  });
+  let used = 0;
+  const displayedTotal = drawProgress >= 1 ? total : Math.round(total * drawProgress);
+  const displayedPresent = drawProgress >= 1 ? totals.present : Math.round(totals.present * drawProgress);
+  const displayedGuest = drawProgress >= 1 ? totals.guest : Math.round(totals.guest * drawProgress);
+  const displayedAbsent = drawProgress >= 1 ? totals.absent : Math.round(totals.absent * drawProgress);
+
+  // Rotation: starts at -50deg and smoothly eases to 0deg as it draws
+  const currentRotation = -50 + 50 * drawProgress;
+  const currentScale = 0.85 + 0.15 * drawProgress;
 
   return (
     <Card style={s.card}>
       <Text style={s.title}>Cơ cấu cuộc họp được chọn</Text>
       <MeetingSelector meetings={meetings} selectedId={selectedId} onSelect={onSelect} />
       <View style={s.donut}>
-        <Animated.View
+        <View
           style={[
             s.donutSvgWrap,
             {
-              transform: [{ scale: donutScale }, { rotate: donutRotate }],
-              opacity: donutOpacity,
+              transform: [
+                { scale: currentScale },
+                { rotate: `${currentRotation}deg` },
+              ],
             },
           ]}
         >
           <Svg width={174} height={174} viewBox="0 0 150 150" accessibilityLabel="Cơ cấu tham dự và vắng mặt">
             <Circle cx="75" cy="75" r="58" fill="none" stroke="#EEF3F5" strokeWidth="18" />
-            {total
+            {total && drawProgress > 0
               ? Object.entries(palette).map(([key, color]) => {
                   const value = totals[key as keyof Totals];
-                  const length = (value / total) * circumference;
+                  const length = (value / total) * circumference * drawProgress;
                   const offset = -used;
                   used += length;
                   return (
@@ -272,42 +281,34 @@ function DonutChart({
                       rotation="-90"
                       origin="75,75"
                       stroke={color}
-                      strokeDasharray={length + " " + (circumference - length)}
+                      strokeDasharray={`${length} ${circumference - length}`}
                       strokeDashoffset={offset}
                       strokeWidth="18"
+                      strokeLinecap="butt"
                     />
                   );
                 })
               : null}
           </Svg>
-        </Animated.View>
-        <Animated.View
+        </View>
+        <View
           pointerEvents="none"
           style={[
             s.center,
             {
-              transform: [{ scale: centerScale }],
-              opacity: donutOpacity,
+              transform: [{ scale: 0.8 + 0.2 * drawProgress }],
             },
           ]}
         >
-          <Text style={s.total}>{total}</Text>
+          <Text style={s.total}>{displayedTotal}</Text>
           <Text style={s.hint}>tổng lượt</Text>
-        </Animated.View>
+        </View>
       </View>
-      <Animated.View
-        style={[
-          s.donutLegend,
-          {
-            transform: [{ translateY: legendTranslate }],
-            opacity: donutOpacity,
-          },
-        ]}
-      >
-        <Legend color={palette.present} label="Thành viên có mặt" value={totals.present} />
-        <Legend color={palette.guest} label="Khách mời" value={totals.guest} />
-        <Legend color={palette.absent} label="Thành viên vắng" value={totals.absent} />
-      </Animated.View>
+      <View style={s.donutLegend}>
+        <Legend color={palette.present} label="Thành viên có mặt" value={displayedPresent} />
+        <Legend color={palette.guest} label="Khách mời" value={displayedGuest} />
+        <Legend color={palette.absent} label="Thành viên vắng" value={displayedAbsent} />
+      </View>
     </Card>
   );
 }
