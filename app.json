@@ -3,12 +3,13 @@
     "name": "iGen Connect",
     "slug": "igen-connect",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/igen-connect.png",
     "scheme": "igenconnect",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
+      "requireFullScreen": true,
       "bundleIdentifier": "vn.igen.connect"
     },
     "android": {
@@ -71,7 +72,8 @@
       ],
       "@react-native-community/datetimepicker",
       ["expo-audio", { "microphonePermission": "Cho phép iGen Connect sử dụng micro để gửi tin nhắn thoại." }],
-      "expo-video"
+      "expo-video",
+      "expo-screen-orientation"
     ],
     "experiments": {
       "typedRoutes": true

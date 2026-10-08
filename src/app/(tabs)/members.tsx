@@ -7,9 +7,11 @@ import { BackHeader } from "@/components/BackHeader";
 import { HeaderAddButton } from "@/components/HeaderAddButton";
 import { MemberCard } from "@/components/MemberCard";
 import { AddMemberModal } from "@/components/AddMemberModal";
+import { useAuth } from "@/context/AuthContext";
 import { userService } from "@/services/users";
 import { colors, radius, spacing } from "@/theme/tokens";
 import type { MemberSummary, UserProfile } from "@/types";
+import { canCreateMember } from "@/utils/permissions";
 
 const PAGE_SIZE = 15;
 
@@ -99,6 +101,8 @@ const extractCover = (u: any): string => {
 };
 
 export default function MembersScreen() {
+  const { user } = useAuth();
+  const canCreate = canCreateMember(user);
   const [query, setQuery] = useState("");
   const [data, setData] = useState<UserProfile[]>([]);
   const [total, setTotal] = useState(0);
@@ -203,12 +207,12 @@ export default function MembersScreen() {
               ? `Tìm thấy ${members.length} thành viên`
               : `${total} thành viên`
           }
-          action={
+          action={canCreate ? (
             <HeaderAddButton
               accessibilityLabel="Thêm thành viên"
               onPress={() => setShowAddModal(true)}
             />
-          }
+          ) : undefined}
         />
       </View>
 
@@ -286,7 +290,7 @@ export default function MembersScreen() {
       ) : null}
 
       <AddMemberModal
-        visible={showAddModal}
+        visible={canCreate && showAddModal}
         onClose={() => setShowAddModal(false)}
         onCreated={() => {
           setShowAddModal(false);

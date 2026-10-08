@@ -1,10 +1,12 @@
 import { useCallback, useMemo, useRef, useState } from "react";
+import * as Location from "expo-location";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
   Bell,
   CalendarClock,
   ChevronRight,
   Clock3,
+  Eye,
   Gift,
   MapPin,
   MessageCircle,
@@ -30,6 +32,7 @@ import { useRevealSearch } from "@/hooks/useRevealSearch";
 import { meetingService, meetingVersion, type Meeting } from "@/services/meeting";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 import { hasPermission } from "@/utils/permissions";
+import { meetingCheckInAvailability } from "@/utils/meetingCheckIn";
 
 const statusMeta: Record<Meeting["status"], { label: string; tone: BadgeTone }> = {
   scheduled: { label: "Sắp diễn ra", tone: "primary" },
@@ -55,6 +58,15 @@ export default function MeetingDetailScreen() {
     else hasFocused.current = true;
   }, [reload]));
   const [busy, setBusy] = useState(false);
+  const [checkInBusy, setCheckInBusy] = useState(false);
+  const [checkInError, setCheckInError] = useState("");
+  const [currentTime, setCurrentTime] = useState(Date.now);
+  const checkInPending = useRef(false);
+  useFocusEffect(useCallback(() => {
+    setCurrentTime(Date.now());
+    const timer = setInterval(() => setCurrentTime(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []));
   const [search, setSearch] = useState("");
   const { scrollRef, onSearchLayout, onSearchFocus, onSearchBlur } = useRevealSearch();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -75,7 +87,26 @@ export default function MeetingDetailScreen() {
   const attendance = meeting.speakers.find((speaker) => speaker.userId === user?.uid);
   const attendancePosition = attendance ? meeting.speakers.findIndex((speaker) => speaker.id === attendance.id) + 1 : 0;
   const meetingOpen = ["scheduled", "live", "paused"].includes(meeting.status);
+  const checkInAvailability = meetingCheckInAvailability(meeting, currentTime);
   const currentSpeaker = meeting.currentIndex >= 0 ? meeting.speakers[meeting.currentIndex] : undefined;
+
+  const checkIn = async () => {
+    if (checkInPending.current || meetingCheckInAvailability(meeting) !== "open" || attendance) return;
+    checkInPending.current = true;
+    setCheckInBusy(true);
+    setCheckInError("");
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (!permission.granted) throw new Error("Cần cho phép truy cập vị trí để check-in.");
+      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setData(await meetingService.checkIn(id, { latitude: position.coords.latitude, longitude: position.coords.longitude }));
+    } catch (cause) {
+      setCheckInError(cause instanceof Error ? cause.message : "Check-in thất bại. Vui lòng thử lại.");
+    } finally {
+      checkInPending.current = false;
+      setCheckInBusy(false);
+    }
+  };
 
   const closeSettings = () => {
     if (actionPending.current) return;
@@ -138,9 +169,10 @@ export default function MeetingDetailScreen() {
 
       <SectionTitle>Quy trình cuộc họp</SectionTitle>
       <Card style={styles.processCard}>
+        {!manage ? <ProcessRow icon={Eye} label="Theo dõi cuộc họp" detail="Xem nội dung đang trình chiếu trực tiếp" onPress={() => router.push({ pathname: "/meeting/[id]/watch", params: { id } })} /> : null}
         <ProcessRow icon={MapPin} label="Check-in" detail={`${meeting.speakers.length} người đã điểm danh`} onPress={() => router.push({ pathname: "/meeting/[id]/attendees", params: { id } })} />
-        <ProcessRow icon={Gift} label="Quay thưởng" detail="Kết quả Vòng quay may mắn và Lồng cầu bingo" onPress={() => router.push({ pathname: "/meeting/[id]/game-results", params: { id } })} />
-        <ProcessRow icon={MessageCircle} label="Thu ý kiến" detail="Câu hỏi và phản hồi của người tham dự" onPress={() => router.push({ pathname: "/meeting/[id]/interaction", params: { id, section: "interaction", readOnly: "1" } })} />
+        <ProcessRow icon={Gift} label="Vòng quay & Bingo" detail={manage ? "Mở trò chơi và quay nhiều lượt" : "Kết quả Vòng quay và Bingo"} onPress={() => router.push(manage ? { pathname: "/meeting/[id]/games", params: { id } } : { pathname: "/meeting/[id]/game-results", params: { id } })} />
+        <ProcessRow icon={MessageCircle} label="Thu ý kiến" detail={manage ? "Câu hỏi và phản hồi của người tham dự" : "Trả lời câu hỏi ngay trong ứng dụng"} onPress={() => router.push(manage ? { pathname: "/meeting/[id]/interaction", params: { id, section: "interaction", readOnly: "1" } } : { pathname: "/meeting/[id]/respond", params: { id } })} />
         <ProcessRow icon={Presentation} label="Thuyết trình" detail="Danh sách slide của người trình bày" onPress={() => router.push({ pathname: "/meeting/[id]/slides", params: { id } })} />
       </Card>
 
@@ -170,7 +202,11 @@ export default function MeetingDetailScreen() {
             </>
           ) : (
             <>
-              <Text style={styles.body}>{meetingOpen ? "Quét mã QR trên màn hình trình chiếu để check-in." : "Cuộc họp đã đóng điểm danh."}</Text>
+              <Text style={styles.body}>{checkInAvailability === "upcoming" ? "Check-in bằng GPS mở từ 2 giờ trước khi cuộc họp bắt đầu." : checkInAvailability === "open" ? "Bạn có thể check-in bằng GPS khi ở trong phạm vi địa điểm." : "Cuộc họp đã đóng điểm danh."}</Text>
+              {checkInAvailability === "open" ? <>
+                <Button icon={MapPin} fullWidth disabled={checkInBusy} onPress={() => void checkIn()}>{checkInBusy ? "Đang xác nhận vị trí…" : "Check-in bằng GPS"}</Button>
+                {checkInError ? <Text style={styles.checkInError}>{checkInError}</Text> : null}
+              </> : null}
             </>
           )}
         </Card>
@@ -191,7 +227,7 @@ export default function MeetingDetailScreen() {
                 <View style={styles.grow}>
                   <Text style={styles.speakerName}>{speaker.name}</Text>
                   <Text style={styles.speakerMeta}>{speaker.userId ? "Thành viên" : "Khách mời"} · {speaker.seconds} giây · {dateTime(speaker.checkedInAt)}</Text>
-                  {isCurrent ? <Text style={styles.liveText}>ĐANG PHÁT BIỂU</Text> : speaker.deferred ? <Text style={styles.deferredText}>ĐÃ CHUYỂN CUỐI LƯỢT</Text> : (speaker.spokenSeconds || 0) > 0 ? <Text style={styles.doneText}>Đã phát biểu {Math.round(speaker.spokenSeconds ?? 0)} giây</Text> : null}
+                  {isCurrent ? <Text style={styles.liveText}>ĐANG PHÁT BIỂU</Text> : speaker.deferred ? <Text style={styles.deferredText}>ĐÃ CHUYỂN CUỐI LƯỢT</Text> : (speaker.spokenSeconds || 0) > 0 ? <Text style={styles.doneText}>Đã phát biểu {Math.round(Math.min(speaker.seconds, speaker.spokenSeconds ?? 0))} giây</Text> : null}
                 </View>
               </View>
             );
@@ -295,6 +331,7 @@ const styles = StyleSheet.create({
   infoValue: { marginTop: 3, color: colors.text, fontSize: 13, lineHeight: 18, fontWeight: "600" },
   description: { gap: spacing.sm },
   body: { color: colors.muted, fontSize: 13, lineHeight: 20 },
+  checkInError: { color: colors.danger, fontSize: 13, lineHeight: 19 },
   cardTitle: { color: colors.text, fontSize: 15, fontWeight: "900" },
   attendance: { gap: spacing.md, borderColor: "#B9E7EE", backgroundColor: colors.primarySoft },
   sectionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },

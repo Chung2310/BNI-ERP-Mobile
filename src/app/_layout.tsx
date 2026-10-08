@@ -10,7 +10,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AuthProvider>
         <StatusBar style="dark" />
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+        <Stack screenOptions={{ headerShown: false, orientation: "portrait", contentStyle: { backgroundColor: colors.background } }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="login" />
           <Stack.Screen name="(tabs)" />
@@ -24,7 +24,9 @@ export default function RootLayout() {
           <Stack.Screen name="meeting/[id]/check-in" />
           <Stack.Screen name="meeting/[id]/control" />
           <Stack.Screen name="meeting/[id]/live" />
+          <Stack.Screen name="meeting/[id]/watch" />
           <Stack.Screen name="meeting/[id]/interaction" />
+          <Stack.Screen name="meeting/[id]/respond" />
           <Stack.Screen name="member/[id]" />
           <Stack.Screen name="chat/[id]" />
           <Stack.Screen name="notifications" />

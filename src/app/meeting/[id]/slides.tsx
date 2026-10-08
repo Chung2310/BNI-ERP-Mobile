@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import * as ScreenOrientation from "expo-screen-orientation";
 import { useLocalSearchParams } from "expo-router";
-import { Expand, RefreshCw, X } from "lucide-react-native";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Expand, X } from "lucide-react-native";
+import { Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BackHeader } from "@/components/BackHeader";
+import { HeaderRefreshAction } from "@/components/HeaderRefreshAction";
 import { ProfileSlideCanvas } from "@/components/meetings/ProfileSlideCanvas";
-import { Avatar, Badge, Button, Card, EmptyState, ErrorState, LoadingState, Screen } from "@/components/ui";
+import { Avatar, Badge, Card, EmptyState, ErrorState, LoadingState, Screen } from "@/components/ui";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { meetingService } from "@/services/meeting";
 import { colors, radius, spacing } from "@/theme/tokens";
@@ -14,14 +17,40 @@ const initials = (name: string) => name.split(" ").filter(Boolean).map((part) =>
 export default function MeetingSlidesScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: deck, error, isLoading, reload } = useAsyncData(() => meetingService.slides(id), id);
-  const { width: screenWidth } = useWindowDimensions();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const [selectedId, setSelectedId] = useState("");
   const [expanded, setExpanded] = useState(false);
+  const [modalSize, setModalSize] = useState({ width: screenWidth, height: screenHeight });
   const selected = deck?.slides.find((slide) => slide.id === selectedId) || deck?.slides[0];
   const previewWidth = Math.min(screenWidth - 42, 760);
+  const slideWidth = Math.max(0, Math.min(modalSize.width - 16, (modalSize.height - insets.top - insets.bottom - 64) * 16 / 9));
+
+  useEffect(() => {
+    if (!expanded) return;
+    let disposed = false;
+    let previousLock: ScreenOrientation.OrientationLock | null = null;
+
+    const rotate = async () => {
+      try {
+        previousLock = await ScreenOrientation.getOrientationLockAsync();
+        if (disposed) return;
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+        if (disposed && previousLock !== null) await ScreenOrientation.lockAsync(previousLock);
+      } catch {
+        // The full-screen slide still fits when this device cannot rotate.
+      }
+    };
+
+    void rotate();
+    return () => {
+      disposed = true;
+      if (previousLock !== null) void ScreenOrientation.lockAsync(previousLock).catch(() => undefined);
+    };
+  }, [expanded]);
 
   return <Screen style={styles.screen}>
-    <BackHeader title="Slide thuyết trình" subtitle={deck ? `${deck.slides.length} người trình bày` : undefined} compact />
+    <BackHeader title="Slide thuyết trình" subtitle={deck ? `${deck.slides.length} người trình bày` : undefined} compact action={<HeaderRefreshAction label="Làm mới slide" disabled={isLoading} onPress={() => void reload()} />} />
     {isLoading && !deck ? <LoadingState /> : error && !deck ? <ErrorState message={error} onRetry={reload} /> : !deck ? null : !deck.slides.length ? (
       <EmptyState title="Chưa có slide" message="Slide sẽ xuất hiện khi có người tham gia check-in." />
     ) : <>
@@ -39,14 +68,18 @@ export default function MeetingSlidesScreen() {
         <View style={styles.grow}><Text style={styles.name} numberOfLines={1}>{slide.name}</Text><Text style={styles.kind}>{slide.kind === "member" ? "Thành viên" : "Khách mời"}{slide.company ? ` · ${slide.company}` : ""}</Text></View>
       </Pressable>)}
     </>}
-    {deck ? <Button tone="secondary" icon={RefreshCw} fullWidth onPress={reload}>Làm mới slide</Button> : null}
-    <Modal visible={expanded && !!selected} animationType="slide" onRequestClose={() => setExpanded(false)}>
-      <View style={styles.modal}>
-        <View style={styles.modalHeader}><Text style={styles.modalTitle} numberOfLines={1}>{selected?.name}</Text><Pressable accessibilityRole="button" accessibilityLabel="Đóng slide" onPress={() => setExpanded(false)} style={styles.close}><X color={colors.text} size={24} /></Pressable></View>
-        <Text style={styles.modalHelp}>Vuốt ngang để xem toàn bộ slide.</Text>
-        <ScrollView horizontal contentContainerStyle={styles.largeSlide} showsHorizontalScrollIndicator>
-          {selected ? <ProfileSlideCanvas key={selected.id} slide={selected} width={Math.max(screenWidth, 1120)} /> : null}
-        </ScrollView>
+    <Modal visible={expanded && !!selected} animationType="fade" statusBarTranslucent navigationBarTranslucent onRequestClose={() => setExpanded(false)}>
+      <View style={styles.modal} onLayout={({ nativeEvent }) => {
+        const { width, height } = nativeEvent.layout;
+        setModalSize((current) => current.width === width && current.height === height ? current : { width, height });
+      }}>
+        <View style={styles.slideContent}>
+          {selected ? <ProfileSlideCanvas key={selected.id} slide={selected} width={slideWidth} /> : null}
+          <Text style={styles.modalTitle} numberOfLines={2}>{selected?.name}</Text>
+        </View>
+        <Pressable accessibilityRole="button" accessibilityLabel="Đóng slide" onPress={() => setExpanded(false)} style={[styles.close, { top: insets.top + spacing.sm }]}>
+          <X color="#FFFFFF" size={24} />
+        </Pressable>
       </View>
     </Modal>
   </Screen>;
@@ -67,10 +100,8 @@ const styles = StyleSheet.create({
   grow: { flex: 1 },
   name: { color: colors.text, fontSize: 14, fontWeight: "800" },
   kind: { color: colors.muted, fontSize: 11, fontWeight: "700" },
-  modal: { flex: 1, backgroundColor: colors.background, paddingTop: spacing.xxl },
-  modalHeader: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.lg },
-  modalTitle: { flex: 1, color: colors.text, fontSize: 18, fontWeight: "800" },
-  close: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
-  modalHelp: { color: colors.muted, fontSize: 12, marginHorizontal: spacing.lg, marginBottom: spacing.lg },
-  largeSlide: { alignItems: "flex-start", paddingHorizontal: spacing.lg },
+  modal: { flex: 1, backgroundColor: "#000000", alignItems: "center", justifyContent: "center" },
+  slideContent: { alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.sm },
+  modalTitle: { color: "#FFFFFF", fontSize: 15, fontWeight: "800", textAlign: "center", marginTop: spacing.sm, paddingHorizontal: spacing.md },
+  close: { position: "absolute", right: spacing.sm, width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(0,0,0,0.65)", alignItems: "center", justifyContent: "center" },
 });

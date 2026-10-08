@@ -2,7 +2,7 @@ import { Alert } from "@/components/AppAlert";
 import { useMemo, useState, type ReactNode } from "react";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
-import { router, useLocalSearchParams } from "expo-router";
+import { Redirect, router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CalendarPlus, CalendarRange, ImagePlus, MapPin, Plus, Trash2, Upload, type LucideIcon } from "lucide-react-native";
 import {
@@ -19,9 +19,11 @@ import {
 import { BackHeader } from "@/components/BackHeader";
 import { DateTimeField } from "@/components/DateTimeField";
 import { Button, Card, Screen } from "@/components/ui";
+import { useAuth } from "@/context/AuthContext";
 import { meetingService, type MeetingPoint, type MeetingRecurrence, type SpeakingTimeSlot } from "@/services/meeting";
 import { colors, radius, shadow, spacing } from "@/theme/tokens";
 import { defaultSpeakingTimeSlots, parseVietnamDateTime, recurringMeetingDates, twoHoursAfter, validateSpeakingTimeSlots } from "@/utils/meetingForm";
+import { canCreateMeeting } from "@/utils/permissions";
 
 type CreateMode = "single" | "recurring";
 
@@ -36,6 +38,13 @@ const weekdays = [
 ];
 
 export default function CreateMeetingScreen() {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (!canCreateMeeting(user)) return <Redirect href="/(tabs)/meetings" />;
+  return <CreateMeetingForm />;
+}
+
+function CreateMeetingForm() {
   const insets = useSafeAreaInsets();
 
   const { date } = useLocalSearchParams<{ date?: string }>();
@@ -205,7 +214,7 @@ export default function CreateMeetingScreen() {
           <FormSection title="Thông tin cuộc họp">
             <Field label="Tên cuộc họp *" value={title} onChangeText={setTitle} placeholder="Ví dụ: Buổi họp định kỳ Chapter Tuần 40" maxLength={200} />
             <DateTimeField label="Thời gian bắt đầu *" mode="datetime" value={startsAt} onChange={(value) => { setStartsAt(value); if (!endsAt || endsAt <= value) setEndsAt(twoHoursAfter(value)); }} />
-            <DateTimeField label="Thời gian kết thúc *" mode="datetime" value={endsAt} onChange={setEndsAt} help="QR dùng chung nhận check-in từ giờ bắt đầu đến trước giờ kết thúc. Mặc định 2 giờ." />
+            <DateTimeField label="Thời gian kết thúc *" mode="datetime" value={endsAt} onChange={setEndsAt} help="QR dùng chung nhận check-in từ 2 giờ trước giờ bắt đầu khi cuộc họp còn mở. Thời lượng họp mặc định 2 giờ." />
           </FormSection>
         ) : (
           <FormSection title="Lịch định kỳ" tone="primary">

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import * as DocumentPicker from "expo-document-picker";
-import { ChevronRight, File, FileText, Folder, MoreVertical, Plus, Upload, X } from "lucide-react-native";
+import { ChevronRight, File, FileText, Folder, FolderOpen, MoreVertical, Plus, Trash2, Upload, X } from "lucide-react-native";
 import { ActivityIndicator, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BackHeader } from "@/components/BackHeader";
@@ -111,21 +111,27 @@ export function ResourceManager() {
     ? current.filter((share) => share.targetId !== target.id || share.targetType !== target.type)
     : [...current, { targetId: target.id, targetType: target.type, targetName: target.name }]);
 
+  const toggleTrash = () => {
+    setCreateMenuOpen(false);
+    setTrail([]);
+    setTrash((current) => !current);
+  };
+
 
 
   return <View style={styles.page}><Screen scrollViewProps={{ keyboardShouldPersistTaps: "handled", contentContainerStyle: { paddingBottom: insets.bottom + 112 } }}>
-    <BackHeader title="Tài nguyên" subtitle={trash ? "Tài nguyên đã xóa" : folder?.name || "Tệp và thư mục nội bộ"} compact />
-    <View style={styles.tabs}>
-      <Pressable accessibilityRole="tab" accessibilityState={{ selected: !trash }} onPress={() => setTrash(false)} style={[styles.tab, !trash && styles.tabActive]}><Text style={[styles.tabText, !trash && styles.tabTextActive]}>Tài nguyên</Text></Pressable>
-      <Pressable accessibilityRole="tab" accessibilityState={{ selected: trash }} onPress={() => { setTrail([]); setTrash(true); }} style={[styles.tab, trash && styles.tabActive]}><Text style={[styles.tabText, trash && styles.tabTextActive]}>Thùng rác</Text></Pressable>
-    </View>
+    <BackHeader title={trash ? "Thùng rác" : "Tài nguyên"} subtitle={trash ? "File và thư mục đã xóa" : folder?.name || "Tệp và thư mục nội bộ"} compact action={
+      <Pressable accessibilityRole="button" accessibilityLabel={trash ? "Trở về tài nguyên" : "Mở thùng rác"} onPress={toggleTrash} style={styles.headerAction}>
+        {trash ? <FolderOpen color={colors.primaryDark} size={22} /> : <Trash2 color={colors.primaryDark} size={22} />}
+      </Pressable>
+    } />
     {!trash && trail.length ? <View style={styles.crumbs}>
       <Pressable onPress={() => setTrail([])} style={styles.crumb}><Text style={styles.crumbText}>Gốc</Text></Pressable>
       {trail.map((part, index) => <Pressable key={part._id} onPress={() => setTrail(trail.slice(0, index + 1))} style={styles.crumb}><ChevronRight size={14} color={colors.muted} /><Text numberOfLines={1} style={styles.crumbText}>{part.name}</Text></Pressable>)}
     </View> : null}
     {isLoading ? <LoadingState /> : error ? <ErrorState message={error} onRetry={reload} /> : !data?.length ? <EmptyState title={trash ? "Thùng rác trống" : "Thư mục trống"} message={trash ? "Không có tài nguyên đã xóa." : "Chưa có tài nguyên trong thư mục này."} /> : <Card style={styles.list}>
       {data.map((item) => { const Icon = item.type === "folder" ? Folder : item.mimeType?.includes("pdf") ? FileText : File; return <View key={item._id} style={styles.row}>
-        <Pressable accessibilityRole="button" onPress={() => trash ? select(item) : void open(item)} style={styles.itemBody}>
+        <Pressable accessibilityRole="button" disabled={trash && !canEdit(item)} onPress={() => trash ? select(item) : void open(item)} style={styles.itemBody}>
           <View style={styles.icon}><Icon color={colors.primaryDark} size={22} strokeWidth={1.9} /></View>
           <View style={styles.grow}><Text numberOfLines={2} style={styles.name}>{item.name}</Text><Text style={styles.meta}>{item.type === "folder" ? "Thư mục" : formatSize(item.size)}{item.isShared ? " · Được chia sẻ" : ""}{item.createdAt ? ` · ${new Date(item.createdAt).toLocaleDateString("vi-VN")}` : ""}</Text></View>
         </Pressable>
@@ -172,6 +178,7 @@ function formatSize(size?: number) { if (!size) return "Không rõ dung lượng
 
 const styles = StyleSheet.create({
   page: { flex: 1 },
+  headerAction: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center" },
   addButton: { position: "absolute", right: spacing.lg, width: 56, height: 56, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.primarySoft, elevation: 4, shadowColor: colors.text, shadowOpacity: 0.16, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
   createOverlay: { ...StyleSheet.absoluteFill, zIndex: 10 },
   createBackdrop: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(8, 24, 32, 0.76)" },
@@ -179,7 +186,6 @@ const styles = StyleSheet.create({
   createOption: { minWidth: 190, minHeight: touchTarget, paddingHorizontal: spacing.lg, flexDirection: "row", alignItems: "center", gap: spacing.md, borderRadius: radius.pill, backgroundColor: colors.primaryDark },
   createOptionText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
   createClose: { width: 56, height: 56, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.primarySoft },
-  tabs: { flexDirection: "row", gap: spacing.sm, paddingHorizontal: 4 }, tab: { minHeight: touchTarget, flex: 1, justifyContent: "center", alignItems: "center", borderRadius: radius.md, backgroundColor: colors.surface }, tabActive: { backgroundColor: colors.primarySoft }, tabText: { color: colors.muted, fontWeight: "700" }, tabTextActive: { color: colors.primaryDark },
   crumbs: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 2, paddingHorizontal: 4 }, crumb: { flexDirection: "row", alignItems: "center", minHeight: 36, maxWidth: 170 }, crumbText: { color: colors.primaryDark, fontSize: 12, fontWeight: "700" },
   list: { paddingVertical: 0 }, row: { minHeight: 70, flexDirection: "row", alignItems: "center", gap: spacing.xs, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }, itemBody: { flex: 1, flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.sm }, icon: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 22, backgroundColor: colors.primarySoft }, grow: { flex: 1 }, name: { color: colors.text, fontSize: 14, fontWeight: "800" }, meta: { marginTop: 3, color: colors.muted, fontSize: 11 }, more: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center" },
   overlay: { flex: 1, justifyContent: "center", padding: spacing.lg }, backdrop: { ...(StyleSheet.absoluteFill as object), backgroundColor: colors.overlay }, dialog: { maxHeight: "85%", borderRadius: radius.xl, backgroundColor: colors.surface, padding: spacing.lg, gap: spacing.md }, dialogTitle: { color: colors.text, fontSize: 18, fontWeight: "800" }, description: { color: colors.muted, fontSize: 13, lineHeight: 19 }, buttons: { flexDirection: "row", gap: spacing.sm }, flex: { flex: 1 }, input: { minHeight: touchTarget, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, color: colors.text }, menuAction: { minHeight: touchTarget, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }, menuText: { color: colors.text, fontSize: 14, fontWeight: "700" }, danger: { color: colors.danger }, pickerList: { maxHeight: 250 }, shareRow: { minHeight: touchTarget, flexDirection: "row", alignItems: "center", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }, check: { color: colors.primaryDark, fontSize: 22, fontWeight: "800" },

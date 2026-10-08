@@ -14,7 +14,8 @@ const icons: Record<string, LucideIcon> = {
 };
 
 export default function TabsLayout() {
-  const { isLoading, token } = useAuth();
+  const { isLoading, token, user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const insets = useSafeAreaInsets();
   if (!isLoading && !token) return <Redirect href="/login" />;
   const bottomPadding = Math.max(insets.bottom, 8);
@@ -64,7 +65,7 @@ export default function TabsLayout() {
       })}
     >
       <Tabs.Screen name="meetings" options={{ title: "Cuộc họp" }} />
-      <Tabs.Screen name="members" options={{ title: "Thành viên" }} />
+      <Tabs.Screen name="members" options={{ href: isAdmin ? undefined : null, title: "Thành viên" }} />
       <Tabs.Screen
         name="index"
         options={{
@@ -73,7 +74,7 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen name="chat" options={{ title: "Trò chuyện" }} />
-      <Tabs.Screen name="more" options={{ title: "Hệ thống" }} />
+      <Tabs.Screen name="more" options={{ href: isAdmin ? undefined : null, title: "Hệ thống" }} />
       <Tabs.Screen
         name="statistics"
         options={{

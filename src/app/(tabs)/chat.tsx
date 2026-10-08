@@ -1,7 +1,7 @@
 import { Alert } from "@/components/AppAlert";
 import { useCallback, useMemo, useState } from 'react';
 import { router, useFocusEffect } from 'expo-router';
-import { MessageCircleMore, Pin, Search, Users } from 'lucide-react-native';
+import { Pin, Search, Users } from 'lucide-react-native';
 import {  Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { NewChatModal } from '@/components/NewChatModal';
 import { BackHeader } from '@/components/BackHeader';
@@ -162,12 +162,6 @@ export default function ChatScreen() {
           </Card>
         )}
 
-        {!isLoading && rooms.length > 0 ? (
-          <View style={styles.hint}>
-            <MessageCircleMore color={colors.primaryDark} size={17} />
-            <Text style={styles.hintText}>Chạm vào một cuộc trò chuyện để xem và trả lời tin nhắn.</Text>
-          </View>
-        ) : null}
       </Screen>
 
       {showNewChat ? (
@@ -198,6 +192,4 @@ const styles = StyleSheet.create({
   unread: { minWidth: 22, height: 22, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: colors.primary },
   unreadText: { color: '#FFFFFF', fontSize: 10, fontWeight: '900' },
   groupIcon: { position: 'absolute', right: -2, bottom: -2, width: 19, height: 19, alignItems: 'center', justifyContent: 'center', borderRadius: 10, borderWidth: 2, borderColor: colors.surface, backgroundColor: colors.primaryDark },
-  hint: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
-  hintText: { color: colors.muted, fontSize: 11 },
 });

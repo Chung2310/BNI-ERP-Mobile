@@ -1,17 +1,23 @@
 import { Alert } from "@/components/AppAlert";
-import { useEffect, useState } from "react";
-import { Check, ChevronRight, Clock3, Eye, EyeOff, MessageCircle, Play, Plus, RefreshCw, Save, Settings2, Share2, Square, Trash2, X, type LucideIcon } from "lucide-react-native";
+import { useCallback, useEffect, useState } from "react";
+import { Check, ChevronRight, Clock3, Eye, EyeOff, MessageCircle, Play, Plus, Save, Settings2, Share2, Square, Trash2, X, type LucideIcon } from "lucide-react-native";
 import {  Pressable, Share, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
+import { HeaderRefreshAction } from "@/components/HeaderRefreshAction";
+import { ResponseWordCloud } from "@/components/meetings/ResponseWordCloud";
 import { Badge, Button, Card, EmptyState, Screen } from "@/components/ui";
+import { useLiveMeetingInteraction } from "@/hooks/useLiveMeetingInteraction";
+import { apiConfig } from "@/services/api";
 import { meetingService, type MeetingInteraction, type MeetingInteractionInput, type MeetingInteractionResponseStatus } from "@/services/meeting";
 import { colors, radius, spacing } from "@/theme/tokens";
 
-type Props = { meetingId: string; initial: MeetingInteraction; canManage: boolean; reload: () => Promise<void> };
+type Props = { meetingId: string; initial: MeetingInteraction; canManage: boolean };
 const message = (error: unknown) => error instanceof Error ? error.message : "Vui lòng thử lại.";
 
-export function InteractionManager({ meetingId, initial, canManage, reload }: Props) {
+export function InteractionManager({ meetingId, initial, canManage }: Props) {
   const [state, setState] = useState(initial);
+  const onLiveUpdate = useCallback((next: MeetingInteraction) => setState(next), []);
+  useLiveMeetingInteraction(meetingId, onLiveUpdate);
   const [question, setQuestion] = useState(initial.session?.question || "");
   const [duration, setDuration] = useState(String(initial.session?.durationSeconds || 60));
   const [requireName, setRequireName] = useState(initial.session?.requireName ?? true);
@@ -70,9 +76,16 @@ export function InteractionManager({ meetingId, initial, canManage, reload }: Pr
     : state.session?.durationSeconds || 0;
   const locked = !canManage || state.session?.status === "open";
   const labels: Record<MeetingInteractionResponseStatus, string> = { pending: "Chờ duyệt", approved: "Đang hiển thị", hidden: "Đã ẩn", rejected: "Đã từ chối" };
+  const responses = [...(state.allResponses || state.responses)].reverse();
+  const participationUrl = state.session?.participationUrl
+    ? state.session.participationUrl.startsWith("http")
+      ? state.session.participationUrl
+      : `${apiConfig.baseUrl}${state.session.participationUrl.startsWith("/") ? "" : "/"}${state.session.participationUrl}`
+    : "";
 
   return <Screen>
-    <BackHeader title="Tương tác" subtitle="Câu hỏi và phản hồi trực tiếp" compact />
+    <BackHeader title="Thu ý kiến" subtitle="Câu hỏi và phản hồi trực tiếp" compact action={<HeaderRefreshAction label="Làm mới ý kiến" disabled={Boolean(busy)} onPress={() => void meetingService.interaction(meetingId).then(setState).catch((error) => Alert.alert("Không thể làm mới", message(error)))} />} />
+    {state.session ? <ResponseWordCloud questions={state.session.questions} responses={state.allResponses || state.responses} /> : null}
     <Card>
       <View style={s.between}><View style={s.row}><MessageCircle color={colors.primaryDark} size={22} /><Text style={s.heading}>Câu hỏi tương tác</Text></View>{state.session ? <Badge tone={state.session.status === "open" ? "primary" : "default"}>{state.session.status === "open" ? "ĐANG MỞ" : state.session.status === "closed" ? "ĐÃ ĐÓNG" : "BẢN NHÁP"}</Badge> : null}</View>
       {state.session ? <View style={s.list}>
@@ -109,10 +122,11 @@ export function InteractionManager({ meetingId, initial, canManage, reload }: Pr
       </View> : null}
       {adding ? <View style={s.inline}><Text style={s.label}>Nội dung câu hỏi mới</Text><TextInput value={newQuestion} onChangeText={setNewQuestion} maxLength={300} multiline style={[s.input, s.textarea]} autoFocus /><View style={s.actions}><Button tone="secondary" icon={X} onPress={() => setAdding(false)}>Hủy</Button><Button icon={Plus} disabled={!newQuestion.trim() || Boolean(busy)} onPress={addQuestion}>Thêm</Button></View></View> : null}
     </Card>
-    {state.session ? <Card><View style={s.between}><Text style={s.heading}>Đường dẫn tham gia</Text><Button tone="secondary" icon={Share2} onPress={() => void Share.share({ message: state.session!.participationUrl })}>Chia sẻ</Button></View><Text selectable style={s.link}>{state.session.participationUrl}</Text><Text style={s.meta}>{state.session.approvedCount} đang hiển thị / {state.session.responseCount} đã nhận</Text></Card> : null}
+    {state.session ? <Card><View style={s.between}><Text style={s.heading}>Đường dẫn cho khách không có app</Text><Button tone="secondary" icon={Share2} onPress={() => void Share.share({ message: participationUrl })}>Chia sẻ</Button></View><Text selectable style={s.link}>{participationUrl}</Text><Text style={s.meta}>{state.session.approvedCount} đang hiển thị / {state.session.responseCount} đã nhận</Text></Card> : null}
     <Card>
-      <View style={s.between}><Text style={s.heading}>Câu trả lời</Text><Badge>{state.responses.length} PHẢN HỒI</Badge></View>
-      {!state.responses.length ? <EmptyState title="Chưa có câu trả lời" message="Phản hồi của người tham dự sẽ xuất hiện tại đây." /> : state.responses.map((response) => <View key={response.id} style={s.response}>
+      <View style={s.between}><Text style={s.heading}>Câu trả lời</Text><Badge>{responses.length} PHẢN HỒI</Badge></View>
+      {!responses.length ? <EmptyState title="Chưa có câu trả lời" message="Phản hồi của người tham dự sẽ xuất hiện tại đây." /> : responses.map((response) => <View key={response.id} style={s.response}>
+        <Text style={s.meta}>Câu {state.session?.questions.find((item) => item.id === response.questionId)?.order || 1}</Text>
         <View style={s.between}><Text style={s.name}>{response.name || "Ẩn danh"}</Text><Badge tone={response.status === "approved" ? "primary" : response.status === "pending" ? "warning" : "default"}>{labels[response.status]}</Badge></View>
         <Text style={s.answer}>{response.answer}</Text>
         {canManage ? <View style={s.miniActions}>
@@ -123,7 +137,6 @@ export function InteractionManager({ meetingId, initial, canManage, reload }: Pr
         </View> : null}
       </View>)}
     </Card>
-    <Button tone="secondary" icon={RefreshCw} onPress={reload}>Làm mới dữ liệu</Button>
   </Screen>;
 }
 

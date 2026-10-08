@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   CalendarCheck, CircleStop, Clock3, Gift, ListOrdered, MessageCircle,
   Monitor, Pause, Play, Presentation, QrCode, RefreshCw, RotateCcw, SkipBack,
-  SkipForward, Sparkles, Settings2, Trophy, Users, X, type LucideIcon,
+  SkipForward, Settings2, Trophy, Users, X, type LucideIcon,
 } from "lucide-react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { buildActiveMemberRankings } from "@/components/ActiveMemberRanking";
@@ -25,7 +25,6 @@ import { hasPermission } from "@/utils/permissions";
 const views: { value: PresentationView; label: string; icon: LucideIcon }[] = [
   { value: "checkin", label: "QR check-in", icon: QrCode },
   { value: "speaker", label: "Phát biểu", icon: Users },
-  { value: "luckyDraw", label: "Quay thưởng", icon: Gift },
   { value: "activeMembers", label: "Xếp hạng", icon: Trophy },
   { value: "waiting", label: "Màn chờ", icon: Monitor },
 ];
@@ -48,14 +47,15 @@ export function MeetingRemoteControl({ id }: { id: string }) {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const [now, setNow] = useState(0);
-  const [panel, setPanel] = useState<Panel>("speaker");
-  const [selectedPrize, setSelectedPrize] = useState("");
+  const [selectedPanel, setSelectedPanel] = useState<{ view: PresentationView; panel: Panel } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const applySnapshot = useCallback((next: MeetingLiveSnapshot) => {
     if (!activeRef.current) return;
     if (next.meeting._id !== id) return;
     if (snapshotRef.current && meetingVersion(next.meeting) < meetingVersion(snapshotRef.current.meeting)) return;
+    const previousView = snapshotRef.current?.meeting.presentation?.view || "checkin";
+    if (previousView !== (next.meeting.presentation?.view || "checkin")) setSelectedPanel(null);
     clockOffsetRef.current = next.serverNow - Date.now();
     snapshotRef.current = next;
     setSnapshot(next);
@@ -145,8 +145,8 @@ export function MeetingRemoteControl({ id }: { id: string }) {
 
   const meeting = snapshot?.meeting;
   const currentSpeaker = meeting?.speakers[meeting.currentIndex];
-  const chosenPrize = meeting?.luckyDraw?.prizes.find((prize) => prize.id === selectedPrize) || meeting?.luckyDraw?.prizes.find((prize) => prize.winners.length < prize.quantity);
   const view = meeting?.presentation?.view || "checkin";
+  const panel = selectedPanel?.view === view ? selectedPanel.panel : view === "speaker" ? "speaker" : view === "luckyDraw" ? "draw" : "tools";
   const closed = meeting?.status === "ended" || meeting?.status === "cancelled";
   const disabled = !canManage || !meeting || Boolean(syncError) || busy || closed;
 
@@ -170,9 +170,9 @@ export function MeetingRemoteControl({ id }: { id: string }) {
           <View style={styles.modes}>{views.map(({ value, label, icon: Icon }) => <Pressable key={value} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: view === value, disabled }} disabled={disabled || view === value} onPress={() => setView(value)} style={[styles.mode, view === value && styles.modeActive, disabled && styles.disabled]}><Icon color={view === value ? colors.text : brandBlue} size={21} /></Pressable>)}</View>
 
           <View style={styles.panelTabs}>
-            <PanelTab label="Phát biểu" active={panel === "speaker"} onPress={() => setPanel("speaker")} />
-            <PanelTab label="Quay thưởng" active={panel === "draw"} onPress={() => setPanel("draw")} />
-            <PanelTab label="Khác" active={panel === "tools"} onPress={() => setPanel("tools")} />
+            <PanelTab label="Phát biểu" active={panel === "speaker"} onPress={() => setSelectedPanel({ view, panel: "speaker" })} />
+            <PanelTab label="Quay thưởng" active={panel === "draw"} onPress={() => setSelectedPanel({ view, panel: "draw" })} />
+            <PanelTab label="Khác" active={panel === "tools"} onPress={() => setSelectedPanel({ view, panel: "tools" })} />
           </View>
 
           {panel === "speaker" ? <>
@@ -206,12 +206,11 @@ export function MeetingRemoteControl({ id }: { id: string }) {
           </> : null}
 
           {panel === "draw" ? <Card style={styles.section}>
-            <Text style={styles.sectionHeading}>Chọn giải để quay trên laptop</Text>
-            {!meeting.luckyDraw?.prizes.length ? <Text style={styles.muted}>Chưa có giải thưởng.</Text> : <View style={styles.prizes}>{meeting.luckyDraw.prizes.map((prize) => <Pressable key={prize.id} accessibilityRole="button" accessibilityLabel={`${prize.name}, ${prize.winners.length} trên ${prize.quantity} giải đã trao`} accessibilityState={{ selected: prize.id === chosenPrize?.id }} onPress={() => setSelectedPrize(prize.id)} style={[styles.prize, prize.id === chosenPrize?.id && styles.prizeActive]}><Text numberOfLines={1} style={styles.prizeName}>{prize.name}</Text><Text style={styles.muted}>{prize.winners.length}/{prize.quantity} đã trao</Text></Pressable>)}</View>}
+            <Text style={styles.sectionHeading}>Chọn trò chơi</Text>
+            <Text style={styles.muted}>Chọn giải và quay nhiều lượt ngay trong trò chơi, không cần cấu hình trước.</Text>
             <View style={styles.compactGrid}>
-              <CompactAction icon={Sparkles} label="Quay" accessibilityLabel="Bắt đầu quay thưởng trên laptop" primary disabled={disabled || meeting.status === "scheduled" || meeting.luckyDraw?.enabled === false || !chosenPrize || chosenPrize.winners.length >= chosenPrize.quantity || (meeting.presentation?.drawRevealsAt ? Date.parse(meeting.presentation.drawRevealsAt) > now : false)} onPress={() => void run((current) => meetingService.presentationDraw(id, chosenPrize!.id, meetingVersion(current)))} />
-              <CompactAction icon={Gift} label="Vòng/Bingo" accessibilityLabel="Mở vòng quay hoặc Bingo trên điện thoại" disabled={!canManage || closed} onPress={() => router.push({ pathname: "/meeting/[id]/games", params: { id } })} />
-              <CompactAction icon={ListOrdered} label="Giải thưởng" accessibilityLabel="Quản lý giải thưởng" onPress={() => router.push({ pathname: "/meeting/[id]/interaction", params: { id, section: "luckyDraw" } })} />
+              <CompactAction icon={Gift} label="Vòng quay" accessibilityLabel="Mở vòng quay may mắn" columns={2} primary onPress={() => router.push({ pathname: "/meeting/[id]/games", params: { id, game: "wheel" } })} />
+              <CompactAction icon={Gift} label="Bingo" accessibilityLabel="Mở lồng cầu Bingo" columns={2} primary onPress={() => router.push({ pathname: "/meeting/[id]/games", params: { id, game: "bingo" } })} />
             </View>
           </Card> : null}
 

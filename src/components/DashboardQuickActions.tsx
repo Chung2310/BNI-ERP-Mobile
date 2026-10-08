@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 import { router, type Href } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Users } from 'lucide-react-native';
 import {
   DuotoneAnalyticsIcon,
   DuotoneCalendarIcon,
@@ -13,7 +14,7 @@ import {
 } from '@/components/icons/DuotoneActionIcons';
 import type { UserProfile } from '@/types';
 import { colors, radius, spacing } from '@/theme/tokens';
-import { hasPermission } from '@/utils/permissions';
+import { canAccessSystem, canCreateMeeting } from '@/utils/permissions';
 
 interface QuickActionDef {
   icon: ComponentType<{ color?: string; size?: number; strokeWidth?: number }>;
@@ -46,9 +47,8 @@ export function DashboardQuickActions({
   user: UserProfile | null;
   liveMeetingId?: string;
 }) {
-  const isManager = user?.role === 'manager' || user?.role === 'branch_owner' || user?.role === 'admin';
-  const canCreateMeeting = isManager && hasPermission(user, 'meetings:manage', 'access:manage');
-  const canManageRoles = user?.role === 'admin' && hasPermission(user, 'access:manage');
+  const showCreateMeeting = canCreateMeeting(user);
+  const showSystem = canAccessSystem(user);
 
   const actions: QuickActionDef[] = [];
 
@@ -68,7 +68,16 @@ export function DashboardQuickActions({
     color: '#00AECA',
   });
 
-  if (canCreateMeeting) {
+  if (user && user.role !== 'admin') {
+    actions.push({
+      icon: Users,
+      title: 'Thành viên',
+      href: '/(tabs)/members',
+      color: '#00AECA',
+    });
+  }
+
+  if (showCreateMeeting) {
     actions.push({
       icon: DuotoneCreateMeetingIcon,
       title: 'Tạo cuộc họp',
@@ -104,11 +113,11 @@ export function DashboardQuickActions({
     }
   );
 
-  if (canManageRoles) {
+  if (showSystem) {
     actions.push({
       icon: DuotoneShieldIcon,
-      title: 'Phân quyền',
-      href: '/admin/roles',
+      title: 'Quản trị hệ thống',
+      href: '/(tabs)/more',
       color: '#00AECA',
     });
   }

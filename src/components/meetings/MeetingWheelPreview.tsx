@@ -20,11 +20,13 @@ function slicePath(index: number, count: number) {
   return `M 100 100 L ${start.x} ${start.y} A 92 92 0 ${360 / count > 180 ? 1 : 0} 1 ${end.x} ${end.y} Z`;
 }
 
-export function MeetingWheelPreview({ meeting, now }: { meeting: Meeting; now: number }) {
+export function MeetingWheelPreview({ meeting, now, selectedPrizeId, width }: { meeting: Meeting; now: number; selectedPrizeId?: string; width?: number }) {
   const { width: screenWidth } = useWindowDimensions();
-  const wheelSize = Math.min(176, Math.floor((screenWidth - 16) * 0.48), Math.floor((screenWidth - 16) * 9 / 16) - 8);
+  const availableWidth = width ?? screenWidth - 16;
+  const wheelSize = Math.min(width ? 320 : 176, Math.floor(availableWidth * 0.48), Math.floor(availableWidth * 9 / 16) - 8);
   const state = meeting.presentation;
   const winner = meeting.luckyDraw?.prizes.flatMap((prize) => prize.winners).find((item) => item.id === state?.drawWinnerId);
+  const selectedPrize = meeting.luckyDraw?.prizes.find((prize) => prize.id === selectedPrizeId) || meeting.luckyDraw?.prizes.find((prize) => prize.winners.length < prize.quantity);
   const numeric = meeting.luckyDraw?.drawMode === 'numbers';
   const min = meeting.luckyDraw?.numberMin || 1;
   const max = Math.max(min, meeting.luckyDraw?.numberMax || 100);
@@ -73,7 +75,7 @@ export function MeetingWheelPreview({ meeting, now }: { meeting: Meeting; now: n
   }, [winner?.id, started, reveals, count, targetIndex]);
 
   const rotate = rotation.interpolate({ inputRange: [0, 360], outputRange: ['0deg', '360deg'], extrapolate: 'extend' });
-  return <View style={styles.stage}>
+  return <View style={[styles.stage, width !== undefined ? { width } : undefined]}>
     <View style={[styles.wheelBox, { width: wheelSize, height: wheelSize }]}>
       <Animated.View style={{ transform: [{ rotate }] }}>
         <Svg width={wheelSize} height={wheelSize} viewBox="0 0 200 200">
@@ -92,7 +94,7 @@ export function MeetingWheelPreview({ meeting, now }: { meeting: Meeting; now: n
     </View>
     <View style={styles.info}>
       <Text style={styles.eyebrow}>{spinning ? 'ĐANG QUAY TRÊN LAPTOP' : 'QUAY THƯỞNG'}</Text>
-      <Text numberOfLines={2} style={styles.prize}>{winner?.prizeName || 'Chọn giải để bắt đầu'}</Text>
+      <Text numberOfLines={2} style={styles.prize}>{winner?.prizeName || selectedPrize?.name || 'Chọn giải để bắt đầu'}</Text>
       <Text style={styles.detail}>{numeric ? `${range} số may mắn` : `${count} người tham gia`}</Text>
       {winner && !spinning ? <View style={styles.winner}><Text style={styles.winnerCaption}>NGƯỜI TRÚNG</Text><Text numberOfLines={2} style={styles.winnerName}>{winner.name}</Text>{winner.ticketNumber ? <Text style={styles.detail}>Số {winner.ticketNumber}</Text> : null}</View> : null}
       {spinning ? <Text style={styles.detail}>Kết quả sắp công bố…</Text> : null}

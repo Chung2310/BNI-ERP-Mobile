@@ -120,7 +120,7 @@ export default function MeetingControlScreen() {
     void run(() => meetingService.reorderSpeakers(id, order.map((item) => item.id), version), "Không thể đổi thứ tự");
   };
 
-  const openInteraction = (section: "interaction" | "luckyDraw") => router.push({ pathname: "/meeting/[id]/interaction", params: { id, section } });
+  const openInteraction = () => router.push({ pathname: "/meeting/[id]/interaction", params: { id, section: "interaction" } });
 
   return (
     <Screen style={styles.screen}>
@@ -148,7 +148,7 @@ export default function MeetingControlScreen() {
       <SectionTitle>Công cụ</SectionTitle>
       <Card style={styles.tools}>
         {canManage && meetingOpen ? <ToolRow icon={Presentation} label="Điều hành & trình chiếu" onPress={() => router.push({ pathname: "/meeting/[id]/live", params: { id } })} /> : null}
-        <ToolRow icon={MessageCircle} label="Tương tác" onPress={() => openInteraction("interaction")} />
+        <ToolRow icon={MessageCircle} label="Tương tác" onPress={openInteraction} />
         <ToolRow icon={Trophy} label="Thành viên tích cực" onPress={() => router.push("/rankings")} />
       </Card>
 

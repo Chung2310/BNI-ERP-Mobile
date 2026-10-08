@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Redirect } from "expo-router";
 import { Check, ChevronRight, Plus, Search } from "lucide-react-native";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Alert } from "@/components/AppAlert";
@@ -8,7 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { PermissionDefinition, RolePermission, roleService } from "@/services/roles";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
-import { hasPermission } from "@/utils/permissions";
+import { canAccessSystem, canCreateMember } from "@/utils/permissions";
 
 type Draft = { role: string; displayName: string; level: string; permissions: string[] };
 const defaultLevels: Record<string, number> = { admin: 1, manager: 2, teacher: 3, user: 3 };
@@ -21,9 +22,9 @@ const toDraft = (role: RolePermission): Draft => ({
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : "Có lỗi xảy ra. Vui lòng thử lại.";
 
 export default function AdminRolesScreen() {
-  const { user } = useAuth();
-  const canRead = hasPermission(user, "access:read", "access:manage");
-  const canManage = hasPermission(user, "access:manage");
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const canRead = canAccessSystem(user);
+  const canManage = canCreateMember(user);
   const { data: roles, error, isLoading, reload } = useAsyncData(
     () => canRead ? roleService.list() : Promise.reject(new Error("Bạn không có quyền xem cấu hình vai trò.")),
     String(canRead),
@@ -123,6 +124,9 @@ export default function AdminRolesScreen() {
     (result[key] ||= []).push(item);
     return result;
   }, {});
+
+  if (isAuthLoading) return null;
+  if (!canRead) return <Redirect href="/(tabs)" />;
 
   if (draft) return <Screen scrollViewProps={{ keyboardShouldPersistTaps: "handled" }}>
     <BackHeader title={selected ? "Sửa vai trò" : "Thêm vai trò"} compact onBack={() => setDraft(null)} />

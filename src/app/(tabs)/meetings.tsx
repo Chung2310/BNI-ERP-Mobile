@@ -29,7 +29,7 @@ import {
   type Meeting,
 } from "@/services/meeting";
 import { radius, shadow } from "@/theme/tokens";
-import { hasPermission } from "@/utils/permissions";
+import { canCreateMeeting as canCreateMeetingForUser } from "@/utils/permissions";
 
 type ViewMode = "month" | "week" | "day";
 
@@ -67,7 +67,7 @@ function formatMeetingTime(startsAt: string, endsAt?: string): string {
 export default function MeetingsScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  const canCreateMeeting = hasPermission(user, "meetings:manage");
+  const canCreateMeeting = canCreateMeetingForUser(user);
 
   const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [currentDate, setCurrentDate] = useState(() => new Date());
@@ -283,10 +283,14 @@ export default function MeetingsScreen() {
   // Khi chọn một ô trên lịch: Nếu ô trống thì chuyển sang tạo lịch đơn và fill sẵn ngày
   const handleCellPress = (cellDate: Date, hasEvents: boolean) => {
     if (!hasEvents) {
-      router.push({
-        pathname: "/meeting/create",
-        params: { date: toDateKey(cellDate) },
-      });
+      if (canCreateMeeting) {
+        router.push({
+          pathname: "/meeting/create",
+          params: { date: toDateKey(cellDate) },
+        });
+      } else {
+        handleSelectDay(cellDate);
+      }
       return;
     }
     handleSelectDay(cellDate);
@@ -631,7 +635,7 @@ export default function MeetingsScreen() {
                       );
                     })}
                   </View>
-                ) : (
+                ) : canCreateMeeting ? (
                   <Pressable
                     onPress={() =>
                       router.push({
@@ -644,6 +648,10 @@ export default function MeetingsScreen() {
                     <Plus size={14} color="#00AECA" strokeWidth={2.4} />
                     <Text style={styles.weekEmptyText}>Chưa có lịch · Chạm để tạo cuộc họp</Text>
                   </Pressable>
+                ) : (
+                  <View style={styles.weekEmptyRow}>
+                    <Text style={styles.weekEmptyText}>Chưa có cuộc họp</Text>
+                  </View>
                 )}
               </View>
             );
@@ -791,7 +799,7 @@ export default function MeetingsScreen() {
                 title="Không có cuộc họp"
                 message={`Ngày ${selectedDate.getDate()}/${selectedDate.getMonth() + 1} chưa có lịch họp nào.`}
               />
-              <Pressable
+              {canCreateMeeting ? <Pressable
                 onPress={() =>
                   router.push({
                     pathname: "/meeting/create",
@@ -802,7 +810,7 @@ export default function MeetingsScreen() {
               >
                 <Plus color="#FFFFFF" size={17} strokeWidth={2.4} />
                 <Text style={styles.createMeetingQuickBtnText}>Tạo cuộc họp ngày này</Text>
-              </Pressable>
+              </Pressable> : null}
             </View>
           )}
         </ScrollView>
@@ -839,7 +847,7 @@ export default function MeetingsScreen() {
               </View>
 
               <View style={styles.modalHeaderActions}>
-                <Pressable
+                {canCreateMeeting ? <Pressable
                   accessibilityLabel="Tạo cuộc họp ngày này"
                   hitSlop={8}
                   onPress={() => {
@@ -852,7 +860,7 @@ export default function MeetingsScreen() {
                   style={styles.modalAddMeetingBtn}
                 >
                   <Plus color="#00AECA" size={19} strokeWidth={2.4} />
-                </Pressable>
+                </Pressable> : null}
 
                 <Pressable
                   accessibilityLabel="Đóng"
@@ -946,7 +954,7 @@ export default function MeetingsScreen() {
                   <Text style={styles.sheetEmptyText}>
                     Ngày này chưa có cuộc họp nào được lên lịch.
                   </Text>
-                  <Pressable
+                  {canCreateMeeting ? <Pressable
                     onPress={() => {
                       setIsDayDetailModalVisible(false);
                       router.push({
@@ -958,7 +966,7 @@ export default function MeetingsScreen() {
                   >
                     <Plus color="#FFFFFF" size={16} strokeWidth={2.4} />
                     <Text style={styles.sheetCreateBtnText}>Tạo cuộc họp ngày này</Text>
-                  </Pressable>
+                  </Pressable> : null}
                 </View>
               )}
             </ScrollView>

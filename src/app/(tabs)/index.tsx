@@ -4,6 +4,7 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
+  Fingerprint,
   MapPin,
   Mic,
 } from "lucide-react-native";
@@ -404,7 +405,7 @@ export default function HomeScreen() {
           {featuredMeeting ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Xem chi tiết cuộc họp: ${featuredMeeting.title}`}
+              accessibilityLabel={`${isFeaturedLive ? "Vào ngay" : "Xem chi tiết"} cuộc họp: ${featuredMeeting.title}`}
               style={styles.heroCompact}
               onPress={() =>
                 router.push({
@@ -453,13 +454,22 @@ export default function HomeScreen() {
                     </View>
                     <Text style={styles.heroMetaCompact} numberOfLines={1}>
                       {featuredMeeting.location?.trim() || "Chưa xác định"}
-                      {isFeaturedLive ? ` · ${featuredMeeting.speakers.length} check-in` : ""}
                     </Text>
                   </View>
+                  {isFeaturedLive ? (
+                    <View style={styles.heroMetaRow}>
+                      <View style={styles.heroIconSlot}>
+                        <Fingerprint color="#00AECA" size={14} strokeWidth={2.2} />
+                      </View>
+                      <Text style={styles.heroMetaCompact} numberOfLines={1}>
+                        {featuredMeeting.speakers.length} người đã check-in
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
 
                 <View style={styles.heroActionBtn}>
-                  <Text style={styles.heroActionBtnText}>Xem chi tiết</Text>
+                  <Text style={styles.heroActionBtnText}>{isFeaturedLive ? "Vào ngay" : "Xem chi tiết"}</Text>
                   <ArrowRight color="#FFFFFF" size={13} strokeWidth={2.6} />
                 </View>
               </View>

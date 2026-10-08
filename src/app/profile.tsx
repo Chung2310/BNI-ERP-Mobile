@@ -5,6 +5,7 @@ import { Camera, LogOut, Pencil } from "lucide-react-native";
 import { ImageBackground, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Alert } from "@/components/AppAlert";
 import { BackHeader } from "@/components/BackHeader";
+import { BirthDateField } from "@/components/BirthDateField";
 import { Avatar, Button, Card, Screen } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { apiRequest } from "@/services/api";
@@ -86,7 +87,7 @@ export default function ProfileScreen() {
       return;
     }
     if (form.birthDate && !/^\d{4}-\d{2}-\d{2}$/.test(form.birthDate)) {
-      Alert.alert("Ngày sinh không hợp lệ", "Nhập ngày sinh theo dạng YYYY-MM-DD.");
+      Alert.alert("Ngày sinh không hợp lệ", "Vui lòng chọn lại ngày sinh trên lịch.");
       return;
     }
     setBusy(true);
@@ -163,7 +164,7 @@ export default function ProfileScreen() {
         <Field label="Số điện thoại" value={form.phone} keyboardType="phone-pad" onChangeText={(phone) => setForm({ ...form, phone })} />
         <Field label="Công ty" value={form.companyName} onChangeText={(companyName) => setForm({ ...form, companyName })} />
         <Field label="Lĩnh vực" value={form.industry} onChangeText={(industry) => setForm({ ...form, industry })} />
-        <Field label="Ngày sinh (YYYY-MM-DD)" value={form.birthDate} onChangeText={(birthDate) => setForm({ ...form, birthDate })} />
+        <BirthDateField value={form.birthDate} disabled={busy} onChange={(birthDate) => setForm({ ...form, birthDate })} />
         <Text style={styles.label}>Giới tính</Text>
         <View style={styles.genderRow}>{([ ["", "Chưa chọn"], ["male", "Nam"], ["female", "Nữ"], ["other", "Khác"] ] as const).map(([value, label]) => <Pressable key={value} accessibilityRole="radio" accessibilityState={{ selected: form.gender === value }} onPress={() => setForm({ ...form, gender: value })} style={[styles.genderOption, form.gender === value && styles.genderActive]}><Text style={[styles.genderText, form.gender === value && styles.genderTextActive]}>{label}</Text></Pressable>)}</View>
         <Field label="Địa chỉ" value={form.address} onChangeText={(address) => setForm({ ...form, address })} />

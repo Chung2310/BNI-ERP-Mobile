@@ -1,16 +1,19 @@
-import { router } from "expo-router";
+import { Redirect, router } from "expo-router";
 import { ChevronRight, FolderOpen, Settings, ShieldCheck, UserCog } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { Avatar, Screen } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { colors, radius, spacing } from "@/theme/tokens";
-import { hasPermission } from "@/utils/permissions";
+import { canAccessSystem, hasPermission } from "@/utils/permissions";
 
 export default function MoreScreen() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const canManageUsers = hasPermission(user, "access:read", "access:manage");
   const canManageRoles = hasPermission(user, "access:read", "access:manage");
+
+  if (isLoading) return null;
+  if (!canAccessSystem(user)) return <Redirect href="/(tabs)" />;
 
   return (
     <Screen style={styles.screen}>

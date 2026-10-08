@@ -1,4 +1,5 @@
 import { apiRequest } from "@/services/api";
+import { assertMeetingCheckInOpen } from "@/utils/meetingCheckIn";
 
 export type Speaker = {
   id: string;
@@ -46,7 +47,7 @@ export type Meeting = {
   presentation?: MeetingPresentationState;
 };
 
-export type PresentationView = "checkin" | "speaker" | "luckyDraw" | "activeMembers" | "waiting";
+export type PresentationView = "checkin" | "speaker" | "luckyDraw" | "activeMembers" | "audienceResponses" | "waiting";
 export type MeetingPresentationState = {
   view: PresentationView;
   autoAdvance: boolean;
@@ -122,6 +123,16 @@ export type ProfileSlide = {
 };
 export type SlideDeck = { slides: ProfileSlide[]; version: number };
 export type MeetingLiveSnapshot = { meeting: Meeting; slides: ProfileSlide[]; serverNow: number };
+export type MeetingDisplaySnapshot = {
+  meetingId: string;
+  isOpen: boolean;
+  lastSeenAt: string | null;
+  expiresAt: string | null;
+  serverNow: string;
+  meeting: Pick<Meeting, "title" | "status" | "presentation" | "currentIndex" | "speakerStartedAt" | "speechesCompletedAt" | "elapsedSeconds" | "speakers">;
+  slides: ProfileSlide[];
+  version: number;
+};
 export type MeetingLiveState = { meeting: Meeting; serverNow: number };
 
 export type MeetingInteractionStatus = "draft" | "open" | "closed";
@@ -158,6 +169,7 @@ export type MeetingInteractionResponse = {
 };
 export type MeetingInteraction = { session: MeetingInteractionSession | null; responses: MeetingInteractionResponse[]; allResponses?: MeetingInteractionResponse[] };
 export type MeetingInteractionInput = Pick<MeetingInteractionSession, "question" | "durationSeconds" | "requireName" | "showNames" | "moderationEnabled" | "allowMultipleResponses">;
+export type MeetingInteractionSubmission = { ids: string[]; status: "pending" | "approved"; meetingTitle: string; answerCount: number };
 
 export type SpeakingTimeSlot = { startTime: string; endTime: string; seconds: number };
 export type MeetingPoint = { latitude: number; longitude: number };
@@ -228,6 +240,7 @@ export const meetingService = {
   history: () => apiRequest<{ data: Meeting[] }>("/api/v1/meetings?history=all").then(unwrap),
   get: (id: string) => apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}`).then(unwrap),
   slides: (id: string) => apiRequest<{ data: SlideDeck }>(`/api/v1/meetings/${encodeURIComponent(id)}/slides`).then(unwrap),
+  presentationDisplay: (id: string, signal?: AbortSignal) => apiRequest<{ data: MeetingDisplaySnapshot }>(`/api/v1/meetings/${encodeURIComponent(id)}/presentation-display`, { signal }).then(unwrap),
   live: (id: string) => apiRequest<{ data: MeetingLiveSnapshot }>(`/api/v1/meetings/${encodeURIComponent(id)}/live`).then(unwrap),
   liveState: (id: string) => apiRequest<{ data: MeetingLiveState }>(`/api/v1/meetings/${encodeURIComponent(id)}/live/state`).then(unwrap),
   presentation: (id: string, speakerId: string, version: number) =>
@@ -236,8 +249,11 @@ export const meetingService = {
     apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}/presentation-state`, { method: "PATCH", body: JSON.stringify({ ...changes, version }) }).then(unwrap),
   presentationDraw: (id: string, prizeId: string, version: number) =>
     apiRequest<{ data: { winner: LuckyDrawWinner; prize: LuckyDrawPrize } }>(`/api/v1/meetings/${encodeURIComponent(id)}/presentation-draw`, { method: "POST", body: JSON.stringify({ prizeId, version }) }).then(unwrap),
-  checkIn: (id: string, payload?: { latitude?: number; longitude?: number; name?: string; email?: string }) =>
-    apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}/checkin`, { method: "POST", body: JSON.stringify(payload || {}) }).then(unwrap),
+  checkIn: async (id: string, payload?: { latitude?: number; longitude?: number; name?: string; email?: string }) => {
+    const meeting = await meetingService.get(id);
+    assertMeetingCheckInOpen(meeting);
+    return apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}/checkin`, { method: "POST", body: JSON.stringify(payload || {}) }).then(unwrap);
+  },
   control: (id: string, action: "start" | "pause" | "resume" | "next" | "previous" | "finish" | "cancel" | "start_speaker" | "reset_speaker", version: number) =>
     apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}/control`, { method: "POST", body: JSON.stringify({ action, version }) }).then(unwrap).then(publishUpdatedMeeting),
   update: (id: string, input: MeetingUpdateInput) =>
@@ -266,6 +282,8 @@ export const meetingService = {
     apiRequest<{ data: LuckyDrawConfig }>(`/api/v1/meetings/${encodeURIComponent(id)}/lucky-draw/reset`, { method: "POST", body: JSON.stringify(prizeId ? { prizeId } : {}) }).then(unwrap),
   resolveQr: (token: string) => apiRequest<{ data: { id: string; title: string; startsAt: string; location?: string } }>(`/api/v1/meeting-checkin/${encodeURIComponent(token)}`).then(unwrap),
   interaction: (id: string) => apiRequest<{ data: MeetingInteraction }>(`/api/v1/meetings/${encodeURIComponent(id)}/interaction`).then(unwrap),
+  submitInteractionAnswers: (token: string, input: { participantId: string; name: string; answers: { questionId: string; answer: string }[] }) =>
+    apiRequest<{ data: MeetingInteractionSubmission }>(`/api/v1/meeting-interaction/${encodeURIComponent(token)}/responses`, { method: "POST", body: JSON.stringify(input) }).then(unwrap),
   saveInteraction: (id: string, input: MeetingInteractionInput) =>
     apiRequest<{ data: MeetingInteraction }>(`/api/v1/meetings/${encodeURIComponent(id)}/interaction`, { method: "PUT", body: JSON.stringify(input) }).then(unwrap),
   addInteractionQuestion: (id: string, question: string) =>
