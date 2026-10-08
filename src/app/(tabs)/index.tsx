@@ -383,6 +383,9 @@ export default function HomeScreen() {
             </Pressable>
           ) : null}
 
+          <SectionTitle>Tiện ích</SectionTitle>
+          <DashboardQuickActions user={user} />
+
           {/* Phần Danh sách cuộc họp (Thay thế lịch cũ theo mẫu ảnh 1) */}
           <View style={styles.scheduleSectionHeader}>
             <Text style={styles.scheduleSectionTitle}>Danh sách cuộc họp</Text>
@@ -477,10 +480,6 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {/* Mục Tiện ích của app (Đặt dưới lịch theo đúng yêu cầu) */}
-          <SectionTitle>Tiện ích</SectionTitle>
-          <DashboardQuickActions user={user} />
-
         </>
       )}
     </Screen>
@@ -561,9 +560,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   scheduleSectionTitle: {
-    color: "#0F172A",
-    fontSize: 15.5,
-    fontWeight: "800",
+    color: colors.text,
+    fontSize: 13.5,
+    fontWeight: "700",
   },
   accordionHeader: {
     flexDirection: "row",

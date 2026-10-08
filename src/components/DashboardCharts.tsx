@@ -3,6 +3,7 @@ import {
   Animated,
   Easing,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { Check, ChevronDown, Filter, Search, X } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Meeting } from "@/services/meeting";
 import { colors, radius } from "@/theme/tokens";
 
@@ -331,6 +333,11 @@ function MeetingSelector({
   selectedId?: string;
   onSelect: (id: string) => void;
 }) {
+  const insets = useSafeAreaInsets();
+  const bottomInset =
+    Platform.OS === "android"
+      ? Math.max(insets.bottom, 48)
+      : Math.max(insets.bottom, 24);
   const [isSheetVisible, setIsSheetVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -413,7 +420,7 @@ function MeetingSelector({
               setSearchQuery("");
             }}
           />
-          <View style={s.sheetContent}>
+          <View style={[s.sheetContent, { paddingBottom: bottomInset + 16 }]}>
             <View style={s.sheetHandle} />
 
             {/* Header */}
@@ -674,7 +681,7 @@ const s: any = StyleSheet.create({
     paddingVertical: 0,
   },
   sheetList: { flexGrow: 0, maxHeight: 380 },
-  sheetListContent: { gap: 6, paddingVertical: 4 },
+  sheetListContent: { gap: 6, paddingTop: 4, paddingBottom: 28 },
   sheetItem: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -24,6 +24,7 @@ export type UserProfile = {
   targetMarket?: string;
   parentId?: string;
   isActive?: boolean;
+  createdAt?: string;
 };
 
 export type MeetingStatus = "scheduled" | "live" | "paused" | "ended" | "cancelled";

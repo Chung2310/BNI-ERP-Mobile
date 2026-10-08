@@ -11,6 +11,7 @@ import {
 } from "lucide-react-native";
 import {
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -170,7 +171,7 @@ export default function MeetingsScreen() {
         startsAt: new Date(year, month, 1, 14, 0).toISOString(),
         endsAt: new Date(year, month, 1, 15, 0).toISOString(),
         location: "Online",
-        status: "cancelled", // Cuộc họp bị hủy -> hiển thị chữ màu đỏ tươi
+        status: "cancelled",
         speakers: [],
         reminderDays: 1,
         __v: 0,
@@ -520,6 +521,18 @@ export default function MeetingsScreen() {
     setIsDayDetailModalVisible(true);
   };
 
+  // Khi chọn một ô trên lịch: Nếu ô trống thì chuyển sang tạo lịch đơn và fill sẵn ngày
+  const handleCellPress = (cellDate: Date, hasEvents: boolean) => {
+    if (!hasEvents) {
+      router.push({
+        pathname: "/meeting/create",
+        params: { date: toDateKey(cellDate) },
+      });
+      return;
+    }
+    handleSelectDay(cellDate);
+  };
+
   const selectedDayMeetings = useMemo(() => {
     return meetingsByDay.get(toDateKey(selectedDate)) || [];
   }, [meetingsByDay, selectedDate]);
@@ -555,21 +568,38 @@ export default function MeetingsScreen() {
       <View style={[styles.headerBar, { paddingTop: Math.max(insets.top, 14) }]}>
         <View style={styles.headerContent}>
           <View style={styles.headerTitleWrap}>
-            <Avatar initials={userInitials} url={user?.photoURL} size={34} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Quay lại"
+              hitSlop={8}
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.navigate("/(tabs)");
+                }
+              }}
+              style={({ pressed }) => [styles.headerBackBtn, pressed && styles.pressed]}
+            >
+              <ChevronLeft color="#FFFFFF" size={24} strokeWidth={2.4} />
+            </Pressable>
             <Text style={styles.headerTitleText}>Lịch trình</Text>
           </View>
 
-          {canCreateMeeting && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Tạo cuộc họp mới"
-              hitSlop={8}
-              onPress={() => router.push("/meeting/create")}
-              style={({ pressed }) => [styles.headerAddBtn, pressed && styles.pressed]}
-            >
-              <Plus color="#FFFFFF" size={20} strokeWidth={2.4} />
-            </Pressable>
-          )}
+          <View style={styles.headerRightActions}>
+            {canCreateMeeting && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Tạo cuộc họp mới"
+                hitSlop={8}
+                onPress={() => router.push("/meeting/create")}
+                style={({ pressed }) => [styles.headerAddBtn, pressed && styles.pressed]}
+              >
+                <Plus color="#FFFFFF" size={19} strokeWidth={2.4} />
+              </Pressable>
+            )}
+            <Avatar initials={userInitials} url={user?.photoURL} size={32} />
+          </View>
         </View>
       </View>
 
@@ -645,7 +675,7 @@ export default function MeetingsScreen() {
 
       {/* 4. Nội dung lịch tương ứng từng chế độ xem */}
 
-      {/* CHẾ ĐỘ XEM THÁNG: Giữ nguyên chuẩn đẹp như người dùng đã xác nhận */}
+      {/* CHẾ ĐỘ XEM THÁNG: Bấm ô trống -> Tạo lịch đơn, fill sẵn ngày */}
       {viewMode === "month" && (
         <ScrollView
           style={styles.calendarScroll}
@@ -674,7 +704,7 @@ export default function MeetingsScreen() {
                   return (
                     <Pressable
                       key={cell.dateKey}
-                      onPress={() => handleSelectDay(cell.date)}
+                      onPress={() => handleCellPress(cell.date, dayEvents.length > 0)}
                       style={[
                         styles.gridCell,
                         !cell.isCurrentMonth && styles.gridCellOtherMonth,
@@ -841,9 +871,18 @@ export default function MeetingsScreen() {
                     })}
                   </View>
                 ) : (
-                  <View style={styles.weekEmptyRow}>
-                    <Text style={styles.weekEmptyText}>Không có lịch họp</Text>
-                  </View>
+                  <Pressable
+                    onPress={() =>
+                      router.push({
+                        pathname: "/meeting/create",
+                        params: { date: item.dateKey },
+                      })
+                    }
+                    style={styles.weekEmptyRow}
+                  >
+                    <Plus size={14} color="#00AECA" strokeWidth={2.4} />
+                    <Text style={styles.weekEmptyText}>Chưa có lịch · Chạm để tạo cuộc họp</Text>
+                  </Pressable>
                 )}
               </View>
             );
@@ -986,10 +1025,24 @@ export default function MeetingsScreen() {
               })}
             </View>
           ) : (
-            <EmptyState
-              title="Không có cuộc họp"
-              message="Ngày này chưa có lịch họp nào. Bạn có thể chọn ngày khác hoặc tạo cuộc họp mới."
-            />
+            <View style={styles.dayEmptyContainer}>
+              <EmptyState
+                title="Không có cuộc họp"
+                message={`Ngày ${selectedDate.getDate()}/${selectedDate.getMonth() + 1} chưa có lịch họp nào.`}
+              />
+              <Pressable
+                onPress={() =>
+                  router.push({
+                    pathname: "/meeting/create",
+                    params: { date: toDateKey(selectedDate) },
+                  })
+                }
+                style={styles.createMeetingQuickBtn}
+              >
+                <Plus color="#FFFFFF" size={17} strokeWidth={2.4} />
+                <Text style={styles.createMeetingQuickBtnText}>Tạo cuộc họp ngày này</Text>
+              </Pressable>
+            </View>
           )}
         </ScrollView>
       )}
@@ -1008,11 +1061,11 @@ export default function MeetingsScreen() {
             onPress={() => setIsDayDetailModalVisible(false)}
           />
 
-          <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+          <View style={[styles.modalContent, { paddingBottom: Platform.OS === 'android' ? Math.max(insets.bottom, 48) : Math.max(insets.bottom, 20) }]}>
             <View style={styles.modalHandle} />
 
             <View style={styles.modalHeader}>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.modalTitle}>
                   Lịch ngày {selectedDate.getDate()}/{selectedDate.getMonth() + 1}/
                   {selectedDate.getFullYear()}
@@ -1024,14 +1077,31 @@ export default function MeetingsScreen() {
                 </Text>
               </View>
 
-              <Pressable
-                accessibilityLabel="Đóng"
-                hitSlop={10}
-                onPress={() => setIsDayDetailModalVisible(false)}
-                style={styles.modalCloseBtn}
-              >
-                <X color="#64748B" size={20} strokeWidth={2.4} />
-              </Pressable>
+              <View style={styles.modalHeaderActions}>
+                <Pressable
+                  accessibilityLabel="Tạo cuộc họp ngày này"
+                  hitSlop={8}
+                  onPress={() => {
+                    setIsDayDetailModalVisible(false);
+                    router.push({
+                      pathname: "/meeting/create",
+                      params: { date: toDateKey(selectedDate) },
+                    });
+                  }}
+                  style={styles.modalAddMeetingBtn}
+                >
+                  <Plus color="#00AECA" size={19} strokeWidth={2.4} />
+                </Pressable>
+
+                <Pressable
+                  accessibilityLabel="Đóng"
+                  hitSlop={10}
+                  onPress={() => setIsDayDetailModalVisible(false)}
+                  style={styles.modalCloseBtn}
+                >
+                  <X color="#64748B" size={20} strokeWidth={2.4} />
+                </Pressable>
+              </View>
             </View>
 
             <ScrollView
@@ -1115,6 +1185,19 @@ export default function MeetingsScreen() {
                   <Text style={styles.sheetEmptyText}>
                     Ngày này chưa có cuộc họp nào được lên lịch.
                   </Text>
+                  <Pressable
+                    onPress={() => {
+                      setIsDayDetailModalVisible(false);
+                      router.push({
+                        pathname: "/meeting/create",
+                        params: { date: toDateKey(selectedDate) },
+                      });
+                    }}
+                    style={styles.sheetCreateBtn}
+                  >
+                    <Plus color="#FFFFFF" size={16} strokeWidth={2.4} />
+                    <Text style={styles.sheetCreateBtnText}>Tạo cuộc họp ngày này</Text>
+                  </Pressable>
                 </View>
               )}
             </ScrollView>
@@ -1133,7 +1216,7 @@ const styles = StyleSheet.create({
 
   /* 1. Header Bar: Màu nền chuẩn iGen Connect (#00AECA) */
   headerBar: {
-    backgroundColor: "#00AECA", // Màu brand chính xác
+    backgroundColor: "#00AECA",
     paddingHorizontal: 16,
     paddingBottom: 14,
   },
@@ -1145,16 +1228,29 @@ const styles = StyleSheet.create({
   headerTitleWrap: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 6,
+  },
+  headerBackBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: -4,
   },
   headerTitleText: {
     color: "#FFFFFF",
-    fontSize: 19,
+    fontSize: 16.5,
     fontWeight: "800",
   },
+  headerRightActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
   headerAddBtn: {
-    width: 36,
-    height: 36,
+    width: 34,
+    height: 34,
     borderRadius: radius.pill,
     backgroundColor: "rgba(255, 255, 255, 0.2)",
     alignItems: "center",
@@ -1275,7 +1371,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   todayCircle: {
-    backgroundColor: "#00AECA", // Màu brand làm nổi bật ngày hiện tại ở Tháng
+    backgroundColor: "#00AECA",
   },
   dayNumberText: {
     color: "#1E293B",
@@ -1294,7 +1390,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
 
-  /* Nhãn cuộc họp xem tháng: Nền Brand (#00AECA) và chữ trắng khi bình thường */
+  /* Nhãn cuộc họp xem tháng */
   meetingChip: {
     borderRadius: 3.5,
     paddingHorizontal: 3.5,
@@ -1302,20 +1398,18 @@ const styles = StyleSheet.create({
     marginHorizontal: 1,
   },
   meetingChipBrand: {
-    backgroundColor: "#00AECA", // Màu brand chính xác
+    backgroundColor: "#00AECA",
   },
   meetingChipTextBrand: {
-    color: "#FFFFFF", // Chữ trắng khi dùng nền màu brand
+    color: "#FFFFFF",
   },
-
-  /* Cuộc họp bị hủy xem tháng: Đánh dấu màu đỏ tươi (#DC2626) */
   meetingChipCancelled: {
     backgroundColor: "#FEE2E2",
     borderWidth: 0.5,
     borderColor: "#FCA5A5",
   },
   meetingChipTextCancelled: {
-    color: "#DC2626", // Chữ màu đỏ tươi khi bị hủy
+    color: "#DC2626",
     fontWeight: "700",
   },
   meetingChipText: {
@@ -1331,13 +1425,9 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
 
-  /* ============================================================ */
-  /* THIẾT KẾ ĐƠN SẮC CHO CHẾ ĐỘ XEM TUẦN & NGÀY                  */
-  /* Nền trắng (#FFFFFF), text đen (#0F172A), viền màu brand     */
-  /* ============================================================ */
-
+  /* Thẻ đơn sắc */
   monoMeetingCard: {
-    backgroundColor: "#FFFFFF", // Nền trắng đơn sắc
+    backgroundColor: "#FFFFFF",
     borderRadius: 10,
     padding: 12,
     gap: 6,
@@ -1345,12 +1435,12 @@ const styles = StyleSheet.create({
   },
   monoMeetingCardBrandBorder: {
     borderWidth: 1.5,
-    borderColor: "#00AECA", // Viền màu brand chuẩn
+    borderColor: "#00AECA",
   },
   monoMeetingCardCancelled: {
     backgroundColor: "#FFFFFF",
     borderWidth: 1.5,
-    borderColor: "#DC2626", // Viền đỏ tươi khi bị hủy
+    borderColor: "#DC2626",
   },
   monoMeetingHeader: {
     flexDirection: "row",
@@ -1430,17 +1520,21 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   weekEmptyRow: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     backgroundColor: "#F8FAFC",
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#F1F5F9",
+    borderColor: "#E2E8F0",
+    borderStyle: "dashed",
   },
   weekEmptyText: {
-    color: "#94A3B8",
-    fontSize: 12.5,
-    fontStyle: "italic",
+    color: "#64748B",
+    fontSize: 13,
+    fontWeight: "500",
   },
 
   /* Chế độ xem Ngày */
@@ -1539,6 +1633,27 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     marginRight: 10,
   },
+  dayEmptyContainer: {
+    alignItems: "center",
+    gap: 14,
+    paddingVertical: 20,
+  },
+  createMeetingQuickBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: "#00AECA",
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: radius.pill,
+    ...shadow,
+  },
+  createMeetingQuickBtnText: {
+    color: "#FFFFFF",
+    fontSize: 13.5,
+    fontWeight: "700",
+  },
 
   /* Bottom sheet modal chi tiết ngày */
   modalOverlay: {
@@ -1587,6 +1702,19 @@ const styles = StyleSheet.create({
   modalSubtitle: {
     color: "#64748B",
     fontSize: 12,
+  },
+  modalHeaderActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  modalAddMeetingBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#E4F8FB",
   },
   modalCloseBtn: {
     width: 32,
@@ -1646,16 +1774,32 @@ const styles = StyleSheet.create({
     color: "#64748B",
     fontSize: 12.5,
   },
+  sheetCreateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: "#00AECA",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: radius.pill,
+    marginTop: 8,
+  },
+  sheetCreateBtnText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
+  },
 
   /* Text color & Brand helpers */
   textDark: {
-    color: "#0F172A", // Text đen / đậm như bình thường
+    color: "#0F172A",
   },
   textMuted: {
     color: "#64748B",
   },
   textCancelled: {
-    color: "#DC2626", // Text đỏ tươi cho cuộc họp bị hủy
+    color: "#DC2626",
   },
   textBrand: {
     color: "#00AECA",

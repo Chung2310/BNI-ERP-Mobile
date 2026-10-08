@@ -3,12 +3,13 @@ import { useMemo, useState, type ReactNode } from "react";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import { router, useLocalSearchParams } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CalendarPlus, CalendarRange, ImagePlus, MapPin, Plus, Trash2, Upload, type LucideIcon } from "lucide-react-native";
 import {
   ActivityIndicator,
-
   Image,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -19,7 +20,7 @@ import { BackHeader } from "@/components/BackHeader";
 import { DateTimeField } from "@/components/DateTimeField";
 import { Button, Card, Screen } from "@/components/ui";
 import { meetingService, type MeetingPoint, type MeetingRecurrence, type SpeakingTimeSlot } from "@/services/meeting";
-import { colors, radius, spacing } from "@/theme/tokens";
+import { colors, radius, shadow, spacing } from "@/theme/tokens";
 import { defaultSpeakingTimeSlots, parseVietnamDateTime, recurringMeetingDates, twoHoursAfter, validateSpeakingTimeSlots } from "@/utils/meetingForm";
 
 type CreateMode = "single" | "recurring";
@@ -35,12 +36,25 @@ const weekdays = [
 ];
 
 export default function CreateMeetingScreen() {
+  const insets = useSafeAreaInsets();
+
   const { date } = useLocalSearchParams<{ date?: string }>();
   const initialDate = typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "";
+  const [prevDate, setPrevDate] = useState(initialDate);
   const [mode, setMode] = useState<CreateMode>("single");
   const [title, setTitle] = useState("");
   const [startsAt, setStartsAt] = useState(() => initialDate ? `${initialDate} 07:00` : "");
   const [endsAt, setEndsAt] = useState(() => initialDate ? `${initialDate} 09:00` : "");
+
+  if (prevDate !== initialDate) {
+    setPrevDate(initialDate);
+    if (initialDate) {
+      setMode("single");
+      setStartsAt(`${initialDate} 07:00`);
+      setEndsAt(`${initialDate} 09:00`);
+    }
+  }
+
   const [recurrence, setRecurrence] = useState<MeetingRecurrence>({
     startDate: initialDate,
     months: 6,
@@ -169,75 +183,99 @@ export default function CreateMeetingScreen() {
   };
 
   return (
-    <Screen>
-      <BackHeader title="Tạo cuộc họp" subtitle="Thiết lập đầy đủ như hệ thống web" compact />
-      <View accessibilityRole="tablist" style={styles.modeRow}>
-        <ModeButton active={mode === "single"} icon={CalendarPlus} label="Tạo đơn" onPress={() => setMode("single")} />
-        <ModeButton active={mode === "recurring"} icon={CalendarRange} label="Tạo hàng loạt" onPress={() => setMode("recurring")} />
+    <Screen scroll={false} style={styles.screenContainer}>
+      {/* Tiêu đề đầu trang */}
+      <View style={styles.headerWrapper}>
+        <BackHeader title="Tạo cuộc họp" subtitle="Thiết lập đầy đủ như hệ thống web" compact />
       </View>
 
-      {mode === "single" ? (
-        <FormSection title="Thông tin cuộc họp">
-          <Field label="Tên cuộc họp *" value={title} onChangeText={setTitle} placeholder="Ví dụ: Buổi họp định kỳ Chapter Tuần 40" maxLength={200} />
-          <DateTimeField label="Thời gian bắt đầu *" mode="datetime" value={startsAt} onChange={(value) => { setStartsAt(value); if (!endsAt || endsAt <= value) setEndsAt(twoHoursAfter(value)); }} />
-          <DateTimeField label="Thời gian kết thúc *" mode="datetime" value={endsAt} onChange={setEndsAt} help="QR dùng chung nhận check-in từ giờ bắt đầu đến trước giờ kết thúc. Mặc định 2 giờ." />
-        </FormSection>
-      ) : (
-        <FormSection title="Lịch định kỳ" tone="primary">
-          <DateTimeField label="Từ ngày *" mode="date" value={recurrence.startDate} onChange={(value) => updateRecurrence("startDate", value)} />
-          <Field label="Trong thời gian (tháng) *" value={Number.isFinite(recurrence.months) ? String(recurrence.months) : ""} onChangeText={(value) => updateRecurrence("months", Number(value))} placeholder="1 - 12" keyboardType="number-pad" />
-          <Text style={styles.label}>THỨ DIỄN RA *</Text>
-          <View style={styles.chips}>{weekdays.map((day) => <Chip key={day.value} active={recurrence.weekday === day.value} label={day.label} onPress={() => updateRecurrence("weekday", day.value)} />)}</View>
-          <DateTimeField label="Giờ bắt đầu *" mode="time" value={recurrence.time} onChange={(value) => updateRecurrence("time", value)} />
-          <Field label="Thời lượng mỗi buổi (phút) *" value={Number.isFinite(recurrence.durationMinutes) ? String(recurrence.durationMinutes) : ""} onChangeText={(value) => updateRecurrence("durationMinutes", Number(value))} placeholder="120" keyboardType="number-pad" />
-          <View style={styles.chips}>{[60, 90, 120].map((minutes) => <Chip key={minutes} active={recurrence.durationMinutes === minutes} label={`${minutes} phút`} onPress={() => updateRecurrence("durationMinutes", minutes)} />)}</View>
-          {preview.length ? <Text style={styles.preview}>Sẽ tạo {preview.length} buổi · {preview[0].toLocaleDateString("vi-VN")} → {preview[preview.length - 1].toLocaleDateString("vi-VN")}</Text> : null}
-        </FormSection>
-      )}
-
-      <FormSection title="Địa điểm và check-in">
-        <Field label="Địa điểm / Link họp" value={location} onChangeText={setLocation} placeholder="Khách sạn New World / Zoom" maxLength={500} />
-        <Button icon={MapPin} tone="secondary" fullWidth disabled={locating} onPress={locate} style={styles.actionBtn}>{locating ? "Đang lấy vị trí…" : "Lấy vị trí hiện tại"}</Button>
-        <View style={styles.twoColumns}>
-          <View style={styles.column}><Field label="Vĩ độ" value={latitude} onChangeText={setLatitude} placeholder="10.776" keyboardType="decimal-pad" /></View>
-          <View style={styles.column}><Field label="Kinh độ" value={longitude} onChangeText={setLongitude} placeholder="106.700" keyboardType="decimal-pad" /></View>
+      {/* Vùng nội dung form có thể cuộn lên xuống mượt mà */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        style={styles.formScrollView}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <View accessibilityRole="tablist" style={styles.modeRow}>
+          <ModeButton active={mode === "single"} icon={CalendarPlus} label="Tạo đơn" onPress={() => setMode("single")} />
+          <ModeButton active={mode === "recurring"} icon={CalendarRange} label="Tạo hàng loạt" onPress={() => setMode("recurring")} />
         </View>
-        <Field label="Bán kính cho phép (m) *" value={gpsRadiusMeters} onChangeText={setGpsRadiusMeters} placeholder="200" keyboardType="number-pad" help="Giá trị từ 50 đến 5000 mét." />
-      </FormSection>
 
-      <FormSection title="Ảnh bìa sự kiện">
-        {coverImage ? <Image accessibilityLabel="Ảnh bìa cuộc họp" source={{ uri: coverImage }} style={styles.cover} /> : <View style={styles.coverPlaceholder}><ImagePlus color={colors.primary} size={34} /><Text style={styles.help}>PNG, JPG, WEBP hoặc GIF · tối đa 10MB</Text></View>}
-        <Button icon={Upload} tone="secondary" fullWidth disabled={uploading} onPress={pickCover} style={styles.actionBtn}>{uploading ? "Đang tải ảnh…" : coverImage ? "Đổi ảnh bìa" : "Chọn ảnh từ máy"}</Button>
-      </FormSection>
+        {mode === "single" ? (
+          <FormSection title="Thông tin cuộc họp">
+            <Field label="Tên cuộc họp *" value={title} onChangeText={setTitle} placeholder="Ví dụ: Buổi họp định kỳ Chapter Tuần 40" maxLength={200} />
+            <DateTimeField label="Thời gian bắt đầu *" mode="datetime" value={startsAt} onChange={(value) => { setStartsAt(value); if (!endsAt || endsAt <= value) setEndsAt(twoHoursAfter(value)); }} />
+            <DateTimeField label="Thời gian kết thúc *" mode="datetime" value={endsAt} onChange={setEndsAt} help="QR dùng chung nhận check-in từ giờ bắt đầu đến trước giờ kết thúc. Mặc định 2 giờ." />
+          </FormSection>
+        ) : (
+          <FormSection title="Lịch định kỳ" tone="primary">
+            <DateTimeField label="Từ ngày *" mode="date" value={recurrence.startDate} onChange={(value) => updateRecurrence("startDate", value)} />
+            <Field label="Trong thời gian (tháng) *" value={Number.isFinite(recurrence.months) ? String(recurrence.months) : ""} onChangeText={(value) => updateRecurrence("months", Number(value))} placeholder="1 - 12" keyboardType="number-pad" />
+            <Text style={styles.label}>THỨ DIỄN RA *</Text>
+            <View style={styles.chips}>{weekdays.map((day) => <Chip key={day.value} active={recurrence.weekday === day.value} label={day.label} onPress={() => updateRecurrence("weekday", day.value)} />)}</View>
+            <DateTimeField label="Giờ bắt đầu *" mode="time" value={recurrence.time} onChange={(value) => updateRecurrence("time", value)} />
+            <Field label="Thời lượng mỗi buổi (phút) *" value={Number.isFinite(recurrence.durationMinutes) ? String(recurrence.durationMinutes) : ""} onChangeText={(value) => updateRecurrence("durationMinutes", Number(value))} placeholder="120" keyboardType="number-pad" />
+            <View style={styles.chips}>{[60, 90, 120].map((minutes) => <Chip key={minutes} active={recurrence.durationMinutes === minutes} label={`${minutes} phút`} onPress={() => updateRecurrence("durationMinutes", minutes)} />)}</View>
+            {preview.length ? <Text style={styles.preview}>Sẽ tạo {preview.length} buổi · {preview[0].toLocaleDateString("vi-VN")} → {preview[preview.length - 1].toLocaleDateString("vi-VN")}</Text> : null}
+          </FormSection>
+        )}
 
-      <FormSection title="Nhắc hẹn">
-        <Field label="Nhắc hẹn trước (ngày)" value={reminderDays} onChangeText={setReminderDays} placeholder="1" keyboardType="number-pad" />
-      </FormSection>
-
-      <FormSection title="Thời lượng phát biểu theo giờ check-in">
-        <Text style={styles.help}>Áp dụng cho thành viên và khách mời theo giờ Việt Nam.</Text>
-        {tiers.map((slot, index) => (
-          <View key={index} style={styles.slot}>
-            <View style={styles.slotHeader}>
-              <Text style={styles.slotTitle}>Khung {index + 1}</Text>
-              <Pressable accessibilityLabel={`Xóa khung ${index + 1}`} disabled={tiers.length <= 1} onPress={() => setTiers((current) => current.filter((_, itemIndex) => itemIndex !== index))} style={({ pressed }) => [styles.iconButton, tiers.length <= 1 && styles.disabled, pressed && styles.pressed]}><Trash2 color={colors.danger} size={18} /></Pressable>
-            </View>
-            <View style={styles.twoColumns}>
-              <View style={styles.column}><DateTimeField label="Từ giờ *" mode="time" value={slot.startTime} onChange={(value) => updateSlot(index, { startTime: value })} /></View>
-              <View style={styles.column}><DateTimeField label="Đến giờ *" mode="time" value={slot.endTime} onChange={(value) => updateSlot(index, { endTime: value })} /></View>
-            </View>
-            <Field label="Số giây phát biểu *" value={Number.isFinite(slot.seconds) ? String(slot.seconds) : ""} onChangeText={(value) => updateSlot(index, { seconds: Number(value) })} placeholder="30" keyboardType="number-pad" />
+        <FormSection title="Địa điểm và check-in">
+          <Field label="Địa điểm / Link họp" value={location} onChangeText={setLocation} placeholder="Khách sạn New World / Zoom" maxLength={500} />
+          <Button icon={MapPin} tone="secondary" fullWidth disabled={locating} onPress={locate} style={styles.actionBtn}>{locating ? "Đang lấy vị trí…" : "Lấy vị trí hiện tại"}</Button>
+          <View style={styles.twoColumns}>
+            <View style={styles.column}><Field label="Vĩ độ" value={latitude} onChangeText={setLatitude} placeholder="10.776" keyboardType="decimal-pad" /></View>
+            <View style={styles.column}><Field label="Kinh độ" value={longitude} onChangeText={setLongitude} placeholder="106.700" keyboardType="decimal-pad" /></View>
           </View>
-        ))}
-        <Button icon={Plus} tone="secondary" fullWidth disabled={tiers.length >= 20} onPress={() => setTiers((current) => [...current, { startTime: current.at(-1)?.endTime || "", endTime: "", seconds: Number(fallbackSeconds) || 20 }])} style={styles.actionBtn}>Thêm khung giờ</Button>
-        <Field label="Ngoài khung giờ (giây) *" value={fallbackSeconds} onChangeText={setFallbackSeconds} placeholder="20" keyboardType="number-pad" help="Dùng khi giờ check-in không nằm trong các khung đã cấu hình." />
-      </FormSection>
+          <Field label="Bán kính cho phép (m) *" value={gpsRadiusMeters} onChangeText={setGpsRadiusMeters} placeholder="200" keyboardType="number-pad" help="Giá trị từ 50 đến 5000 mét." />
+        </FormSection>
 
-      {error ? <Card style={styles.errorCard}><Text accessibilityRole="alert" style={styles.error}>{error}</Text></Card> : null}
-      <Button icon={mode === "single" ? CalendarPlus : CalendarRange} fullWidth disabled={saving || uploading} onPress={save} style={styles.submitBtn}>
-        {saving ? "Đang tạo…" : mode === "single" ? "Tạo cuộc họp" : preview.length ? `Tạo ${preview.length} buổi họp` : "Tạo lịch định kỳ"}
-      </Button>
-      {saving ? <ActivityIndicator color={colors.primary} /> : null}
+        <FormSection title="Ảnh bìa sự kiện">
+          {coverImage ? <Image accessibilityLabel="Ảnh bìa cuộc họp" source={{ uri: coverImage }} style={styles.cover} /> : <View style={styles.coverPlaceholder}><ImagePlus color={colors.primary} size={34} /><Text style={styles.help}>PNG, JPG, WEBP hoặc GIF · tối đa 10MB</Text></View>}
+          <Button icon={Upload} tone="secondary" fullWidth disabled={uploading} onPress={pickCover} style={styles.actionBtn}>{uploading ? "Đang tải ảnh…" : coverImage ? "Đổi ảnh bìa" : "Chọn ảnh từ máy"}</Button>
+        </FormSection>
+
+        <FormSection title="Nhắc hẹn">
+          <Field label="Nhắc hẹn trước (ngày)" value={reminderDays} onChangeText={setReminderDays} placeholder="1" keyboardType="number-pad" />
+        </FormSection>
+
+        <FormSection title="Thời lượng phát biểu theo giờ check-in">
+          <Text style={styles.help}>Áp dụng cho thành viên và khách mời theo giờ Việt Nam.</Text>
+          {tiers.map((slot, index) => (
+            <View key={index} style={styles.slot}>
+              <View style={styles.slotHeader}>
+                <Text style={styles.slotTitle}>Khung {index + 1}</Text>
+                <Pressable accessibilityLabel={`Xóa khung ${index + 1}`} disabled={tiers.length <= 1} onPress={() => setTiers((current) => current.filter((_, itemIndex) => itemIndex !== index))} style={({ pressed }) => [styles.iconButton, tiers.length <= 1 && styles.disabled, pressed && styles.pressed]}><Trash2 color={colors.danger} size={18} /></Pressable>
+              </View>
+              <View style={styles.twoColumns}>
+                <View style={styles.column}><DateTimeField label="Từ giờ *" mode="time" value={slot.startTime} onChange={(value) => updateSlot(index, { startTime: value })} /></View>
+                <View style={styles.column}><DateTimeField label="Đến giờ *" mode="time" value={slot.endTime} onChange={(value) => updateSlot(index, { endTime: value })} /></View>
+              </View>
+              <Field label="Số giây phát biểu *" value={Number.isFinite(slot.seconds) ? String(slot.seconds) : ""} onChangeText={(value) => updateSlot(index, { seconds: Number(value) })} placeholder="30" keyboardType="number-pad" />
+            </View>
+          ))}
+          <Button icon={Plus} tone="secondary" fullWidth disabled={tiers.length >= 20} onPress={() => setTiers((current) => [...current, { startTime: current.at(-1)?.endTime || "", endTime: "", seconds: Number(fallbackSeconds) || 20 }])} style={styles.actionBtn}>Thêm khung giờ</Button>
+          <Field label="Ngoài khung giờ (giây) *" value={fallbackSeconds} onChangeText={setFallbackSeconds} placeholder="20" keyboardType="number-pad" help="Dùng khi giờ check-in không nằm trong các khung đã cấu hình." />
+        </FormSection>
+
+        {error ? <Card style={styles.errorCard}><Text accessibilityRole="alert" style={styles.error}>{error}</Text></Card> : null}
+
+        <View style={{ height: 16 }} />
+      </ScrollView>
+
+      {/* Nút Tạo cuộc họp CỐ ĐỊNH ở thanh footer dưới cùng (cho cả tạo đơn và tạo định kỳ) */}
+      <View style={[styles.fixedFooter, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <Button
+          icon={mode === "single" ? CalendarPlus : CalendarRange}
+          fullWidth
+          disabled={saving || uploading}
+          onPress={save}
+          style={styles.submitBtn}
+        >
+          {saving ? "Đang tạo…" : mode === "single" ? "Tạo cuộc họp" : preview.length ? `Tạo ${preview.length} buổi họp` : "Tạo lịch định kỳ"}
+        </Button>
+        {saving ? <ActivityIndicator color={colors.primary} style={styles.savingLoader} /> : null}
+      </View>
     </Screen>
   );
 }
@@ -259,6 +297,36 @@ function Chip({ active, label, onPress }: { active: boolean; label: string; onPr
 }
 
 const styles = StyleSheet.create({
+  screenContainer: {
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    paddingBottom: 0,
+  },
+  headerWrapper: {
+    paddingHorizontal: 12,
+    paddingTop: 4,
+    paddingBottom: 4,
+  },
+  formScrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 12,
+    paddingTop: 4,
+    paddingBottom: 24,
+    gap: spacing.sm,
+  },
+  fixedFooter: {
+    backgroundColor: "#FFFFFF",
+    borderTopWidth: 1,
+    borderTopColor: "#E2E8F0",
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    ...shadow,
+  },
+  savingLoader: {
+    marginTop: 6,
+  },
   modeRow: { flexDirection: "row", gap: spacing.sm },
   modeButton: { flex: 1, height: 40, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.xs, borderWidth: 1, borderColor: colors.primary, borderRadius: radius.pill, backgroundColor: colors.surface, paddingHorizontal: spacing.md },
   modeButtonActive: { backgroundColor: colors.primary },
@@ -286,7 +354,7 @@ const styles = StyleSheet.create({
   slotTitle: { color: colors.text, fontSize: 13, fontWeight: "800" },
   iconButton: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: radius.pill },
   actionBtn: { minHeight: 40, height: 40, borderRadius: radius.pill },
-  submitBtn: { minHeight: 44, height: 44, borderRadius: radius.pill, marginTop: spacing.xs },
+  submitBtn: { minHeight: 48, height: 48, borderRadius: radius.pill },
   errorCard: { borderColor: "#F4BCC5", backgroundColor: "#FFF4F6", padding: spacing.md },
   error: { color: colors.danger, fontSize: 13, lineHeight: 19, fontWeight: "600" },
   disabled: { opacity: 0.4 },

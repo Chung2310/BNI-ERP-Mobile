@@ -23,7 +23,7 @@ import {
 import { Image, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BackHeader } from "@/components/BackHeader";
-import { Avatar, Badge, Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionTitle } from "@/components/ui";
+import { Avatar, Badge, type BadgeTone, Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionTitle } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { useRevealSearch } from "@/hooks/useRevealSearch";
@@ -31,9 +31,9 @@ import { meetingService, meetingVersion, type Meeting } from "@/services/meeting
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 import { hasPermission } from "@/utils/permissions";
 
-const statusMeta: Record<Meeting["status"], { label: string; tone: "primary" | "danger" | "warning" | "default" }> = {
+const statusMeta: Record<Meeting["status"], { label: string; tone: BadgeTone }> = {
   scheduled: { label: "Sắp diễn ra", tone: "primary" },
-  live: { label: "Đang diễn ra", tone: "danger" },
+  live: { label: "Đang diễn ra", tone: "success" },
   paused: { label: "Tạm dừng", tone: "warning" },
   ended: { label: "Đã kết thúc", tone: "default" },
   cancelled: { label: "Đã hủy", tone: "danger" },

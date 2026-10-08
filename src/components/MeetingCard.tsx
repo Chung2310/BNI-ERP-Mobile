@@ -6,10 +6,10 @@ import type { Meeting } from "@/services/meeting";
 
 const status = {
   scheduled: { label: "Sắp tới", tone: "primary" },
-  live: { label: "Live", tone: "danger" },
+  live: { label: "Live", tone: "success" },
   paused: { label: "Tạm dừng", tone: "warning" },
   ended: { label: "Đã kết thúc", tone: "default" },
-  cancelled: { label: "Đã hủy", tone: "default" },
+  cancelled: { label: "Đã hủy", tone: "danger" },
 } as const;
 
 const listStatusColor = {

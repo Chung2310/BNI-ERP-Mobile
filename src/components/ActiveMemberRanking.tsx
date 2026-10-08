@@ -17,14 +17,15 @@ type Ranking = {
   score: number;
 };
 
-function buildRankings(meetings: Meeting[], members: UserProfile[]) {
-  const anchor = [...meetings]
+export function buildActiveMemberRankings(meetings: Meeting[], members: UserProfile[], anchorMeeting?: Meeting) {
+  const anchor = anchorMeeting || [...meetings]
     .filter((meeting) => ['live', 'paused', 'ended'].includes(meeting.status) && +new Date(meeting.startsAt) <= Date.now())
     .sort((a, b) => +new Date(b.startsAt) - +new Date(a.startsAt))[0];
   if (!anchor) return { rankings: [] as Ranking[], meetingCount: 0 };
   const eligibleMeetings = meetings.filter((meeting) =>
-    ['live', 'paused', 'ended'].includes(meeting.status) &&
-    +new Date(meeting.startsAt) <= +new Date(anchor.startsAt)
+    meeting._id === anchor._id ||
+    (['live', 'paused', 'ended'].includes(meeting.status) &&
+      +new Date(meeting.startsAt) <= +new Date(anchor.startsAt))
   );
   const map = new Map<string, Ranking & { totalEarlyMinutes: number; earlyCount: number }>();
   members.filter((member) => member.role !== 'admin' && member.isActive !== false).forEach((member) => {
@@ -48,6 +49,7 @@ function buildRankings(meetings: Meeting[], members: UserProfile[]) {
       if (!speaker.userId) return;
       const entry = map.get(String(speaker.userId));
       if (!entry) return;
+      if (!entry.photoURL && speaker.photoURL) entry.photoURL = speaker.photoURL;
       entry.attendedCount += 1;
       const checkedInAt = +new Date(speaker.checkedInAt);
       if (!Number.isNaN(checkedInAt) && !Number.isNaN(startsAt)) {
@@ -82,7 +84,7 @@ function initials(name?: string) {
 }
 
 export function ActiveMemberRanking({ meetings, members }: { meetings: Meeting[]; members: UserProfile[] }) {
-  const { rankings, meetingCount } = buildRankings(meetings, members);
+  const { rankings, meetingCount } = buildActiveMemberRankings(meetings, members);
   const topTen = rankings.filter((member) => member.attendedCount > 0).slice(0, 10);
   return <Card style={styles.card}>
     <View style={styles.header}>

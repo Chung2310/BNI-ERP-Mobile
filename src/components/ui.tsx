@@ -15,7 +15,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardResponsiveView } from "@/components/KeyboardResponsiveView";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 
@@ -26,17 +26,25 @@ export function Screen({
   scrollViewProps,
   scrollRef,
 }: PropsWithChildren<{ scroll?: boolean; style?: StyleProp<ViewStyle>; scrollViewProps?: ScrollViewProps; scrollRef?: Ref<ScrollView> }>) {
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, 16);
+
   const body = scroll ? (
     <ScrollView
       {...scrollViewProps}
       ref={scrollRef}
-      contentContainerStyle={[styles.screenContent, style, scrollViewProps?.contentContainerStyle]}
+      contentContainerStyle={[
+        styles.screenContent,
+        { paddingBottom: bottomInset + 36 },
+        style,
+        scrollViewProps?.contentContainerStyle,
+      ]}
       keyboardShouldPersistTaps={scrollViewProps?.keyboardShouldPersistTaps || "handled"}
     >
       {children}
     </ScrollView>
   ) : (
-    <View style={[styles.screenContent, styles.flex, style]}>{children}</View>
+    <View style={[styles.screenContent, styles.flex, { paddingBottom: bottomInset + 16 }, style]}>{children}</View>
   );
   return <SafeAreaView edges={["top"]} style={styles.safe}>
     <KeyboardResponsiveView>{body}</KeyboardResponsiveView>
@@ -104,11 +112,15 @@ export function Avatar({
   );
 }
 
-type BadgeTone = "default" | "primary" | "danger" | "warning";
+export type BadgeTone = "default" | "primary" | "danger" | "warning" | "success";
 
-export function Badge({ children, tone = "default" }: PropsWithChildren<{ tone?: BadgeTone }>) {
+export function Badge({
+  children,
+  tone = "default",
+  style,
+}: PropsWithChildren<{ tone?: BadgeTone; style?: StyleProp<ViewStyle> }>) {
   return (
-    <View style={[styles.badge, badgeToneStyles[tone]]}>
+    <View style={[styles.badge, badgeToneStyles[tone], style]}>
       <Text style={[styles.badgeText, badgeTextToneStyles[tone]]}>{children}</Text>
     </View>
   );
@@ -205,11 +217,13 @@ const styles = StyleSheet.create({
   badge_primary: { backgroundColor: colors.primarySoft },
   badge_danger: { backgroundColor: "#FDECEF" },
   badge_warning: { backgroundColor: "#FFF2D9" },
+  badge_success: { backgroundColor: "#DCFCE7" },
   badge_default: {},
   badgeText: { color: colors.muted, fontSize: 10, fontWeight: "800" },
   badgeText_primary: { color: colors.primaryDark },
   badgeText_danger: { color: "#A72B40" },
   badgeText_warning: { color: "#996316" },
+  badgeText_success: { color: "#15803D" },
   badgeText_default: {},
   button: { minHeight: touchTarget, alignItems: "center", justifyContent: "center", borderRadius: radius.md, paddingHorizontal: spacing.lg, borderWidth: 1 },
   buttonContent: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
@@ -246,6 +260,7 @@ const badgeToneStyles: Record<BadgeTone, ViewStyle> = {
   primary: styles.badge_primary,
   danger: styles.badge_danger,
   warning: styles.badge_warning,
+  success: styles.badge_success,
 };
 
 const badgeTextToneStyles: Record<BadgeTone, TextStyle> = {
@@ -253,6 +268,7 @@ const badgeTextToneStyles: Record<BadgeTone, TextStyle> = {
   primary: styles.badgeText_primary,
   danger: styles.badgeText_danger,
   warning: styles.badgeText_warning,
+  success: styles.badgeText_success,
 };
 
 const buttonToneStyles: Record<ButtonTone, ViewStyle> = {
