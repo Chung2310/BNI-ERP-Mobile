@@ -25,6 +25,27 @@ function normalizeUser(user: LoginResponse["user"]): UserProfile {
 }
 
 export const authService = {
+  async getProfile(): Promise<UserProfile> {
+    const response = await apiRequest<{ user: LoginResponse["user"] }>("/api/v1/auth/me");
+    const user = normalizeUser(response.user);
+    await SecureStore.setItemAsync(PROFILE_KEY, JSON.stringify(user));
+    return user;
+  },
+
+  async updateProfile(data: {
+    displayName: string; email: string; phone: string; companyName: string; industry: string;
+    address: string; targetMarket: string; birthDate: string; gender: string;
+    photoURL?: string; photoUploadToken?: string; coverImage?: string; coverUploadToken?: string;
+  }): Promise<UserProfile> {
+    const response = await apiRequest<{ user: LoginResponse["user"] }>("/api/v1/auth/profile", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+    const user = normalizeUser(response.user);
+    await SecureStore.setItemAsync(PROFILE_KEY, JSON.stringify(user));
+    return user;
+  },
+
   async restore(options: { bypassBiometricGate?: boolean } = {}) {
     const [token, rawProfile, biometricEnabled] = await Promise.all([
       SecureStore.getItemAsync(ACCESS_TOKEN_KEY),

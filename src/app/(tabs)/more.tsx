@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { ChevronRight, FolderOpen, ReceiptText, Settings, ShieldCheck, UserCog } from "lucide-react-native";
+import { ChevronRight, FolderOpen, Settings, ShieldCheck, UserCog } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { Avatar, Screen } from "@/components/ui";
@@ -10,7 +10,7 @@ import { hasPermission } from "@/utils/permissions";
 export default function MoreScreen() {
   const { user } = useAuth();
   const canManageUsers = hasPermission(user, "access:read", "access:manage");
-  const canManageRoles = hasPermission(user, "access:manage");
+  const canManageRoles = hasPermission(user, "access:read", "access:manage");
 
   return (
     <Screen style={styles.screen}>
@@ -27,8 +27,8 @@ export default function MoreScreen() {
       <View style={styles.profileContainer}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Xem cài đặt tài khoản"
-          onPress={() => router.push("/settings")}
+          accessibilityLabel="Xem hồ sơ cá nhân"
+          onPress={() => router.push("/profile")}
           style={({ pressed }) => [styles.profileCard, pressed && styles.profilePressed]}
         >
           <Avatar
@@ -40,6 +40,7 @@ export default function MoreScreen() {
               .join("")
               .toUpperCase()}
             size={40}
+            url={user?.photoURL}
           />
           <View style={styles.profileInfo}>
             <Text numberOfLines={1} style={styles.profileName}>
@@ -96,19 +97,6 @@ export default function MoreScreen() {
           </View>
           <Text numberOfLines={1} style={styles.tileTitle}>Tài nguyên</Text>
           <Text numberOfLines={1} style={styles.tileSubtitle}>File & Google Drive</Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Phí thường niên"
-          onPress={() => router.push("/fees")}
-          style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
-        >
-          <View style={styles.tileIconBox}>
-            <ReceiptText color="#7E3AF2" size={20} strokeWidth={2} />
-          </View>
-          <Text numberOfLines={1} style={styles.tileTitle}>Phí thường niên</Text>
-          <Text numberOfLines={1} style={styles.tileSubtitle}>Thanh toán & đối soát</Text>
         </Pressable>
 
         <Pressable

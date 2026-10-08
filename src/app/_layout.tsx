@@ -28,12 +28,12 @@ export default function RootLayout() {
           <Stack.Screen name="member/[id]" />
           <Stack.Screen name="chat/[id]" />
           <Stack.Screen name="notifications" />
-          <Stack.Screen name="fees" />
           <Stack.Screen name="rankings" />
           <Stack.Screen name="statistics" />
           <Stack.Screen name="resources" />
           <Stack.Screen name="org-chart" />
           <Stack.Screen name="settings" />
+          <Stack.Screen name="profile" />
           <Stack.Screen name="admin/users" />
           <Stack.Screen name="admin/roles" />
         </Stack>

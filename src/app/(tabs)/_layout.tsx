@@ -68,7 +68,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Trang chủ",
+          title: "Home",
           tabBarLabelStyle: { fontSize: 10.5, fontWeight: "600" },
         }}
       />

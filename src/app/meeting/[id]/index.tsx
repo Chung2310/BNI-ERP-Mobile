@@ -127,7 +127,7 @@ export default function MeetingDetailScreen() {
           </View>
         </View>
         <View style={styles.summaryMeta}><Clock3 color={meeting.coverImage ? "#FFFFFF" : colors.primaryDark} size={16} /><Text style={[styles.summaryMetaText, meeting.coverImage && styles.summaryMetaOnCover]}>{dateTime(meeting.startsAt)}</Text></View>
-        <View style={styles.summaryMeta}><MapPin color={meeting.coverImage ? "#FFFFFF" : colors.primaryDark} size={16} /><Text style={[styles.summaryMetaText, meeting.coverImage && styles.summaryMetaOnCover]}>{meeting.location || "Chưa cập nhật địa điểm"}</Text></View>
+        <View style={styles.summaryMeta}><MapPin color={meeting.coverImage ? "#FFFFFF" : colors.primaryDark} size={16} /><Text style={[styles.summaryMetaText, meeting.coverImage && styles.summaryMetaOnCover]}>{meeting.location?.trim() || "Chưa xác định"}</Text></View>
       </Card>
 
       <View style={styles.metrics}>

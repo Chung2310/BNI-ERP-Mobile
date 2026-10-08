@@ -240,26 +240,6 @@ export default function MemberDetailScreen() {
         )}
       </Card>
 
-      {/* Quản lý hồ sơ: Sửa & Xóa thành viên */}
-      <View style={styles.manageSection}>
-        <Button
-          icon={Pencil}
-          tone="secondary"
-          fullWidth
-          onPress={() => setShowEditModal(true)}
-        >
-          Chỉnh sửa thông tin
-        </Button>
-        <Button
-          icon={Trash2}
-          tone="danger"
-          fullWidth
-          onPress={() => setShowDeleteModal(true)}
-        >
-          Xóa thành viên
-        </Button>
-      </View>
-
       {/* Modal chỉnh sửa thông tin */}
       <EditMemberModal
         visible={showEditModal}
@@ -383,11 +363,6 @@ const styles = StyleSheet.create({
   },
   galleryImage: { width: "100%", height: "100%" },
   galleryEmpty: { color: colors.muted, fontSize: 12, textAlign: "center", paddingVertical: spacing.xl },
-  manageSection: {
-    gap: spacing.sm,
-    marginTop: spacing.xs,
-    marginBottom: spacing.xl,
-  },
   deleteOverlay: {
     flex: 1,
     alignItems: "center",

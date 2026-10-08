@@ -4,7 +4,7 @@ Workspace thiết kế và phát triển ứng dụng mobile cho hệ thống iG
 
 ## Duyệt wireframe vòng 1
 
-Mở [wireframes/index.html](wireframes/index.html) bằng trình duyệt. Prototype gồm 21 màn hình, cho phép:
+Mở [wireframes/index.html](wireframes/index.html) bằng trình duyệt. Prototype gồm 20 màn hình, cho phép:
 
 - chuyển giữa khung điện thoại và tablet;
 - chọn trực tiếp từng màn hình từ danh sách;
@@ -31,6 +31,6 @@ Các lệnh kiểm tra:
 - `npm run lint`
 - `npm run doctor`
 
-Mã ứng dụng nằm trong `src/app`. Ứng dụng đã kết nối các API BNI-ERP cho đăng nhập/refresh phiên, cuộc họp, QR/GPS check-in, điều hành và quay thưởng, thành viên, chat, thông báo, phí, tài nguyên và phân quyền. Bảng xếp hạng được tổng hợp từ lịch sử check-in/phát biểu của cuộc họp.
+Mã ứng dụng nằm trong `src/app`. Ứng dụng đã kết nối các API BNI-ERP cho đăng nhập/refresh phiên, cuộc họp, QR/GPS check-in, điều hành và quay thưởng, thành viên, chat, thông báo, tài nguyên và phân quyền. Bảng xếp hạng được tổng hợp từ lịch sử check-in/phát biểu của cuộc họp.
 
 Camera, vị trí và Face ID cần kiểm thử bằng development build trên thiết bị thật trước khi phát hành. Chạy `npx expo run:android` hoặc `npx expo run:ios` sau khi môi trường native đã được cài đặt.

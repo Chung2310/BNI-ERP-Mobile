@@ -13,7 +13,7 @@ Trạng thái: chờ duyệt wireframe. Đây là nền tảng để dựng high
 - Sơ đồ tổ chức: giữ dạng cây, có pan, zoom, fit-to-screen và chế độ danh sách.
 - Trang Thành viên mặc định dùng lưới thẻ như web; sơ đồ tổ chức là chế độ phụ.
 - Xác thực: lần đầu dùng tài khoản; Face ID/vân tay là tùy chọn trong Cài đặt.
-- Thông báo: deep link tới đúng cuộc họp, chat, phí hoặc tài nguyên.
+- Thông báo: deep link tới đúng cuộc họp, chat hoặc tài nguyên.
 - Mạng: online-only; lỗi phải nêu nguyên nhân và cung cấp **Thử lại**.
 - Thiết bị: điện thoại và tablet; màn hình điều hành có bố cục tablet riêng.
 
@@ -54,7 +54,7 @@ Màu đỏ chỉ dùng cho cảnh báo, thao tác phá hủy và trạng thái l
 
 - Bottom navigation luôn có 5 mục và giữ thứ tự cố định.
 - Màn hình con dùng back navigation native.
-- **Thêm** chứa Bảng xếp hạng, Tài nguyên, Phí thường niên, Thông báo, Quản trị và Cài đặt.
+- **Thêm** chứa Bảng xếp hạng, Tài nguyên, Thông báo, Quản trị và Cài đặt.
 - Module không có quyền truy cập được ẩn khỏi điều hướng.
 - Deep link phải phục hồi đúng tab, màn hình con và đối tượng nghiệp vụ.
 
