@@ -64,7 +64,7 @@ export function DashboardQuickActions({
   actions.push({
     icon: BarChart3,
     title: 'Thống kê',
-    href: '/statistics',
+    href: '/(tabs)/statistics',
     color: '#0891B2',
   });
 
