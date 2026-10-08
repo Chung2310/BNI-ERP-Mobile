@@ -5,10 +5,11 @@ import { router, useLocalSearchParams } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
+import { useEvent } from 'expo';
 import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { io, type Socket } from 'socket.io-client';
-import { Check, ChevronRight, FileText, Mic, Paperclip, Pause, Pin, Play, Search, Send, Settings2, Smile, Reply, X } from 'lucide-react-native';
+import { Check, ChevronRight, FileText, Mic, Paperclip, Pause, Pin, Play, RotateCw, Search, Send, Settings2, Smile, Reply, X } from 'lucide-react-native';
 import {
   ActivityIndicator,
 
@@ -35,6 +36,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useAsyncData } from '@/hooks/useAsyncData';
 import { apiConfig } from '@/services/api';
 import { chatService, type ChatAttachment, type ChatLinkPreview, type ChatMessage, type ChatRoom } from '@/services/chat';
+import { cachePickedChatImage, chatMediaUri, rememberChatMedia } from '@/services/chatMediaCache';
 import { colors, radius, spacing } from '@/theme/tokens';
 
 const senderId = (message: ChatMessage) =>
@@ -70,6 +72,38 @@ const searchTypes = [
   { id: 'all', label: 'Tất cả' }, { id: 'text', label: 'Tin nhắn' }, { id: 'link', label: 'Liên kết' }, { id: 'file', label: 'Tệp' }, { id: 'media', label: 'Ảnh/video' },
 ] as const;
 
+type UploadAsset = { uri: string; name: string; mimeType?: string; size?: number };
+type PendingAttachment = {
+  id: string;
+  asset: UploadAsset;
+  previewUri: string;
+  createdAt: string;
+  replyToId?: string;
+  uploaded?: ChatAttachment;
+  progress: number;
+  status: 'sending' | 'failed';
+};
+type DisplayMessage = ChatMessage & { pendingAttachment?: PendingAttachment };
+
+const imageMimeType = (asset: UploadAsset) => {
+  if (asset.mimeType?.startsWith('image/')) return asset.mimeType;
+  const extension = asset.name.split('.').pop()?.toLowerCase();
+  if (extension === 'jpg' || extension === 'jpeg') return 'image/jpeg';
+  if (extension === 'png' || extension === 'gif' || extension === 'webp' || extension === 'heic' || extension === 'heif') return `image/${extension}`;
+  return null;
+};
+
+const attachmentMimeType = (asset: UploadAsset) => {
+  const image = imageMimeType(asset);
+  if (image) return image;
+  if (asset.mimeType && asset.mimeType !== 'application/octet-stream') return asset.mimeType;
+  const extension = asset.name.split('.').pop()?.toLowerCase();
+  if (extension === 'mp4' || extension === 'mov' || extension === 'webm') return `video/${extension === 'mov' ? 'quicktime' : extension}`;
+  if (extension === 'm4a') return 'audio/mp4';
+  if (extension === 'mp3') return 'audio/mpeg';
+  return 'application/octet-stream';
+};
+
 export default function ChatRoomScreen() {
   const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
   const { user, token } = useAuth();
@@ -77,15 +111,14 @@ export default function ChatRoomScreen() {
   const rootRef = useRef<View>(null);
   const keyboardTopRef = useRef<number | null>(null);
   const [keyboardInset, setKeyboardInset] = useState(0);
-  const listRef = useRef<FlatList<ChatMessage>>(null);
+  const listRef = useRef<FlatList<DisplayMessage>>(null);
   const scrollRetryRef = useRef(0);
   const socketRef = useRef<Socket | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [typingNames, setTypingNames] = useState<string[]>([]);
   const [isFocused, setIsFocused] = useState(false);
   const [message, setMessage] = useState('');
-  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
-  const [uploading, setUploading] = useState(false);
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(audioRecorder);
   const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
@@ -114,10 +147,21 @@ export default function ChatRoomScreen() {
   const [hasOlder, setHasOlder] = useState(true);
   const shouldStickToBottom = useRef(true);
 
-  const messages = useMemo(
-    () => [...(data || [])].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
-    [data],
-  );
+  const messages = useMemo(() => {
+    const sentImages = new Set((data || []).flatMap((item) => item.attachments?.map((file) => file.url) || []));
+    const localMessages: DisplayMessage[] = pendingAttachments
+      .filter((pending) => !pending.uploaded || !sentImages.has(pending.uploaded.url))
+      .map((pending) => ({
+        _id: pending.id,
+        senderId: user?.uid || '',
+        senderName: user?.displayName || '',
+        content: '',
+        createdAt: pending.createdAt,
+        attachments: [{ url: pending.previewUri, name: pending.asset.name, type: pending.asset.mimeType || 'image/jpeg' }],
+        pendingAttachment: pending,
+      }));
+    return [...(data || []), ...localMessages].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }, [data, pendingAttachments, user?.uid, user?.displayName]);
 
   useEffect(() => {
     if (!id) return;
@@ -219,7 +263,7 @@ export default function ChatRoomScreen() {
 
   const send = async () => {
     const content = message.trim();
-    if ((editingMessage ? !content : !content && !attachments.length) || sending || uploading || (!room?.isGroup && Boolean(room?.blockedBy?.length))) return;
+    if (!content || sending || (!room?.isGroup && Boolean(room?.blockedBy?.length))) return;
     setSending(true);
     setSendError('');
     try {
@@ -229,12 +273,11 @@ export default function ChatRoomScreen() {
         setData((current) => (current || []).map((entry) => entry._id === updated._id ? updated : entry));
         setEditingMessage(null);
       } else {
-        const sent = await chatService.send(id, content, replyingTo?._id, attachments);
+        const sent = await chatService.send(id, content, replyingTo?._id);
         setData((current) => {
           const existing = current || [];
           return existing.some((item) => item._id === sent._id) ? existing : [sent, ...existing];
         });
-        setAttachments([]);
       }
       setMessage('');
       socketRef.current?.emit('typing_status', { roomId: id, isTyping: false });
@@ -247,25 +290,69 @@ export default function ChatRoomScreen() {
     }
   };
 
-  const uploadAssets = async (assets: { uri: string; name: string; mimeType?: string; size?: number }[]) => {
-    if (uploading) return;
+  const sendPendingAttachment = async (pending: PendingAttachment) => {
+    setPendingAttachments((current) => current.map((item) => item.id === pending.id ? { ...item, status: 'sending', progress: item.uploaded ? 0.95 : 0 } : item));
     try {
-      setUploading(true);
-      for (const asset of assets) {
-        const uploaded = await chatService.uploadAttachment(asset);
-        setAttachments((current) => [...current, uploaded]);
+      if (pending.uploaded) {
+        const latest = await chatService.messages(id);
+        const alreadySent = latest.find((item) =>
+          senderId(item) === user?.uid &&
+          new Date(item.createdAt).getTime() >= new Date(pending.createdAt).getTime() - 1000 &&
+          item.attachments?.some((file) => file.url === pending.uploaded?.url),
+        );
+        if (alreadySent) {
+          setData((current) => (current || []).some((item) => item._id === alreadySent._id) ? current : [alreadySent, ...(current || [])]);
+          setPendingAttachments((current) => current.filter((item) => item.id !== pending.id));
+          return;
+        }
       }
-    } catch (cause) {
-      Alert.alert('Không thể tải tệp', friendlyErrorMessage(cause, 'Vui lòng thử lại.'));
-    } finally {
-      setUploading(false);
+      const previewUri = pending.uploaded || !pending.asset.mimeType?.startsWith('image/')
+        ? pending.previewUri
+        : await cachePickedChatImage(pending.asset.uri, pending.asset.mimeType);
+      setPendingAttachments((current) => current.map((item) => item.id === pending.id ? { ...item, previewUri, asset: { ...item.asset, uri: previewUri } } : item));
+      const uploaded = pending.uploaded || await chatService.uploadAttachment({ ...pending.asset, uri: previewUri }, (progress) => {
+        setPendingAttachments((current) => current.map((item) => item.id === pending.id ? { ...item, progress } : item));
+      });
+      if (uploaded.type.startsWith('image/') || uploaded.type.startsWith('video/')) rememberChatMedia(uploaded.url, previewUri);
+      setPendingAttachments((current) => current.map((item) => item.id === pending.id ? { ...item, uploaded, progress: 0.95 } : item));
+      const sent = await chatService.send(id, '', pending.replyToId, [uploaded]);
+      setData((current) => {
+        const existing = current || [];
+        return existing.some((item) => item._id === sent._id) ? existing : [sent, ...existing];
+      });
+      setPendingAttachments((current) => current.filter((item) => item.id !== pending.id));
+      requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+    } catch {
+      setPendingAttachments((current) => current.map((item) => item.id === pending.id ? { ...item, status: 'failed' } : item));
     }
   };
+
+  const sendPickedAttachments = (assets: UploadAsset[]) => {
+    if (!assets.length) return;
+    const selectedAt = Date.now();
+    const next = assets.map((asset, index): PendingAttachment => ({
+      id: `local-attachment-${selectedAt}-${index}-${Math.random().toString(36).slice(2)}`,
+      asset: { ...asset, mimeType: attachmentMimeType(asset) },
+      previewUri: asset.uri,
+      createdAt: new Date(selectedAt + index).toISOString(),
+      replyToId: replyingTo?._id,
+      progress: 0,
+      status: 'sending',
+    }));
+    setPendingAttachments((current) => [...current, ...next]);
+    setReplyingTo(null);
+    requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+    void (async () => {
+      for (const pending of next) await sendPendingAttachment(pending);
+    })();
+  };
+
+  const handlePickedAssets = (assets: UploadAsset[]) => sendPickedAttachments(assets);
 
   const pickFile = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: true, copyToCacheDirectory: true });
-      if (!result.canceled) await uploadAssets(result.assets.map((asset) => ({ uri: asset.uri, name: asset.name, mimeType: asset.mimeType, size: asset.size })));
+      if (!result.canceled) handlePickedAssets(result.assets.map((asset) => ({ uri: asset.uri, name: asset.name, mimeType: asset.mimeType, size: asset.size })));
     } catch (cause) {
       Alert.alert('Không thể chọn tệp', friendlyErrorMessage(cause, 'Vui lòng thử lại.'));
     }
@@ -278,7 +365,7 @@ export default function ChatRoomScreen() {
         if (!permission.granted) { Alert.alert('Cần quyền thư viện', 'Vui lòng cho phép truy cập thư viện để chọn ảnh hoặc video.'); return; }
       }
       const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images', 'videos'], allowsMultipleSelection: true, quality: 0.85 });
-      if (!result.canceled) await uploadAssets(result.assets.map((asset) => ({ uri: asset.uri, name: asset.fileName || `media-${Date.now()}.${asset.type === 'video' ? 'mp4' : 'jpg'}`, mimeType: asset.mimeType, size: asset.fileSize })));
+      if (!result.canceled) handlePickedAssets(result.assets.map((asset) => ({ uri: asset.uri, name: asset.fileName || `media-${Date.now()}.${asset.type === 'video' ? 'mp4' : 'jpg'}`, mimeType: asset.mimeType || (asset.type === 'image' ? 'image/jpeg' : 'video/mp4'), size: asset.fileSize })));
     } catch (cause) {
       Alert.alert('Không thể chọn ảnh hoặc video', friendlyErrorMessage(cause, 'Vui lòng thử lại.'));
     }
@@ -289,7 +376,7 @@ export default function ChatRoomScreen() {
       const camera = await ImagePicker.requestCameraPermissionsAsync();
       if (!camera.granted) { Alert.alert('Cần quyền camera', 'Vui lòng cho phép sử dụng camera để chụp ảnh.'); return; }
       const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.85 });
-      if (!result.canceled) await uploadAssets(result.assets.map((asset) => ({ uri: asset.uri, name: asset.fileName || `photo-${Date.now()}.jpg`, mimeType: asset.mimeType || 'image/jpeg', size: asset.fileSize })));
+      if (!result.canceled) sendPickedAttachments(result.assets.map((asset) => ({ uri: asset.uri, name: asset.fileName || `photo-${Date.now()}.jpg`, mimeType: asset.mimeType || 'image/jpeg', size: asset.fileSize })));
     } catch (cause) {
       Alert.alert('Không thể chụp ảnh', friendlyErrorMessage(cause, 'Vui lòng thử lại.'));
     }
@@ -302,7 +389,7 @@ export default function ChatRoomScreen() {
       const microphone = await AudioModule.requestRecordingPermissionsAsync();
       if (!microphone.granted) { Alert.alert('Cần quyền micro', 'Vui lòng cho phép sử dụng micro để quay video.'); return; }
       const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['videos'], videoMaxDuration: 300, quality: 0.7 });
-      if (!result.canceled) await uploadAssets(result.assets.map((asset) => ({ uri: asset.uri, name: asset.fileName || `video-${Date.now()}.mp4`, mimeType: asset.mimeType || 'video/mp4', size: asset.fileSize })));
+      if (!result.canceled) handlePickedAssets(result.assets.map((asset) => ({ uri: asset.uri, name: asset.fileName || `video-${Date.now()}.mp4`, mimeType: asset.mimeType || 'video/mp4', size: asset.fileSize })));
     } catch (cause) {
       Alert.alert('Không thể quay video', friendlyErrorMessage(cause, 'Vui lòng thử lại.'));
     }
@@ -324,7 +411,7 @@ export default function ChatRoomScreen() {
     try {
       await audioRecorder.stop();
       await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
-      if (keep && audioRecorder.uri) await uploadAssets([{ uri: audioRecorder.uri, name: `voice-${Date.now()}.m4a`, mimeType: 'audio/mp4' }]);
+      if (keep && audioRecorder.uri) handlePickedAssets([{ uri: audioRecorder.uri, name: `voice-${Date.now()}.m4a`, mimeType: 'audio/mp4' }]);
     } catch (cause) {
       Alert.alert('Không thể lưu ghi âm', friendlyErrorMessage(cause, 'Vui lòng thử lại.'));
     }
@@ -444,9 +531,10 @@ export default function ChatRoomScreen() {
     ), 250);
   };
 
-  const renderMessage = ({ item, index }: { item: ChatMessage; index: number }) => {
+  const renderMessage = ({ item, index }: { item: DisplayMessage; index: number }) => {
     const mine = senderId(item) === user?.uid;
     const quoted = replyMessage(item.replyTo);
+    const mediaOnly = !item.isDeleted && !item.content.trim() && !quoted && item.attachments?.length === 1 && /^(image|video)\//.test(item.attachments[0].type || '');
     const showDay = index === 0 || !sameDay(item.createdAt, messages[index - 1]?.createdAt);
     const reactionCounts = Object.entries((item.reactions || []).reduce<Record<string, number>>((counts, reaction) => {
       counts[reaction.emoji] = (counts[reaction.emoji] || 0) + 1;
@@ -460,8 +548,8 @@ export default function ChatRoomScreen() {
           <Pressable
             accessibilityHint='Nhấn giữ để xem thao tác'
             delayLongPress={350}
-            onLongPress={() => openActions(item)}
-            style={[styles.bubble, mine && styles.mine, item.isDeleted && styles.deletedBubble, jumpTargetId === item._id && styles.highlightBubble]}
+            onLongPress={item.pendingAttachment ? undefined : () => openActions(item)}
+            style={[styles.bubble, mine && styles.mine, mediaOnly && styles.mediaBubble, item.isDeleted && styles.deletedBubble, jumpTargetId === item._id && styles.highlightBubble]}
           >
             {!mine ? <Text style={styles.sender}>{item.senderName}</Text> : null}
             {quoted ? (
@@ -472,16 +560,23 @@ export default function ChatRoomScreen() {
                 </Text>
               </View>
             ) : null}
-            <Text style={[styles.content, mine && styles.mineText, item.isDeleted && styles.deletedText]}>
+            {item.isDeleted || item.content ? <Text style={[styles.content, mine && styles.mineText, item.isDeleted && styles.deletedText]}>
               {item.isDeleted ? 'Tin nhắn đã được thu hồi' : item.content}
-            </Text>
+            </Text> : null}
             {!item.isDeleted && item.content.match(/https?:\/\/[^\s]+/i)?.[0] ? <ChatLinkPreviewCard url={item.content.match(/https?:\/\/[^\s]+/i)![0].replace(/[.,!?)]$/, '')} mine={mine} /> : null}
             {!item.isDeleted ? item.attachments?.map((attachment, attachmentIndex) =>
               attachment.type?.startsWith('image/') ? (
-                <Pressable key={attachment.url + attachmentIndex} onPress={() => setPreviewAttachment(attachment)}>
-                  <Image source={{ uri: attachment.url }} style={styles.attachmentImage} resizeMode='cover' />
-                </Pressable>
-              ) : attachment.type?.startsWith('audio/') ? <ChatAudioAttachment key={attachment.url + attachmentIndex} attachment={attachment} mine={mine} /> : attachment.type?.startsWith('video/') ? <ChatVideoAttachment key={attachment.url + attachmentIndex} attachment={attachment} /> : (
+                <ChatImageAttachment
+                  key={attachment.url + attachmentIndex}
+                  attachment={attachment}
+                  mine={mine}
+                  compact={Boolean(mediaOnly)}
+                  sending={item.pendingAttachment?.status === 'sending'}
+                  failed={item.pendingAttachment?.status === 'failed'}
+                  onPress={() => setPreviewAttachment({ ...attachment, url: chatMediaUri(attachment.url) })}
+                  onRetry={item.pendingAttachment ? () => void sendPendingAttachment(item.pendingAttachment!) : undefined}
+                />
+              ) : attachment.type?.startsWith('video/') ? <ChatVideoAttachment key={attachment.url + attachmentIndex} attachment={attachment} mine={mine} compact={Boolean(mediaOnly)} pending={item.pendingAttachment} onRetry={item.pendingAttachment ? () => void sendPendingAttachment(item.pendingAttachment!) : undefined} /> : item.pendingAttachment ? <PendingFileAttachment key={attachment.url + attachmentIndex} attachment={attachment} pending={item.pendingAttachment} onRetry={() => void sendPendingAttachment(item.pendingAttachment!)} /> : attachment.type?.startsWith('audio/') ? <ChatAudioAttachment key={attachment.url + attachmentIndex} attachment={attachment} mine={mine} /> : (
                 <Pressable key={attachment.url + attachmentIndex} onPress={() => void Linking.openURL(attachment.url)} style={[styles.file, mine && styles.myFile]}>
                   <Text numberOfLines={1} style={[styles.fileText, mine && styles.mineText]}>
                     {attachment.name || 'Mở tệp đính kèm'}
@@ -489,13 +584,13 @@ export default function ChatRoomScreen() {
                 </Pressable>
               ),
             ) : null}
-            <View style={styles.meta}>
-              {item.editedAt ? <Text style={[styles.edited, mine && styles.mySecondaryText]}>đã sửa</Text> : null}
-              {mine && item.readBy && room && item.readBy.length >= room.members.length ? <Text style={[styles.edited, styles.mySecondaryText]}>Đã xem</Text> : null}
-              <Text style={[styles.time, mine && styles.mySecondaryText]}>{formatClock(item.createdAt)}</Text>
+            <View style={[styles.meta, mediaOnly && styles.mediaMeta]}>
+              {item.editedAt ? <Text style={[styles.edited, mine && !mediaOnly && styles.mySecondaryText]}>đã sửa</Text> : null}
+              {mine && !item.pendingAttachment && item.readBy && room && item.readBy.length >= room.members.length ? <Text style={[styles.edited, !mediaOnly && styles.mySecondaryText]}>Đã xem</Text> : null}
+              <Text style={[styles.time, mine && !mediaOnly && styles.mySecondaryText]}>{item.pendingAttachment ? item.pendingAttachment.status === 'sending' ? 'Đang gửi' : 'Chưa gửi' : formatClock(item.createdAt)}</Text>
             </View>
             {reactionCounts.length ? (
-              <Pressable onPress={() => openActions(item)} style={[styles.reaction, mine ? styles.reactionMine : styles.reactionOther]}>
+              <Pressable onPress={() => openActions(item)} style={[styles.reaction, mine ? styles.reactionMine : styles.reactionOther, mediaOnly && styles.mediaReaction]}>
                 <Text style={styles.reactionText}>{reactionCounts.map(([emoji, count]) => `${emoji} ${count}`).join('  ')}</Text>
               </Pressable>
             ) : null}
@@ -579,7 +674,6 @@ export default function ChatRoomScreen() {
 
           {editingMessage ? <View style={styles.replying}><Text style={styles.replyingName}>Đang sửa tin nhắn</Text><Pressable accessibilityLabel='Hủy sửa' onPress={() => { setEditingMessage(null); setMessage(''); }}><X color={colors.muted} size={18} /></Pressable></View> : null}
 
-          {attachments.length ? <View style={styles.attachmentQueue}>{attachments.map((file, index) => <View key={file.url + index} style={styles.attachmentChip}><FileText color={colors.primaryDark} size={15} /><Text numberOfLines={1} style={styles.attachmentName}>{file.name}</Text><Pressable accessibilityLabel={`Bỏ ${file.name}`} onPress={() => setAttachments((current) => current.filter((_, position) => position !== index))}><X color={colors.muted} size={17} /></Pressable></View>)}</View> : null}
 
           {recorderState.isRecording ? <View style={styles.recordingBar}><Mic color={colors.danger} size={18} /><Text style={styles.recordingText}>Đang ghi âm {Math.floor(recorderState.durationMillis / 1000)} giây</Text><Pressable accessibilityLabel='Hủy ghi âm' onPress={() => void stopRecording(false)} style={styles.recordingButton}><X color={colors.muted} size={20} /></Pressable><Pressable accessibilityLabel='Dừng và đính kèm ghi âm' onPress={() => void stopRecording(true)} style={styles.recordingButton}><Check color={colors.primaryDark} size={20} /></Pressable></View> : null}
 
@@ -590,7 +684,7 @@ export default function ChatRoomScreen() {
             {sendError ? <Text style={styles.sendError}>{sendError}</Text> : null}
             {blocked ? <Text style={styles.blockedHint}>Cuộc trò chuyện đang bị chặn. Mở cài đặt để bỏ chặn.</Text> : null}
             <View style={styles.composer}>
-              <Pressable accessibilityLabel='Đính kèm ảnh, video hoặc tệp' disabled={blocked || uploading || sending || Boolean(editingMessage)} onPress={() => { Keyboard.dismiss(); setShowAttachmentPicker(true); }} style={styles.composerTool}>{uploading ? <ActivityIndicator color={colors.primaryDark} /> : <Paperclip color={colors.primaryDark} size={20} />}</Pressable>
+              <Pressable accessibilityLabel='Đính kèm ảnh, video hoặc tệp' disabled={blocked || sending || Boolean(editingMessage)} onPress={() => { Keyboard.dismiss(); setShowAttachmentPicker(true); }} style={styles.composerTool}><Paperclip color={colors.primaryDark} size={20} /></Pressable>
               <Pressable accessibilityLabel='Chèn emoji' disabled={blocked} onPress={() => { Keyboard.dismiss(); setShowEmojis((value) => !value); }} style={styles.composerTool}><Smile color={colors.primaryDark} size={20} /></Pressable>
               <TextInput
                 value={message}
@@ -613,10 +707,10 @@ export default function ChatRoomScreen() {
               <Pressable
                 accessibilityLabel='Gửi tin nhắn'
                 onPress={() => void send()}
-                disabled={blocked || (editingMessage ? !message.trim() : !message.trim() && !attachments.length) || sending || uploading}
+                disabled={blocked || !message.trim() || sending}
                 style={({ pressed }) => [
                   styles.send,
-                  (blocked || (editingMessage ? !message.trim() : !message.trim() && !attachments.length) || sending || uploading) && styles.sendDisabled,
+                  (blocked || !message.trim() || sending) && styles.sendDisabled,
                   pressed && styles.pressed,
                 ]}
               >
@@ -646,7 +740,7 @@ export default function ChatRoomScreen() {
           <SheetAction label='Chia sẻ / chuyển tiếp' onPress={() => { const item = actionsMessage; setActionsMessage(null); if (!item) return; setSharingMessage(item); void chatService.rooms().then(setShareRooms).catch((cause) => Alert.alert('Không thể tải cuộc trò chuyện', friendlyErrorMessage(cause, 'Vui lòng thử lại.'))); }} />
           {actionsMessage && senderId(actionsMessage) !== user?.uid ? <SheetAction label='Báo cáo' danger onPress={reportMessage} /> : null}
           {canPin ? <SheetAction label={actionsMessage && pinnedIds.includes(actionsMessage._id) ? 'Bỏ ghim tin nhắn' : 'Ghim tin nhắn'} onPress={() => { const item = actionsMessage; setActionsMessage(null); if (item) void chatService.pinMessage(id, item._id, pinnedIds.includes(item._id)).then(setRoom).catch((cause) => Alert.alert('Không thể ghim tin', friendlyErrorMessage(cause, 'Vui lòng thử lại.'))); }} /> : null}
-          {actionsMessage && senderId(actionsMessage) === user?.uid && actionsMessage.content ? <SheetAction label='Sửa tin nhắn' onPress={() => { setEditingMessage(actionsMessage); setMessage(actionsMessage.content); setAttachments([]); setReplyingTo(null); setActionsMessage(null); }} /> : null}
+          {actionsMessage && senderId(actionsMessage) === user?.uid && actionsMessage.content ? <SheetAction label='Sửa tin nhắn' onPress={() => { setEditingMessage(actionsMessage); setMessage(actionsMessage.content); setReplyingTo(null); setActionsMessage(null); }} /> : null}
           {actionsMessage && (senderId(actionsMessage) === user?.uid || canManageMessages) ? <SheetAction label='Thu hồi tin nhắn' danger onPress={() => { const item = actionsMessage; setActionsMessage(null); if (item) Alert.alert('Thu hồi tin nhắn?', 'Tin nhắn sẽ không còn hiển thị nội dung.', [{ text: 'Bỏ qua', style: 'cancel' }, { text: 'Thu hồi', style: 'destructive', onPress: () => void removeMessage(item) }]); }} /> : null}
         </View>
       </View>
@@ -669,6 +763,40 @@ function SheetAction({ label, onPress, danger, disabled }: { label: string; onPr
   return <Pressable accessibilityRole='button' disabled={disabled} onPress={onPress} style={styles.sheetAction}><Text style={[styles.sheetActionText, danger && styles.sheetDanger]}>{label}</Text></Pressable>;
 }
 
+function ChatImageAttachment({ attachment, mine, compact, sending, failed, onPress, onRetry }: {
+  attachment: ChatAttachment;
+  mine: boolean;
+  compact?: boolean;
+  sending?: boolean;
+  failed?: boolean;
+  onPress: () => void;
+  onRetry?: () => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const uri = chatMediaUri(attachment.url);
+
+  return <View style={[styles.imageAttachment, compact && styles.mediaAttachmentCompact]}>
+    <Pressable accessibilityRole='button' accessibilityLabel='Xem ảnh' onPress={onPress} style={styles.imageFrame}>
+      <Image
+        key={`${uri}-${attempt}`}
+        source={{ uri }}
+        style={styles.attachmentImage}
+        resizeMode='cover'
+        onLoadStart={() => { setLoading(true); setLoadFailed(false); }}
+        onLoadEnd={() => setLoading(false)}
+        onError={() => setLoadFailed(true)}
+      />
+      {sending || loading ? <View pointerEvents='none' style={styles.imageLoading}><ActivityIndicator color='#FFFFFF' size='large' /></View> : null}
+    </Pressable>
+    {failed || loadFailed ? <Pressable accessibilityRole='button' onPress={failed ? onRetry : () => setAttempt((value) => value + 1)} style={styles.imageRetry}>
+      <RotateCw color={mine ? '#FFFFFF' : colors.primaryDark} size={14} />
+      <Text style={[styles.imageRetryText, !mine && styles.imageRetryOther]}>{failed ? 'Gửi lại ảnh' : 'Tải lại ảnh'}</Text>
+    </Pressable> : null}
+  </View>;
+}
+
 function ChatAudioAttachment({ attachment, mine }: { attachment: ChatAttachment; mine: boolean }) {
   const player = useAudioPlayer(attachment.url);
   const status = useAudioPlayerStatus(player);
@@ -679,9 +807,27 @@ function ChatAudioAttachment({ attachment, mine }: { attachment: ChatAttachment;
   </Pressable>;
 }
 
-function ChatVideoAttachment({ attachment }: { attachment: ChatAttachment }) {
-  const player = useVideoPlayer(attachment.url);
-  return <VideoView style={styles.attachmentVideo} player={player} nativeControls fullscreenOptions={{ enable: true }} contentFit='contain' />;
+function ChatVideoAttachment({ attachment, mine, compact, pending, onRetry }: { attachment: ChatAttachment; mine: boolean; compact?: boolean; pending?: PendingAttachment; onRetry?: () => void }) {
+  const player = useVideoPlayer(chatMediaUri(attachment.url));
+  const { status } = useEvent(player, 'statusChange', { status: player.status });
+  const loading = pending?.status === 'sending' || (!pending && status !== 'readyToPlay' && status !== 'error');
+  return <View style={[styles.videoAttachment, compact && styles.mediaAttachmentCompact]}>
+    <VideoView style={styles.attachmentVideo} player={player} nativeControls={!pending} fullscreenOptions={{ enable: true }} contentFit='contain' />
+    {loading ? <View pointerEvents='none' style={styles.imageLoading}><ActivityIndicator color='#FFFFFF' size='large' />{pending ? <Text style={styles.videoProgress}>{Math.round(pending.progress * 100)}%</Text> : null}</View> : null}
+    {pending?.status === 'failed' ? <Pressable accessibilityRole='button' onPress={onRetry} style={styles.imageRetry}><RotateCw color={mine ? '#FFFFFF' : colors.primaryDark} size={14} /><Text style={[styles.imageRetryText, !mine && styles.imageRetryOther]}>Gửi lại video</Text></Pressable> : null}
+    {!pending && status === 'error' ? <Text style={[styles.imageRetryText, !mine && styles.imageRetryOther]}>Không tải được video.</Text> : null}
+  </View>;
+}
+
+function PendingFileAttachment({ attachment, pending, onRetry }: { attachment: ChatAttachment; pending: PendingAttachment; onRetry: () => void }) {
+  const percent = Math.round(pending.progress * 100);
+  return <View style={styles.pendingFile}>
+    <View style={styles.pendingFileTitle}><FileText color='#FFFFFF' size={19} /><Text numberOfLines={2} style={styles.pendingFileName}>{attachment.name}</Text></View>
+    {pending.status === 'sending' ? <>
+      <View style={styles.uploadTrack}><View style={[styles.uploadFill, { width: `${percent}%` as `${number}%` }]} /></View>
+      <Text style={styles.pendingFileStatus}>{percent <= 5 ? 'Đang chuẩn bị tệp...' : percent >= 95 ? 'Đang hoàn tất...' : `Đang tải lên ${percent}%`}</Text>
+    </> : <Pressable accessibilityRole='button' onPress={onRetry} style={styles.imageRetry}><RotateCw color='#FFFFFF' size={14} /><Text style={styles.imageRetryText}>Gửi lại tệp</Text></Pressable>}
+  </View>;
 }
 
 function ChatLinkPreviewCard({ url, mine }: { url: string; mine: boolean }) {
@@ -707,12 +853,9 @@ const styles = StyleSheet.create({
   pinnedText: { color: colors.primaryDark, fontSize: 12, fontWeight: '700' },
   pinnedCount: { color: colors.muted, fontSize: 11 },
   composerTool: { width: 32, height: 44, alignItems: 'center', justifyContent: 'center' },
-  attachmentQueue: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, backgroundColor: colors.surface },
   recordingBar: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, backgroundColor: colors.surface },
   recordingText: { flex: 1, color: colors.text, fontSize: 12, fontWeight: '700' },
   recordingButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  attachmentChip: { flexDirection: 'row', alignItems: 'center', gap: 5, maxWidth: '100%', paddingHorizontal: 8, paddingVertical: 6, borderRadius: radius.md, backgroundColor: colors.primarySoft },
-  attachmentName: { flexShrink: 1, color: colors.primaryDark, fontSize: 11 },
   emojiRow: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 6, backgroundColor: colors.surface },
   emojiPicker: { height: 210, backgroundColor: colors.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
   emojiTabs: { gap: 4, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
@@ -808,6 +951,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
+  mediaBubble: { paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0, borderWidth: 0, borderRadius: 0, backgroundColor: 'transparent', shadowOpacity: 0, elevation: 0 },
   deletedBubble: { backgroundColor: '#F2F5F6', borderColor: colors.border },
   sender: { marginBottom: 3, color: colors.primaryDark, fontSize: 10, fontWeight: '900' },
   content: { color: colors.text, fontSize: 14, lineHeight: 20 },
@@ -827,6 +971,7 @@ const styles = StyleSheet.create({
   quoteText: { marginTop: 2, color: colors.muted, fontSize: 11 },
   mySecondaryText: { color: 'rgba(255,255,255,0.78)' },
   meta: { marginTop: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 5 },
+  mediaMeta: { marginTop: 3, paddingHorizontal: 2 },
   time: { color: colors.muted, fontSize: 9 },
   edited: { color: colors.muted, fontSize: 9, fontStyle: 'italic' },
   reaction: {
@@ -841,16 +986,31 @@ const styles = StyleSheet.create({
   },
   reactionMine: { left: 8 },
   reactionOther: { right: 8 },
+  mediaReaction: { bottom: 16 },
   reactionText: { color: colors.text, fontSize: 10, fontWeight: '700' },
   attachmentImage: {
     width: 220,
     height: 155,
-    marginTop: spacing.sm,
     borderRadius: radius.md,
     backgroundColor: colors.border,
   },
+  imageAttachment: { marginTop: spacing.sm, alignSelf: 'flex-start' },
+  mediaAttachmentCompact: { marginTop: 0 },
+  imageFrame: { width: 220, height: 155, borderRadius: radius.md, overflow: 'hidden' },
+  imageLoading: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(16,37,51,0.35)' },
+  imageRetry: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingVertical: spacing.xs },
+  imageRetryText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
+  imageRetryOther: { color: colors.primaryDark },
   highlightBubble: { borderWidth: 2, borderColor: '#F59E0B' },
-  attachmentVideo: { width: 220, height: 155, marginTop: spacing.sm, borderRadius: radius.md, backgroundColor: '#111827' },
+  videoAttachment: { width: 220, marginTop: spacing.sm, borderRadius: radius.md, overflow: 'hidden' },
+  attachmentVideo: { width: 220, height: 155, backgroundColor: '#111827' },
+  videoProgress: { color: '#FFFFFF', fontSize: 12, fontWeight: '800', marginTop: spacing.xs },
+  pendingFile: { minWidth: 210, maxWidth: 245, marginTop: spacing.sm, padding: spacing.sm, borderRadius: radius.md, backgroundColor: 'rgba(255,255,255,0.16)' },
+  pendingFileTitle: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  pendingFileName: { flex: 1, color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  uploadTrack: { height: 5, marginTop: spacing.sm, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.3)', overflow: 'hidden' },
+  uploadFill: { height: '100%', borderRadius: radius.pill, backgroundColor: '#FFFFFF' },
+  pendingFileStatus: { marginTop: spacing.xs, color: '#FFFFFF', fontSize: 10 },
   mediaAudio: { minWidth: 160, maxWidth: 220, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm, padding: spacing.sm, borderRadius: radius.sm, backgroundColor: colors.primarySoft },
   linkPreview: { flexDirection: 'row', overflow: 'hidden', marginTop: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: colors.surface },
   myLinkPreview: { borderColor: 'rgba(255,255,255,0.3)', backgroundColor: 'rgba(255,255,255,0.15)' },

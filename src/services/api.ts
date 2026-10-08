@@ -98,4 +98,40 @@ export async function apiRequest<T>(path: string, options: RequestInit & { timeo
   return payload as T;
 }
 
+export async function apiPostWithUploadProgress<T>(path: string, body: string, onProgress: (fraction: number) => void, hasRetried = false): Promise<T> {
+  const { status, payload } = await new Promise<{ status: number; payload: Record<string, unknown> }>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", API_URL + path);
+    xhr.withCredentials = true;
+    xhr.timeout = 300000;
+    xhr.setRequestHeader("Accept", "application/json");
+    xhr.setRequestHeader("Content-Type", "application/json");
+    if (accessToken) xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) onProgress(Math.min(1, event.loaded / event.total));
+    };
+    xhr.onerror = () => reject(new ApiError("Không thể kết nối. Hãy kiểm tra mạng rồi thử lại.", 0));
+    xhr.onabort = () => reject(new ApiError("Đã dừng tải tệp. Vui lòng thử lại.", 0));
+    xhr.ontimeout = () => reject(new ApiError("Kết nối quá thời gian. Vui lòng thử lại.", 408));
+    xhr.onload = () => {
+      try {
+        const parsed: unknown = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+        resolve({ status: xhr.status, payload: parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {} });
+      } catch {
+        reject(new ApiError("Hệ thống đang bận. Vui lòng thử lại sau.", xhr.status));
+      }
+    };
+    xhr.send(body);
+  });
+
+  if (status === 401 && !hasRetried) {
+    const refreshedToken = await refreshAccessToken();
+    if (refreshedToken) return apiPostWithUploadProgress<T>(path, body, onProgress, true);
+  }
+  if (status < 200 || status >= 300) {
+    throw new ApiError(typeof payload.message === "string" ? payload.message : "Không thể tải tệp lên. Vui lòng thử lại.", status);
+  }
+  return payload as T;
+}
+
 export const apiConfig = { baseUrl: API_URL };

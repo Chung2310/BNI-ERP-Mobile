@@ -1,4 +1,4 @@
-import { apiRequest } from '@/services/api';
+import { apiPostWithUploadProgress, apiRequest } from '@/services/api';
 import { File } from 'expo-file-system';
 
 export type ChatAttachment = { url: string; name: string; type: string; size?: number; uploadToken?: string };
@@ -61,15 +61,18 @@ export const chatService = {
       method: 'POST',
       body: JSON.stringify({ content, attachments, ...(replyTo ? { replyTo } : {}) }),
     }).then((payload) => payload.data),
-  uploadAttachment: async (asset: { uri: string; name: string; mimeType?: string; size?: number }): Promise<ChatAttachment> => {
+  uploadAttachment: async (asset: { uri: string; name: string; mimeType?: string; size?: number }, onProgress: (fraction: number) => void = () => undefined): Promise<ChatAttachment> => {
     const type = asset.mimeType || 'application/octet-stream';
     const file = new File(asset.uri);
+    onProgress(0);
     const base64 = await file.base64();
-    const payload = await apiRequest<{ url: string; uploadToken?: string }>('/api/v1/media/upload', {
-      method: 'POST',
-      timeoutMs: 300000,
-      body: JSON.stringify({ file: `data:${type};base64,${base64}`, sourceType: 'chat.attachment', fileName: asset.name, mimeType: type, size: asset.size ?? file.size }),
-    });
+    onProgress(0.05);
+    const payload = await apiPostWithUploadProgress<{ url: string; uploadToken?: string }>(
+      '/api/v1/media/upload',
+      JSON.stringify({ file: `data:${type};base64,${base64}`, sourceType: 'chat.attachment', fileName: asset.name, mimeType: type, size: asset.size ?? file.size }),
+      (fraction) => onProgress(0.05 + fraction * 0.9),
+    );
+    onProgress(0.95);
     return { url: payload.url, name: asset.name, type, size: asset.size ?? file.size, uploadToken: payload.uploadToken };
   },
   remove: (roomId: string, messageId: string) =>
