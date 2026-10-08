@@ -61,6 +61,41 @@ function formatMeetingDetails(startsAt: string, endsAt?: string) {
   };
 }
 
+function getMeetingStatusInfo(meeting: Meeting) {
+  const now = new Date();
+  const start = new Date(meeting.startsAt);
+  const end = meeting.endsAt ? new Date(meeting.endsAt) : new Date(start.getTime() + 60 * 60 * 1000);
+
+  if (
+    meeting.status === "live" ||
+    meeting.status === "paused" ||
+    (now >= start && now <= end && meeting.status !== "ended" && meeting.status !== "cancelled")
+  ) {
+    return {
+      label: "Đang diễn ra",
+      color: "#16A34A", // Xanh lá
+      bg: "#DCFCE7",
+      isLive: true,
+    };
+  }
+
+  if (meeting.status === "ended" || now > end) {
+    return {
+      label: "Đã kết thúc",
+      color: "#64748B",
+      bg: "#F1F5F9",
+      isEnded: true,
+    };
+  }
+
+  return {
+    label: "Sắp diễn ra",
+    color: "#2563EB", // Xanh dương
+    bg: "#DBEAFE",
+    isUpcoming: true,
+  };
+}
+
 function ScheduleMeetingCard({
   meeting,
   themeColor = "blue",
@@ -71,8 +106,9 @@ function ScheduleMeetingCard({
   index?: number;
 }) {
   const isBlue = themeColor === "blue";
-  const primaryColor = isBlue ? "#2563EB" : "#10B981";
-  const badgeBorder = isBlue ? "#DBEAFE" : "#D1FAE5";
+  const statusInfo = getMeetingStatusInfo(meeting);
+  const primaryColor = statusInfo.isLive ? "#16A34A" : statusInfo.isUpcoming ? "#2563EB" : isBlue ? "#2563EB" : "#10B981";
+  const badgeBorder = statusInfo.isLive ? "#DCFCE7" : statusInfo.isUpcoming ? "#DBEAFE" : isBlue ? "#DBEAFE" : "#D1FAE5";
 
   const { dateStr, timeRange, duration, monthNum, dayNum } = formatMeetingDetails(
     meeting.startsAt,
@@ -80,12 +116,8 @@ function ScheduleMeetingCard({
   );
 
   const handlePress = () => {
-    if (meeting._id.startsWith("sample-")) {
-      router.push("/(tabs)/meetings");
-      return;
-    }
     router.push({
-      pathname: meeting.status === "live" ? "/meeting/[id]/live" : "/meeting/[id]",
+      pathname: "/meeting/[id]",
       params: { id: meeting._id },
     });
   };
@@ -93,7 +125,7 @@ function ScheduleMeetingCard({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Cuộc họp: ${meeting.title}`}
+      accessibilityLabel={`Cuộc họp: ${meeting.title} (${statusInfo.label})`}
       onPress={handlePress}
       style={({ pressed }) => [styles.scheduleCard, pressed && styles.cardPressed]}
     >
@@ -109,12 +141,19 @@ function ScheduleMeetingCard({
 
       {/* Thông tin chi tiết bên phải */}
       <View style={styles.cardDetails}>
-        {/* Dòng 1: Chấm tròn và Tiêu đề */}
+        {/* Dòng 1: Chấm tròn, Tiêu đề và Trạng thái */}
         <View style={styles.titleRow}>
-          <View style={[styles.bulletDot, { backgroundColor: primaryColor }]} />
-          <Text numberOfLines={1} style={styles.cardTitle}>
-            {meeting.title}
-          </Text>
+          <View style={styles.titleLeft}>
+            <View style={[styles.bulletDot, { backgroundColor: statusInfo.color }]} />
+            <Text numberOfLines={1} style={styles.cardTitle}>
+              {meeting.title}
+            </Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: statusInfo.bg }]}>
+            <Text style={[styles.statusText, { color: statusInfo.color }]}>
+              {statusInfo.label}
+            </Text>
+          </View>
         </View>
 
         {/* Dòng 2: Thời gian với icon Đồng hồ */}
@@ -220,7 +259,21 @@ export default function HomeScreen() {
   }, [setData]);
 
   const meetings = useMemo(() => data || [], [data]);
-  const chartMeetings = dashboardData?.history || meetings;
+
+  // Lọc bỏ hoàn toàn các cuộc họp đã hủy khỏi danh sách và thống kê trên trang chủ
+  const activeMeetings = useMemo(
+    () => meetings.filter((m) => m.status !== "cancelled"),
+    [meetings]
+  );
+
+  const chartMeetings = useMemo(
+    () =>
+      dashboardData?.history
+        ? dashboardData.history.filter((meeting) => meeting.status !== "cancelled")
+        : activeMeetings,
+    [dashboardData, activeMeetings],
+  );
+
   const memberCount =
     dashboardData?.members.length ||
     new Set(
@@ -228,71 +281,11 @@ export default function HomeScreen() {
     ).size;
 
   const liveMeeting = useMemo(
-    () => meetings.find((meeting) => meeting.status === "live" || meeting.status === "paused"),
-    [meetings],
+    () => activeMeetings.find((meeting) => meeting.status === "live" || meeting.status === "paused"),
+    [activeMeetings],
   );
 
-  // Mẫu dữ liệu demo hiển thị chuẩn như thiết kế khi DB chưa có lịch
-  const sampleMeetings: Meeting[] = useMemo(
-    () => [
-      {
-        _id: "sample-1",
-        title: "Product Innovation Hour 20/6/2026",
-        startsAt: "2026-06-20T15:00:00.000Z",
-        endsAt: "2026-06-20T17:00:00.000Z",
-        location: "---",
-        status: "scheduled",
-        speakers: [
-          {
-            id: "s1",
-            name: user?.displayName || "Nguyễn Văn Việt",
-            checkedInAt: "",
-            seconds: 0,
-            photoURL: user?.photoURL,
-          },
-        ],
-        description: "Họp nhanh không cần máy chiếu",
-        reminderDays: 1,
-        __v: 0,
-        currentIndex: 0,
-        tiers: [],
-        fallbackSeconds: 60,
-      },
-      {
-        _id: "sample-2",
-        title: "Demo app meeting",
-        startsAt: "2026-06-20T12:00:00.000Z",
-        endsAt: "2026-06-20T13:00:00.000Z",
-        location: "---",
-        status: "scheduled",
-        speakers: [],
-        description: "Họp giao ban hàng tháng",
-        reminderDays: 1,
-        __v: 0,
-        currentIndex: 0,
-        tiers: [],
-        fallbackSeconds: 60,
-      },
-      {
-        _id: "sample-3",
-        title: "Cs + Mobile trao đổi vấn đề về WF",
-        startsAt: "2026-06-20T08:30:00.000Z",
-        endsAt: "2026-06-20T09:30:00.000Z",
-        location: "---",
-        status: "scheduled",
-        speakers: [],
-        description: "Họp nhanh không cần máy chiếu",
-        reminderDays: 1,
-        __v: 0,
-        currentIndex: 0,
-        tiers: [],
-        fallbackSeconds: 60,
-      },
-    ],
-    [user],
-  );
-
-  // Tính các cuộc họp sắp diễn ra & tuần này
+  // Tính các cuộc họp sắp diễn ra & tuần này (chỉ lấy các cuộc họp chưa hủy)
   const { upcomingMeetings, thisWeekMeetings } = useMemo(() => {
     const now = new Date();
     const dayOfWeek = now.getDay();
@@ -305,7 +298,7 @@ export default function HomeScreen() {
     sundayDate.setDate(mondayDate.getDate() + 6);
     sundayDate.setHours(23, 59, 59, 999);
 
-    const scheduledOrLive = meetings.filter(
+    const scheduledOrLive = activeMeetings.filter(
       (m) =>
         m.status === "scheduled" ||
         m.status === "live" ||
@@ -314,7 +307,7 @@ export default function HomeScreen() {
     );
 
     const upcoming = scheduledOrLive.sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt));
-    const thisWeek = meetings
+    const thisWeek = activeMeetings
       .filter((m) => {
         const d = new Date(m.startsAt);
         return d >= mondayDate && d <= sundayDate;
@@ -322,11 +315,7 @@ export default function HomeScreen() {
       .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt));
 
     return { upcomingMeetings: upcoming, thisWeekMeetings: thisWeek };
-  }, [meetings]);
-
-  // Nếu DB chưa có cuộc họp, tự động fallback về danh sách mẫu hiển thị chuẩn như ảnh 1
-  const displayUpcoming = upcomingMeetings.length > 0 ? upcomingMeetings : sampleMeetings;
-  const displayThisWeek = thisWeekMeetings.length > 0 ? thisWeekMeetings : [sampleMeetings[0]];
+  }, [activeMeetings]);
 
   const memberRankings = useMemo(() => {
     const totals = new Map<string, { name: string; appearances: number; seconds: number }>();
@@ -406,11 +395,11 @@ export default function HomeScreen() {
           {liveMeeting ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Vào cuộc họp: ${liveMeeting.title}`}
+              accessibilityLabel={`Xem chi tiết cuộc họp: ${liveMeeting.title}`}
               style={({ pressed }) => [styles.heroCompact, pressed && styles.cardPressed]}
               onPress={() =>
                 router.push({
-                  pathname: "/meeting/[id]/live",
+                  pathname: "/meeting/[id]",
                   params: { id: liveMeeting._id },
                 })
               }
@@ -429,7 +418,7 @@ export default function HomeScreen() {
               </View>
 
               <View style={styles.heroActionBtn}>
-                <Text style={styles.heroActionBtnText}>Vào họp</Text>
+                <Text style={styles.heroActionBtnText}>Xem chi tiết</Text>
                 <ArrowRight color="#00AECA" size={14} strokeWidth={2.6} />
               </View>
             </Pressable>
@@ -443,7 +432,7 @@ export default function HomeScreen() {
               hitSlop={8}
               onPress={() => router.push("/(tabs)/meetings")}
             >
-              <Text style={styles.link}>Tất cả ({meetings.length})</Text>
+              <Text style={styles.link}>Tất cả ({activeMeetings.length})</Text>
             </Pressable>
           </View>
 
@@ -463,13 +452,14 @@ export default function HomeScreen() {
               <Text style={styles.accordionTitle}>Sắp diễn ra</Text>
             </View>
             <View style={styles.accordionBadge}>
-              <Text style={styles.accordionBadgeText}>{displayUpcoming.length}</Text>
+              <Text style={styles.accordionBadgeText}>{upcomingMeetings.length}</Text>
             </View>
           </Pressable>
 
           {isUpcomingOpen && (
             <View style={styles.accordionContent}>
-              {displayUpcoming.slice(0, visibleUpcomingCount).map((meeting, index) => (
+              {upcomingMeetings.length === 0 ? <EmptyState title="Chưa có cuộc họp sắp diễn ra" message="Cuộc họp mới sẽ xuất hiện tại đây." /> : null}
+              {upcomingMeetings.slice(0, visibleUpcomingCount).map((meeting, index) => (
                 <ScheduleMeetingCard
                   key={meeting._id}
                   meeting={meeting}
@@ -478,7 +468,7 @@ export default function HomeScreen() {
                 />
               ))}
 
-              {displayUpcoming.length > visibleUpcomingCount && (
+              {upcomingMeetings.length > visibleUpcomingCount && (
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Xem thêm cuộc họp sắp diễn ra"
@@ -486,7 +476,7 @@ export default function HomeScreen() {
                   onPress={() => setVisibleUpcomingCount((prev) => prev + 10)}
                 >
                   <Text style={styles.loadMoreText}>
-                    Xem thêm ({displayUpcoming.length - visibleUpcomingCount} cuộc họp còn lại)
+                    Xem thêm ({upcomingMeetings.length - visibleUpcomingCount} cuộc họp còn lại)
                   </Text>
                 </Pressable>
               )}
@@ -510,13 +500,14 @@ export default function HomeScreen() {
               <Text style={styles.accordionSubtitle}>{weekRangeText}</Text>
             </View>
             <View style={styles.accordionBadge}>
-              <Text style={styles.accordionBadgeText}>{displayThisWeek.length}</Text>
+              <Text style={styles.accordionBadgeText}>{thisWeekMeetings.length}</Text>
             </View>
           </Pressable>
 
           {isThisWeekOpen && (
             <View style={styles.accordionContent}>
-              {displayThisWeek.map((meeting, index) => (
+              {thisWeekMeetings.length === 0 ? <EmptyState title="Tuần này chưa có cuộc họp" message="Cuộc họp trong tuần sẽ xuất hiện tại đây." /> : null}
+              {thisWeekMeetings.map((meeting, index) => (
                 <ScheduleMeetingCard
                   key={meeting._id}
                   meeting={meeting}
@@ -810,7 +801,15 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: 6,
+  },
+  titleLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: 6,
+    marginRight: 6,
   },
   bulletDot: {
     width: 6,
@@ -821,6 +820,16 @@ const styles = StyleSheet.create({
     flex: 1,
     color: "#0F172A",
     fontSize: 13.5,
+    fontWeight: "700",
+  },
+  statusBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: "center",
+  },
+  statusText: {
+    fontSize: 11,
     fontWeight: "700",
   },
   metaRow: {
