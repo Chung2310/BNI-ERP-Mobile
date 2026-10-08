@@ -1,3 +1,4 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useState } from "react";
 import * as ImagePicker from "expo-image-picker";
 import {
@@ -129,7 +130,7 @@ function EditMemberContent({ member, onClose, onUpdated }: Omit<Props, "visible"
       const url = asset.base64 ? await uploadImage(asset.base64, "igen_erp/members/covers") : asset.uri;
       setCoverUrl(url);
     } catch (err) {
-      Alert.alert("Lỗi", err instanceof Error ? err.message : "Không thể tải ảnh bìa.");
+      Alert.alert("Lỗi", friendlyErrorMessage(err, "Không thể tải ảnh bìa."));
     } finally {
       setUploadingCover(false);
     }
@@ -160,7 +161,7 @@ function EditMemberContent({ member, onClose, onUpdated }: Omit<Props, "visible"
       const url = asset.base64 ? await uploadImage(asset.base64, "igen_erp/members/avatars") : asset.uri;
       setAvatarUrl(url);
     } catch (err) {
-      Alert.alert("Lỗi", err instanceof Error ? err.message : "Không thể tải ảnh đại diện.");
+      Alert.alert("Lỗi", friendlyErrorMessage(err, "Không thể tải ảnh đại diện."));
     } finally {
       setUploadingAvatar(false);
     }
@@ -202,7 +203,7 @@ function EditMemberContent({ member, onClose, onUpdated }: Omit<Props, "visible"
       }
       setGalleryImages((prev) => [...prev, ...urls].slice(0, MAX_GALLERY_IMAGES));
     } catch (err) {
-      Alert.alert("Lỗi", err instanceof Error ? err.message : "Không thể tải ảnh sản phẩm.");
+      Alert.alert("Lỗi", friendlyErrorMessage(err, "Không thể tải ảnh sản phẩm."));
     } finally {
       setUploadingGallery(false);
     }
@@ -254,7 +255,7 @@ function EditMemberContent({ member, onClose, onUpdated }: Omit<Props, "visible"
       onUpdated(updated);
       onClose();
     } catch (err) {
-      Alert.alert("Lỗi lưu thông tin", err instanceof Error ? err.message : "Không thể cập nhật thành viên.");
+      Alert.alert("Lỗi lưu thông tin", friendlyErrorMessage(err, "Không thể cập nhật thành viên."));
     } finally {
       setLoading(false);
     }

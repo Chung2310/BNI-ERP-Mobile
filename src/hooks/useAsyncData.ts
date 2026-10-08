@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 
 export function useAsyncData<T>(loader: () => Promise<T>, key = "default") {
   const loaderRef = useRef(loader);
@@ -12,7 +13,7 @@ export function useAsyncData<T>(loader: () => Promise<T>, key = "default") {
     try {
       setData(await loaderRef.current());
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Không thể tải dữ liệu. Vui lòng thử lại.");
+      setError(friendlyErrorMessage(cause, "Chưa tải được dữ liệu. Hãy kiểm tra mạng rồi thử lại."));
     } finally {
       setIsLoading(false);
     }

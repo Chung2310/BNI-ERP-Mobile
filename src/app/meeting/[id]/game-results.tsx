@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useLocalSearchParams } from "expo-router";
-import { Gift, RefreshCw, Trophy } from "lucide-react-native";
+import { Gift, Trophy } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
-import { Avatar, Button, Card, EmptyState, ErrorState, LoadingState, Screen } from "@/components/ui";
+import { HeaderRefreshAction } from "@/components/HeaderRefreshAction";
+import { Avatar, Card, EmptyState, ErrorState, LoadingState, Screen } from "@/components/ui";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { meetingService, type LuckyDrawWinner } from "@/services/meeting";
 import { colors, radius, spacing } from "@/theme/tokens";
@@ -18,7 +19,7 @@ export default function MeetingGameResultsScreen() {
   const winners = (meeting?.gameWinners || []).filter((winner) => winner.source === game).slice().reverse();
 
   return <Screen style={styles.screen}>
-    <BackHeader title="Kết quả quay thưởng" subtitle={meeting?.title} compact />
+    <BackHeader title="Kết quả quay thưởng" subtitle={meeting?.title} compact action={<HeaderRefreshAction label="Làm mới kết quả quay thưởng" disabled={isLoading} onPress={() => void reload()} />} />
     {isLoading && !meeting ? <LoadingState /> : error && !meeting ? <ErrorState message={error} onRetry={reload} /> : !meeting ? null : <>
       <View style={styles.tabs}>{(["wheel", "bingo"] as const).map((item) => {
         const count = (meeting.gameWinners || []).filter((entry) => entry.source === item).length;
@@ -27,7 +28,7 @@ export default function MeetingGameResultsScreen() {
           <Text style={[styles.tabCount, game === item && styles.tabCountActive]}>{count}</Text>
         </Pressable>;
       })}</View>
-      <View style={styles.headingRow}><Text style={styles.heading}>{winners.length} người trúng</Text><Button tone="secondary" icon={RefreshCw} textStyle={styles.refreshText} onPress={reload}>Làm mới</Button></View>
+      <Text style={styles.heading}>{winners.length} người trúng</Text>
       {winners.length ? <Card style={styles.list}>{winners.map((winner) => <WinnerRow key={winner.id} winner={winner} />)}</Card>
         : <EmptyState title="Chưa có kết quả" message={`Kết quả ${titles[game].toLocaleLowerCase("vi")} sẽ xuất hiện tại đây.`} />}
     </>}
@@ -56,9 +57,7 @@ const styles = StyleSheet.create({
   tabTextActive: { color: colors.primaryDark, fontWeight: "800" },
   tabCount: { color: colors.muted, fontSize: 10, fontWeight: "800" },
   tabCountActive: { color: colors.primaryDark },
-  headingRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing.sm },
   heading: { color: colors.text, fontSize: 13, fontWeight: "800" },
-  refreshText: { fontSize: 11 },
   list: { paddingVertical: 0 },
   row: { minHeight: 58, flexDirection: "row", alignItems: "center", gap: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, paddingVertical: spacing.sm },
   icon: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 18, backgroundColor: colors.primarySoft },

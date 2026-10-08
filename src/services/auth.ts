@@ -24,7 +24,37 @@ function normalizeUser(user: LoginResponse["user"]): UserProfile {
   return { ...user, uid: user.uid || user._id || "" };
 }
 
+async function clearLocalSession() {
+  setApiAccessToken(null);
+  await Promise.allSettled([
+    SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
+    SecureStore.deleteItemAsync(PROFILE_KEY),
+    SecureStore.deleteItemAsync(BIOMETRIC_KEY),
+  ]);
+}
+
 export const authService = {
+  async getProfile(): Promise<UserProfile> {
+    const response = await apiRequest<{ user: LoginResponse["user"] }>("/api/v1/auth/me");
+    const user = normalizeUser(response.user);
+    await SecureStore.setItemAsync(PROFILE_KEY, JSON.stringify(user));
+    return user;
+  },
+
+  async updateProfile(data: {
+    displayName: string; email: string; phone: string; companyName: string; industry: string;
+    address: string; targetMarket: string; birthDate: string; gender: string;
+    photoURL?: string; photoUploadToken?: string; coverImage?: string; coverUploadToken?: string;
+  }): Promise<UserProfile> {
+    const response = await apiRequest<{ user: LoginResponse["user"] }>("/api/v1/auth/profile", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+    const user = normalizeUser(response.user);
+    await SecureStore.setItemAsync(PROFILE_KEY, JSON.stringify(user));
+    return user;
+  },
+
   async restore(options: { bypassBiometricGate?: boolean } = {}) {
     const [token, rawProfile, biometricEnabled] = await Promise.all([
       SecureStore.getItemAsync(ACCESS_TOKEN_KEY),
@@ -78,13 +108,23 @@ export const authService = {
     try {
       await apiRequest("/api/v1/auth/logout", { method: "POST" });
     } finally {
-      setApiAccessToken(null);
-      await Promise.all([
-        SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
-        SecureStore.deleteItemAsync(PROFILE_KEY),
-        SecureStore.deleteItemAsync(BIOMETRIC_KEY),
-      ]);
+      await clearLocalSession();
     }
+  },
+
+  async deleteOwnAccount(password: string) {
+    await apiRequest("/api/v1/auth/me", {
+      method: "DELETE",
+      body: JSON.stringify({ password, confirmation: "XÓA TÀI KHOẢN" }),
+    });
+    await clearLocalSession();
+  },
+
+  async changePassword(password: string) {
+    await apiRequest("/api/v1/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    });
   },
 
   async isBiometricEnabled() {

@@ -9,6 +9,9 @@ type AuthState = {
   signIn(identifier: string, password: string): Promise<void>;
   signInWithBiometrics(): Promise<void>;
   signOut(): Promise<void>;
+  deleteAccount(password: string): Promise<void>;
+  refreshProfile(): Promise<UserProfile>;
+  applyProfile(profile: UserProfile): void;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -34,10 +37,27 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const signOut = useCallback(async () => {
-    await authService.logout();
+    try {
+      await authService.logout();
+    } finally {
+      setToken(null);
+      setUser(null);
+    }
+  }, []);
+
+  const deleteAccount = useCallback(async (password: string) => {
+    await authService.deleteOwnAccount(password);
     setToken(null);
     setUser(null);
   }, []);
+
+  const refreshProfile = useCallback(async () => {
+    const profile = await authService.getProfile();
+    setUser(profile);
+    return profile;
+  }, []);
+
+  const applyProfile = useCallback((profile: UserProfile) => setUser(profile), []);
 
   const signInWithBiometrics = useCallback(async () => {
     const session = await authService.loginWithBiometrics();
@@ -46,8 +66,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const value = useMemo(
-    () => ({ isLoading, token, user, signIn, signInWithBiometrics, signOut }),
-    [isLoading, token, user, signIn, signInWithBiometrics, signOut],
+    () => ({ isLoading, token, user, signIn, signInWithBiometrics, signOut, deleteAccount, refreshProfile, applyProfile }),
+    [isLoading, token, user, signIn, signInWithBiometrics, signOut, deleteAccount, refreshProfile, applyProfile],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -2,7 +2,7 @@
 
 Mở [prototype](../wireframes/index.html) bằng trình duyệt. Danh sách bên trái đổi màn hình; nút **Điện thoại / Tablet** đổi kích thước khung. Các mục điều hướng và nhiều card có thể bấm để đi tiếp.
 
-## Phạm vi 21 màn hình
+## Phạm vi 20 màn hình
 
 1. Đăng nhập lần đầu
 2. Cài đặt Face ID/vân tay
@@ -15,16 +15,15 @@ Mở [prototype](../wireframes/index.html) bằng trình duyệt. Danh sách bê
 9. Tương tác và quay thưởng
 10. Sơ đồ thành viên
 11. Hồ sơ thành viên
-12. Phí thường niên
-13. Bảng xếp hạng
-14. Danh sách chat
-15. Phòng chat
-16. Tài nguyên
-17. Mục Thêm
-18. Quản trị người dùng
-19. Vai trò và phân quyền
-20. Cài đặt
-21. Bàn điều hành trên tablet
+12. Bảng xếp hạng
+13. Danh sách chat
+14. Phòng chat
+15. Tài nguyên
+16. Mục Thêm
+17. Quản trị người dùng
+18. Vai trò và phân quyền
+19. Cài đặt
+20. Bàn điều hành trên tablet
 
 ## Checklist cần duyệt
 
@@ -35,7 +34,7 @@ Mở [prototype](../wireframes/index.html) bằng trình duyệt. Danh sách bê
 - Thành viên mặc định dạng thẻ như web; sơ đồ cây vẫn là chế độ phụ có pan/zoom.
 - Chuyển bảng quản trị desktop thành card/master-detail.
 - Bố cục tablet hai cột cho bàn điều hành.
-- Bảng xếp hạng dạng cột và vị trí Phí thường niên trong Thành viên/mục Thêm.
+- Bảng xếp hạng dạng cột và lối vào Trò chuyện từ Tiện ích.
 
 ## Không thuộc wireframe vòng 1
 

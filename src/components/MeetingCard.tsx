@@ -33,7 +33,7 @@ export function MeetingCard({ meeting, onPress, showDate = true, variant = "card
           <Text numberOfLines={1} style={styles.listTitle}>{meeting.title}</Text>
           <Text style={[styles.listStatus, { color: listStatusColor[meeting.status] }]}>{status[meeting.status].label}</Text>
         </View>
-        <Text numberOfLines={1} style={styles.listMeta}>{showDate ? `${time} · ${date}` : time} · {meeting.location || "Chưa cập nhật địa điểm"}</Text>
+        <Text numberOfLines={1} style={styles.listMeta}>{showDate ? `${time} · ${date}` : time} · {meeting.location?.trim() || "Chưa xác định"}</Text>
       </Pressable>
     );
   }
@@ -48,7 +48,7 @@ export function MeetingCard({ meeting, onPress, showDate = true, variant = "card
           </View>
           <Badge tone={status[meeting.status].tone}>{status[meeting.status].label}</Badge>
         </View>
-        <Text style={styles.location}>{meeting.location || "Chưa cập nhật địa điểm"}</Text>
+        <Text style={styles.location}>{meeting.location?.trim() || "Chưa xác định"}</Text>
         {meeting.status === "live" ? <Text style={styles.liveMeta}>{meeting.speakers.length} người đã check-in</Text> : null}
       </Card>
     </Pressable>

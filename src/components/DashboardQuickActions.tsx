@@ -1,22 +1,23 @@
+import type { ComponentType } from 'react';
 import { router, type Href } from 'expo-router';
-import {
-  BarChart3,
-  Calendar,
-  CalendarPlus,
-  FolderOpen,
-  ReceiptText,
-  Settings,
-  ShieldCheck,
-  Trophy,
-  type LucideIcon,
-} from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Users } from 'lucide-react-native';
+import {
+  DuotoneAnalyticsIcon,
+  DuotoneCalendarIcon,
+  DuotoneChatIcon,
+  DuotoneCreateMeetingIcon,
+  DuotoneFolderIcon,
+  DuotoneSettingsIcon,
+  DuotoneShieldIcon,
+  DuotoneTrophyIcon,
+} from '@/components/icons/DuotoneActionIcons';
 import type { UserProfile } from '@/types';
 import { colors, radius, spacing } from '@/theme/tokens';
-import { hasPermission } from '@/utils/permissions';
+import { canAccessSystem, canCreateMeeting } from '@/utils/permissions';
 
 interface QuickActionDef {
-  icon: LucideIcon;
+  icon: ComponentType<{ color?: string; size?: number; strokeWidth?: number }>;
   title: string;
   href: Href;
   color: string;
@@ -31,7 +32,7 @@ function ActionItem({ icon: Icon, title, href, color }: QuickActionDef) {
       onPress={() => router.push(href)}
     >
       <View style={styles.iconBox}>
-        <Icon color={color} size={22} strokeWidth={2.2} />
+        <Icon color={color} size={25} strokeWidth={2.2} />
       </View>
       <Text style={styles.itemTitle} numberOfLines={2}>
         {title}
@@ -46,15 +47,14 @@ export function DashboardQuickActions({
   user: UserProfile | null;
   liveMeetingId?: string;
 }) {
-  const isManager = user?.role === 'manager' || user?.role === 'branch_owner' || user?.role === 'admin';
-  const canCreateMeeting = isManager && hasPermission(user, 'meetings:manage', 'access:manage');
-  const canManageRoles = user?.role === 'admin' && hasPermission(user, 'access:manage');
+  const showCreateMeeting = canCreateMeeting(user);
+  const showSystem = canAccessSystem(user);
 
   const actions: QuickActionDef[] = [];
 
   // Thêm Lịch trình lên đầu tiện ích (dẫn đến tab cuộc họp/lịch trình)
   actions.push({
-    icon: Calendar,
+    icon: DuotoneCalendarIcon,
     title: 'Lịch trình',
     href: '/(tabs)/meetings',
     color: '#00AECA',
@@ -62,15 +62,24 @@ export function DashboardQuickActions({
 
   // Thêm Thống kê vào tiện ích
   actions.push({
-    icon: BarChart3,
+    icon: DuotoneAnalyticsIcon,
     title: 'Thống kê',
     href: '/(tabs)/statistics',
-    color: '#0891B2',
+    color: '#00AECA',
   });
 
-  if (canCreateMeeting) {
+  if (user && user.role !== 'admin') {
     actions.push({
-      icon: CalendarPlus,
+      icon: Users,
+      title: 'Thành viên',
+      href: '/(tabs)/members',
+      color: '#00AECA',
+    });
+  }
+
+  if (showCreateMeeting) {
+    actions.push({
+      icon: DuotoneCreateMeetingIcon,
       title: 'Tạo cuộc họp',
       href: '/meeting/create',
       color: '#00AECA',
@@ -79,37 +88,37 @@ export function DashboardQuickActions({
 
   actions.push(
     {
-      icon: ReceiptText,
-      title: 'Hội phí',
-      href: '/fees',
-      color: '#D97706',
+      icon: DuotoneChatIcon,
+      title: 'Trò chuyện',
+      href: '/(tabs)/chat',
+      color: '#00AECA',
     },
     {
-      icon: Trophy,
+      icon: DuotoneTrophyIcon,
       title: 'Xếp hạng',
       href: '/rankings',
-      color: '#EA580C',
+      color: '#00AECA',
     },
     {
-      icon: FolderOpen,
+      icon: DuotoneFolderIcon,
       title: 'Tài nguyên',
       href: '/resources',
-      color: '#2563EB',
+      color: '#00AECA',
     },
     {
-      icon: Settings,
+      icon: DuotoneSettingsIcon,
       title: 'Cài đặt',
       href: '/settings',
-      color: '#475569',
+      color: '#00AECA',
     }
   );
 
-  if (canManageRoles) {
+  if (showSystem) {
     actions.push({
-      icon: ShieldCheck,
-      title: 'Phân quyền',
-      href: '/admin/roles',
-      color: '#0D9488',
+      icon: DuotoneShieldIcon,
+      title: 'Quản trị hệ thống',
+      href: '/(tabs)/more',
+      color: '#00AECA',
     });
   }
 
@@ -146,8 +155,8 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   iconBox: {
-    width: 38,
-    height: 38,
+    width: 40,
+    height: 40,
     borderRadius: radius.md,
     backgroundColor: '#FFFFFF', // Nền màu trắng trùng với màu card
     alignItems: 'center',

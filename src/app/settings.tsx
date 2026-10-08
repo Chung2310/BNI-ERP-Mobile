@@ -1,17 +1,15 @@
 import { Alert } from "@/components/AppAlert";
 import { useEffect, useState } from "react";
 import * as LocalAuthentication from "expo-local-authentication";
-import { router } from "expo-router";
-import { LogOut } from "lucide-react-native";
 import {  StyleSheet, Switch, Text, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
-import { Button, Card, Screen } from "@/components/ui";
+import { Card, Screen } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { authService } from "@/services/auth";
 import { colors, spacing } from "@/theme/tokens";
 
 export default function SettingsScreen() {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -45,11 +43,6 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleSignOut = async () => {
-    await signOut();
-    router.replace("/login");
-  };
-
   return (
     <Screen>
       <BackHeader title="Cài đặt" subtitle="Hồ sơ và bảo mật" compact />
@@ -77,7 +70,6 @@ export default function SettingsScreen() {
         <Text style={styles.title}>Giao diện</Text>
         <Text style={styles.meta}>Chế độ sáng · Cyan và trắng</Text>
       </Card>
-      <Button icon={LogOut} tone="danger" fullWidth onPress={handleSignOut}>Đăng xuất</Button>
     </Screen>
   );
 }

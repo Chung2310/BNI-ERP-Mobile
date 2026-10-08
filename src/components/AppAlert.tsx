@@ -1,3 +1,4 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useEffect, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
@@ -10,13 +11,7 @@ const queue: AlertRequest[] = [];
 let notify: (() => void) | null = null;
 
 function safeMessage(message?: string) {
-  if (!message) return "";
-  const firstLine = message.trim().split(/\r?\n/)[0];
-  const cleaned = firstLine.replace(/\s*\(?\b(?:mã lỗi|error code|status|code)\s*[:=]?\s*[A-Z0-9_-]+\)?/gi, "").trim();
-  if (!cleaned || /(?:\b(?:HTTP\s*\d{3}|Error:|Exception|TypeError|ReferenceError|SyntaxError|Mongo|Mongoose|ECONN\w*|ETIMEDOUT|undefined|stack trace)\b|\b[45]\d{2}\b|\bE\d{4,}\b|\b[A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+\b|^[{<])/i.test(cleaned)) {
-    return "Có lỗi xảy ra. Vui lòng thử lại.";
-  }
-  return cleaned;
+  return message ? friendlyErrorMessage(message) : "";
 }
 
 export const Alert = {

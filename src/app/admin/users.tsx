@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Redirect } from "expo-router";
 import { Search, X } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
@@ -10,7 +11,7 @@ import { useAsyncData } from "@/hooks/useAsyncData";
 import { userService } from "@/services/users";
 import { colors, radius, spacing } from "@/theme/tokens";
 import type { UserProfile, UserRole } from "@/types";
-import { hasPermission } from "@/utils/permissions";
+import { canAccessSystem, canCreateMember } from "@/utils/permissions";
 
 const roleLabels: Record<UserRole, string> = {
   user: "Thành viên",
@@ -30,11 +31,11 @@ function initials(name: string) {
 }
 
 export default function AdminUsersScreen() {
-  const { user } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const [query, setQuery] = useState("");
   const [showCreate, setShowCreate] = useState(false);
-  const allowed = hasPermission(user, "access:read", "access:manage");
-  const canManage = hasPermission(user, "access:manage");
+  const allowed = canAccessSystem(user);
+  const canManage = canCreateMember(user);
   const { data, error, isLoading, reload } = useAsyncData(
     () => allowed ? userService.list() : Promise.reject(new Error("Bạn không có quyền xem danh sách người dùng.")),
     String(allowed),
@@ -44,6 +45,9 @@ export default function AdminUsersScreen() {
     return (data || []).filter((item) => !keyword || [item.displayName, item.email, item.phone, organization(item)]
       .some((value) => value?.toLocaleLowerCase("vi").includes(keyword)));
   }, [data, query]);
+
+  if (isAuthLoading) return null;
+  if (!allowed) return <Redirect href="/(tabs)" />;
 
   return (
     <Screen style={styles.screen}>
@@ -105,7 +109,7 @@ export default function AdminUsersScreen() {
       )}
 
       <AddAccountSheet
-        visible={showCreate}
+        visible={canManage && showCreate}
         onClose={() => setShowCreate(false)}
         onCreated={() => {
           setShowCreate(false);

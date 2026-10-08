@@ -506,7 +506,7 @@ function MeetingSelector({
                           {meeting.title}
                         </Text>
                         <Text style={s.itemMeta} numberOfLines={1}>
-                          {meeting.speakers.length} check-in · {meeting.location || "Trực tiếp"}
+                          {meeting.speakers.length} check-in · {meeting.location?.trim() || "Chưa xác định"}
                         </Text>
                       </View>
                       {isSelected ? (

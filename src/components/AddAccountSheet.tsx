@@ -1,3 +1,4 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { Alert } from "@/components/AppAlert";
 import { useState, type ComponentProps } from "react";
 import { Eye, EyeOff, X } from "lucide-react-native";
@@ -84,7 +85,7 @@ export function AddAccountSheet({ visible, onClose, onCreated }: {
       onCreated(created);
       Alert.alert("Đã tạo tài khoản", `Tài khoản ${displayName} đã được thêm.`);
     } catch (error) {
-      Alert.alert("Không thể tạo tài khoản", error instanceof Error ? error.message : "Vui lòng thử lại.");
+      Alert.alert("Không thể tạo tài khoản", friendlyErrorMessage(error, "Vui lòng thử lại."));
     } finally {
       setSaving(false);
     }

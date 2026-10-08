@@ -1,3 +1,4 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { Alert } from "@/components/AppAlert";
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -240,7 +241,7 @@ export default function ChatRoomScreen() {
       setReplyingTo(null);
       requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
     } catch (cause) {
-      setSendError(cause instanceof Error ? cause.message : 'Không thể gửi tin nhắn.');
+      setSendError(friendlyErrorMessage(cause, 'Không thể gửi tin nhắn.'));
     } finally {
       setSending(false);
     }
@@ -255,7 +256,7 @@ export default function ChatRoomScreen() {
         setAttachments((current) => [...current, uploaded]);
       }
     } catch (cause) {
-      Alert.alert('Không thể tải tệp', cause instanceof Error ? cause.message : 'Vui lòng thử lại.');
+      Alert.alert('Không thể tải tệp', friendlyErrorMessage(cause, 'Vui lòng thử lại.'));
     } finally {
       setUploading(false);
     }
@@ -266,7 +267,7 @@ export default function ChatRoomScreen() {
       const result = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: true, copyToCacheDirectory: true });
       if (!result.canceled) await uploadAssets(result.assets.map((asset) => ({ uri: asset.uri, name: asset.name, mimeType: asset.mimeType, size: asset.size })));
     } catch (cause) {
-      Alert.alert('Không thể chọn tệp', cause instanceof Error ? cause.message : 'Vui lòng thử lại.');
+      Alert.alert('Không thể chọn tệp', friendlyErrorMessage(cause, 'Vui lòng thử lại.'));
     }
   };
 
@@ -279,7 +280,7 @@ export default function ChatRoomScreen() {
       const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images', 'videos'], allowsMultipleSelection: true, quality: 0.85 });
       if (!result.canceled) await uploadAssets(result.assets.map((asset) => ({ uri: asset.uri, name: asset.fileName || `media-${Date.now()}.${asset.type === 'video' ? 'mp4' : 'jpg'}`, mimeType: asset.mimeType, size: asset.fileSize })));
     } catch (cause) {
-      Alert.alert('Không thể chọn ảnh hoặc video', cause instanceof Error ? cause.message : 'Vui lòng thử lại.');
+      Alert.alert('Không thể chọn ảnh hoặc video', friendlyErrorMessage(cause, 'Vui lòng thử lại.'));
     }
   };
 
@@ -290,7 +291,7 @@ export default function ChatRoomScreen() {
       const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.85 });
       if (!result.canceled) await uploadAssets(result.assets.map((asset) => ({ uri: asset.uri, name: asset.fileName || `photo-${Date.now()}.jpg`, mimeType: asset.mimeType || 'image/jpeg', size: asset.fileSize })));
     } catch (cause) {
-      Alert.alert('Không thể chụp ảnh', cause instanceof Error ? cause.message : 'Vui lòng thử lại.');
+      Alert.alert('Không thể chụp ảnh', friendlyErrorMessage(cause, 'Vui lòng thử lại.'));
     }
   };
 
@@ -303,7 +304,7 @@ export default function ChatRoomScreen() {
       const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['videos'], videoMaxDuration: 300, quality: 0.7 });
       if (!result.canceled) await uploadAssets(result.assets.map((asset) => ({ uri: asset.uri, name: asset.fileName || `video-${Date.now()}.mp4`, mimeType: asset.mimeType || 'video/mp4', size: asset.fileSize })));
     } catch (cause) {
-      Alert.alert('Không thể quay video', cause instanceof Error ? cause.message : 'Vui lòng thử lại.');
+      Alert.alert('Không thể quay video', friendlyErrorMessage(cause, 'Vui lòng thử lại.'));
     }
   };
 
@@ -315,7 +316,7 @@ export default function ChatRoomScreen() {
       await audioRecorder.prepareToRecordAsync();
       audioRecorder.record();
     } catch (cause) {
-      Alert.alert('Không thể ghi âm', cause instanceof Error ? cause.message : 'Vui lòng thử lại.');
+      Alert.alert('Không thể ghi âm', friendlyErrorMessage(cause, 'Vui lòng thử lại.'));
     }
   };
 
@@ -325,7 +326,7 @@ export default function ChatRoomScreen() {
       await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
       if (keep && audioRecorder.uri) await uploadAssets([{ uri: audioRecorder.uri, name: `voice-${Date.now()}.m4a`, mimeType: 'audio/mp4' }]);
     } catch (cause) {
-      Alert.alert('Không thể lưu ghi âm', cause instanceof Error ? cause.message : 'Vui lòng thử lại.');
+      Alert.alert('Không thể lưu ghi âm', friendlyErrorMessage(cause, 'Vui lòng thử lại.'));
     }
   };
 
@@ -339,7 +340,7 @@ export default function ChatRoomScreen() {
     try {
       setSearchResults(await chatService.search(id, searchQuery, searchType));
     } catch (cause) {
-      Alert.alert('Không thể tìm tin nhắn', cause instanceof Error ? cause.message : 'Vui lòng thử lại.');
+      Alert.alert('Không thể tìm tin nhắn', friendlyErrorMessage(cause, 'Vui lòng thử lại.'));
     } finally {
       setSearching(false);
     }
@@ -357,7 +358,7 @@ export default function ChatRoomScreen() {
         return Array.from(byId.values());
       });
     } catch (cause) {
-      Alert.alert('Không thể tải tin cũ', cause instanceof Error ? cause.message : 'Vui lòng thử lại.');
+      Alert.alert('Không thể tải tin cũ', friendlyErrorMessage(cause, 'Vui lòng thử lại.'));
     } finally {
       setLoadingOlder(false);
     }
@@ -384,7 +385,7 @@ export default function ChatRoomScreen() {
       setTimeout(() => listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.35 }), 350);
       setTimeout(() => setJumpTargetId(null), 4000);
     } catch (cause) {
-      Alert.alert('Không thể mở tin nhắn', cause instanceof Error ? cause.message : 'Vui lòng thử lại.');
+      Alert.alert('Không thể mở tin nhắn', friendlyErrorMessage(cause, 'Vui lòng thử lại.'));
     }
   };
 
@@ -396,7 +397,7 @@ export default function ChatRoomScreen() {
       setSharingMessage(null);
       Alert.alert('Đã chia sẻ tin nhắn');
     } catch (cause) {
-      Alert.alert('Không thể chia sẻ', cause instanceof Error ? cause.message : 'Vui lòng thử lại.');
+      Alert.alert('Không thể chia sẻ', friendlyErrorMessage(cause, 'Vui lòng thử lại.'));
     } finally {
       setShareBusy(false);
     }
@@ -409,7 +410,7 @@ export default function ChatRoomScreen() {
         entry._id === item._id ? updated : entry,
       ));
     } catch (cause) {
-      Alert.alert('Không thể thu hồi', cause instanceof Error ? cause.message : 'Vui lòng thử lại.');
+      Alert.alert('Không thể thu hồi', friendlyErrorMessage(cause, 'Vui lòng thử lại.'));
     }
   };
 
@@ -418,7 +419,7 @@ export default function ChatRoomScreen() {
       const updated = await chatService.react(id, item._id, emoji);
       setData((current) => (current || []).map((entry) => entry._id === item._id ? updated : entry));
     } catch (cause) {
-      Alert.alert('Không thể thả cảm xúc', cause instanceof Error ? cause.message : 'Vui lòng thử lại.');
+      Alert.alert('Không thể thả cảm xúc', friendlyErrorMessage(cause, 'Vui lòng thử lại.'));
     }
   };
 
@@ -642,9 +643,9 @@ export default function ChatRoomScreen() {
           <View style={styles.emojiRow}>{quickReactions.map((emoji) => <Pressable key={emoji} accessibilityLabel={`Thả ${emoji}`} onPress={() => { const item = actionsMessage; setActionsMessage(null); if (item) void reactToMessage(item, emoji); }} style={styles.emojiButton}><Text style={styles.emojiText}>{emoji}</Text></Pressable>)}</View>
           {actionsMessage?.content ? <SheetAction label='Sao chép nội dung' onPress={() => { const content = actionsMessage.content; setActionsMessage(null); void Clipboard.setStringAsync(content); }} /> : null}
           <SheetAction label='Trả lời' onPress={() => { setReplyingTo(actionsMessage); setActionsMessage(null); }} />
-          <SheetAction label='Chia sẻ / chuyển tiếp' onPress={() => { const item = actionsMessage; setActionsMessage(null); if (!item) return; setSharingMessage(item); void chatService.rooms().then(setShareRooms).catch((cause) => Alert.alert('Không thể tải cuộc trò chuyện', cause instanceof Error ? cause.message : 'Vui lòng thử lại.')); }} />
+          <SheetAction label='Chia sẻ / chuyển tiếp' onPress={() => { const item = actionsMessage; setActionsMessage(null); if (!item) return; setSharingMessage(item); void chatService.rooms().then(setShareRooms).catch((cause) => Alert.alert('Không thể tải cuộc trò chuyện', friendlyErrorMessage(cause, 'Vui lòng thử lại.'))); }} />
           {actionsMessage && senderId(actionsMessage) !== user?.uid ? <SheetAction label='Báo cáo' danger onPress={reportMessage} /> : null}
-          {canPin ? <SheetAction label={actionsMessage && pinnedIds.includes(actionsMessage._id) ? 'Bỏ ghim tin nhắn' : 'Ghim tin nhắn'} onPress={() => { const item = actionsMessage; setActionsMessage(null); if (item) void chatService.pinMessage(id, item._id, pinnedIds.includes(item._id)).then(setRoom).catch((cause) => Alert.alert('Không thể ghim tin', cause instanceof Error ? cause.message : 'Vui lòng thử lại.')); }} /> : null}
+          {canPin ? <SheetAction label={actionsMessage && pinnedIds.includes(actionsMessage._id) ? 'Bỏ ghim tin nhắn' : 'Ghim tin nhắn'} onPress={() => { const item = actionsMessage; setActionsMessage(null); if (item) void chatService.pinMessage(id, item._id, pinnedIds.includes(item._id)).then(setRoom).catch((cause) => Alert.alert('Không thể ghim tin', friendlyErrorMessage(cause, 'Vui lòng thử lại.'))); }} /> : null}
           {actionsMessage && senderId(actionsMessage) === user?.uid && actionsMessage.content ? <SheetAction label='Sửa tin nhắn' onPress={() => { setEditingMessage(actionsMessage); setMessage(actionsMessage.content); setAttachments([]); setReplyingTo(null); setActionsMessage(null); }} /> : null}
           {actionsMessage && (senderId(actionsMessage) === user?.uid || canManageMessages) ? <SheetAction label='Thu hồi tin nhắn' danger onPress={() => { const item = actionsMessage; setActionsMessage(null); if (item) Alert.alert('Thu hồi tin nhắn?', 'Tin nhắn sẽ không còn hiển thị nội dung.', [{ text: 'Bỏ qua', style: 'cancel' }, { text: 'Thu hồi', style: 'destructive', onPress: () => void removeMessage(item) }]); }} /> : null}
         </View>

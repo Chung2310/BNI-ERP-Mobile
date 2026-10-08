@@ -4,10 +4,12 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
+  Fingerprint,
   MapPin,
+  Mic,
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import {
   Avatar,
   EmptyState,
@@ -164,11 +166,60 @@ function ScheduleMeetingCard({
         <View style={styles.metaRow}>
           <MapPin size={12.5} color="#64748B" strokeWidth={1.8} />
           <Text numberOfLines={1} style={styles.metaText}>
-            {meeting.location || "---"}
+            {meeting.location?.trim() || "Chưa xác định"}
           </Text>
         </View>
       </View>
     </Pressable>
+  );
+}
+
+const waveHeights = [
+  [0.45, 1, 0.65, 0.35, 0.45],
+  [0.7, 0.45, 1, 0.55, 0.7],
+  [1, 0.6, 0.35, 0.8, 1],
+  [0.55, 0.9, 0.5, 1, 0.55],
+  [0.4, 0.65, 1, 0.6, 0.4],
+];
+
+function LiveWaveform() {
+  const [progress] = useState(() => new Animated.Value(0));
+
+  useFocusEffect(
+    useCallback(() => {
+      progress.setValue(0);
+      const wave = Animated.loop(
+        Animated.timing(progress, {
+          toValue: 1,
+          duration: 1600,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+      );
+      wave.start();
+      return () => wave.stop();
+    }, [progress]),
+  );
+
+  return (
+    <View accessible={false} style={styles.liveWave}>
+      {waveHeights.map((heights, index) => (
+        <Animated.View
+          key={index}
+          style={[
+            styles.liveWaveBar,
+            {
+              transform: [{
+                scaleY: progress.interpolate({
+                  inputRange: [0, 0.25, 0.5, 0.75, 1],
+                  outputRange: heights,
+                }),
+              }],
+            },
+          ]}
+        />
+      ))}
+    </View>
   );
 }
 
@@ -261,9 +312,9 @@ export default function HomeScreen() {
     [activeMeetings],
   );
 
-  // Tính các cuộc họp sắp diễn ra & tuần này (chỉ lấy các cuộc họp chưa hủy)
+  // Chỉ lấy lịch còn ở tương lai để chọn cuộc họp sắp diễn ra gần nhất.
   const { upcomingMeetings, thisWeekMeetings } = useMemo(() => {
-    const now = new Date();
+    const now = currentTime;
     const dayOfWeek = now.getDay();
     const diffToMonday = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
     const mondayDate = new Date(now);
@@ -274,15 +325,9 @@ export default function HomeScreen() {
     sundayDate.setDate(mondayDate.getDate() + 6);
     sundayDate.setHours(23, 59, 59, 999);
 
-    const scheduledOrLive = activeMeetings.filter(
-      (m) =>
-        m.status === "scheduled" ||
-        m.status === "live" ||
-        m.status === "paused" ||
-        new Date(m.startsAt) >= now,
-    );
-
-    const upcoming = scheduledOrLive.sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt));
+    const upcoming = activeMeetings
+      .filter((m) => m.status === "scheduled" && new Date(m.startsAt) > now)
+      .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt));
     const thisWeek = activeMeetings
       .filter((m) => {
         const d = new Date(m.startsAt);
@@ -291,7 +336,13 @@ export default function HomeScreen() {
       .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt));
 
     return { upcomingMeetings: upcoming, thisWeekMeetings: thisWeek };
-  }, [activeMeetings]);
+  }, [activeMeetings, currentTime]);
+
+  const featuredMeeting = liveMeeting ?? upcomingMeetings[0];
+  const isFeaturedLive = Boolean(liveMeeting);
+  const featuredSchedule = featuredMeeting
+    ? formatMeetingDetails(featuredMeeting.startsAt, featuredMeeting.endsAt)
+    : null;
 
   const displayName = user?.displayName || "Nguyễn Văn Việt";
   const userInitials = useMemo(() => {
@@ -331,7 +382,7 @@ export default function HomeScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Xem hồ sơ cá nhân"
-            onPress={() => router.push("/(tabs)/more")}
+            onPress={() => router.push("/profile")}
             style={({ pressed }) => [styles.avatarPressable, pressed && styles.cardPressed]}
           >
             <Avatar initials={userInitials} url={user?.photoURL} size={54} />
@@ -350,35 +401,77 @@ export default function HomeScreen() {
         <ErrorState message={error} onRetry={reload} />
       ) : (
         <>
-          {/* Banner cuộc họp đang diễn ra nếu có */}
-          {liveMeeting ? (
+          {/* Ưu tiên cuộc họp live, nếu không có thì hiển thị lịch gần nhất. */}
+          {featuredMeeting ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Xem chi tiết cuộc họp: ${liveMeeting.title}`}
-              style={({ pressed }) => [styles.heroCompact, pressed && styles.cardPressed]}
+              accessibilityLabel={`${isFeaturedLive ? "Vào ngay" : "Xem chi tiết"} cuộc họp: ${featuredMeeting.title}`}
+              style={styles.heroCompact}
               onPress={() =>
                 router.push({
                   pathname: "/meeting/[id]",
-                  params: { id: liveMeeting._id },
+                  params: { id: featuredMeeting._id },
                 })
               }
             >
-              <View style={styles.heroLeft}>
-                <View style={styles.heroTagRow}>
-                  <View style={styles.livePulseDot} />
-                  <Text style={styles.heroTagText}>Đang diễn ra</Text>
-                </View>
-                <Text style={styles.heroTitleCompact} numberOfLines={1}>
-                  {liveMeeting.title}
-                </Text>
-                <Text style={styles.heroMetaCompact} numberOfLines={1}>
-                  {liveMeeting.speakers.length} check-in · {liveMeeting.location || "Trực tiếp"}
-                </Text>
-              </View>
+              <View style={styles.heroInnerCard}>
+                <View style={styles.heroLeft}>
+                  <View style={styles.heroTagRow}>
+                    <View style={[styles.liveTagBadge, !isFeaturedLive && styles.upcomingTagBadge]}>
+                      <View style={styles.liveDotWrapper}>
+                        <View style={[styles.liveStatusDot, !isFeaturedLive && styles.upcomingStatusDot]} />
+                      </View>
+                      <Text style={[styles.heroTagText, !isFeaturedLive && styles.upcomingTagText]}>
+                        {isFeaturedLive ? "Đang diễn ra" : "Sắp diễn ra"}
+                      </Text>
+                    </View>
+                    {isFeaturedLive ? <LiveWaveform /> : null}
+                  </View>
 
-              <View style={styles.heroActionBtn}>
-                <Text style={styles.heroActionBtnText}>Xem chi tiết</Text>
-                <ArrowRight color="#00AECA" size={14} strokeWidth={2.6} />
+                  <View style={styles.titleWithMic}>
+                    <View style={styles.heroIconSlot}>
+                      <Mic color="#00AECA" size={14} strokeWidth={2.4} />
+                    </View>
+                    <Text style={styles.heroTitleCompact} numberOfLines={1}>
+                      {featuredMeeting.title}
+                    </Text>
+                  </View>
+
+                  {!isFeaturedLive && featuredSchedule ? (
+                    <View style={styles.heroMetaRow}>
+                      <View style={styles.heroIconSlot}>
+                        <Clock color="#00AECA" size={14} strokeWidth={2.2} />
+                      </View>
+                      <Text style={styles.heroMetaCompact} numberOfLines={1}>
+                        {featuredSchedule.dateStr} · {featuredSchedule.timeRange}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  <View style={styles.heroMetaRow}>
+                    <View style={styles.heroIconSlot}>
+                      <MapPin color="#00AECA" size={14} strokeWidth={2.2} />
+                    </View>
+                    <Text style={styles.heroMetaCompact} numberOfLines={1}>
+                      {featuredMeeting.location?.trim() || "Chưa xác định"}
+                    </Text>
+                  </View>
+                  {isFeaturedLive ? (
+                    <View style={styles.heroMetaRow}>
+                      <View style={styles.heroIconSlot}>
+                        <Fingerprint color="#00AECA" size={14} strokeWidth={2.2} />
+                      </View>
+                      <Text style={styles.heroMetaCompact} numberOfLines={1}>
+                        {featuredMeeting.speakers.length} người đã check-in
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+
+                <View style={styles.heroActionBtn}>
+                  <Text style={styles.heroActionBtnText}>{isFeaturedLive ? "Vào ngay" : "Xem chi tiết"}</Text>
+                  <ArrowRight color="#FFFFFF" size={13} strokeWidth={2.6} />
+                </View>
               </View>
             </Pressable>
           ) : null}
@@ -437,9 +530,7 @@ export default function HomeScreen() {
                   style={({ pressed }) => [styles.loadMoreBtn, pressed && styles.cardPressed]}
                   onPress={() => setVisibleUpcomingCount((prev) => prev + 10)}
                 >
-                  <Text style={styles.loadMoreText}>
-                    Xem thêm ({upcomingMeetings.length - visibleUpcomingCount} cuộc họp còn lại)
-                  </Text>
+                  <Text style={styles.loadMoreText}>Xem thêm</Text>
                 </Pressable>
               )}
             </View>
@@ -608,17 +699,16 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   loadMoreBtn: {
-    backgroundColor: "#F1F5F9",
-    borderRadius: 10,
-    paddingVertical: 10,
+    backgroundColor: "transparent",
+    paddingVertical: 8,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 4,
-    marginBottom: 8,
+    marginTop: 2,
+    marginBottom: 6,
   },
   loadMoreText: {
-    color: "#007F98",
-    fontSize: 12.5,
+    color: "#00AECA",
+    fontSize: 13,
     fontWeight: "700",
   },
 
@@ -719,60 +809,135 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
-  /* Banner cuộc họp trực tiếp */
+  /* Banner cuộc họp trực tiếp - Nền nhạt theo màu logo iGen Connect (#00AECA -> #E8F8FA) */
   heroCompact: {
+    backgroundColor: "#E4F8FB",
+    borderRadius: radius.lg,
+    padding: 3,
+    borderWidth: 1.5,
+    borderColor: "#B9E7EE",
+    shadowColor: "#00AECA",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.16,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  heroInnerCard: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#00AECA",
-    borderRadius: radius.md,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    backgroundColor: "#EDF9FB",
+    borderRadius: radius.lg - 3,
+    paddingVertical: 11,
+    paddingHorizontal: 13,
+    borderWidth: 1,
+    borderColor: "#D2F1F6",
     gap: spacing.sm,
-    borderWidth: 0,
   },
   heroLeft: {
     flex: 1,
-    gap: 3,
+    gap: 4.5,
   },
   heroTagRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 6,
   },
-  livePulseDot: {
+  liveTagBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#DCFCE7",
+    borderWidth: 1,
+    borderColor: "#86EFAC",
+    paddingHorizontal: 7.5,
+    paddingVertical: 2.5,
+    borderRadius: radius.pill,
+    gap: 4.5,
+  },
+  upcomingTagBadge: {
+    backgroundColor: "#DBEAFE",
+    borderColor: "#93C5FD",
+  },
+  liveDotWrapper: {
+    width: 10,
+    height: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  liveStatusDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#22C55E",
+  },
+  upcomingStatusDot: {
+    backgroundColor: "#3B82F6",
   },
   heroTagText: {
-    color: "#FFFFFF",
+    color: "#15803D",
     fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 0.1,
+    fontWeight: "800",
+  },
+  upcomingTagText: {
+    color: "#1D4ED8",
+  },
+  liveWave: {
+    height: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  liveWaveBar: {
+    width: 3,
+    height: 14,
+    borderRadius: 2,
+    backgroundColor: "#22C55E",
+  },
+  titleWithMic: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  heroIconSlot: {
+    width: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
   },
   heroTitleCompact: {
-    color: "#FFFFFF",
-    fontSize: 13.5,
-    fontWeight: "700",
+    color: "#0B2B33",
+    fontSize: 14.5,
+    fontWeight: "800",
+    letterSpacing: -0.2,
+    flex: 1,
+  },
+  heroMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
   heroMetaCompact: {
-    color: "#E0F7FA",
-    fontSize: 11,
+    color: "#4A6E78",
+    fontSize: 11.5,
     fontWeight: "500",
+    flex: 1,
   },
   heroActionBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#00AECA",
     borderRadius: radius.pill,
-    paddingVertical: 7,
-    paddingHorizontal: 11,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     gap: 4,
+    shadowColor: "#00AECA",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 5,
+    elevation: 3,
   },
   heroActionBtnText: {
-    color: "#00AECA",
+    color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "800",
   },

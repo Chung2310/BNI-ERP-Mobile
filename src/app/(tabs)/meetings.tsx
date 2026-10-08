@@ -29,7 +29,7 @@ import {
   type Meeting,
 } from "@/services/meeting";
 import { radius, shadow } from "@/theme/tokens";
-import { hasPermission } from "@/utils/permissions";
+import { canCreateMeeting as canCreateMeetingForUser } from "@/utils/permissions";
 
 type ViewMode = "month" | "week" | "day";
 
@@ -67,7 +67,7 @@ function formatMeetingTime(startsAt: string, endsAt?: string): string {
 export default function MeetingsScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  const canCreateMeeting = hasPermission(user, "meetings:manage");
+  const canCreateMeeting = canCreateMeetingForUser(user);
 
   const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [currentDate, setCurrentDate] = useState(() => new Date());
@@ -116,258 +116,17 @@ export default function MeetingsScreen() {
     [meetings, monthData],
   );
 
-  // Danh sách cuộc họp mẫu hiển thị chuẩn theo ảnh mockup nếu DB ít dữ liệu
-  const sampleMeetings: Meeting[] = useMemo(() => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-    const curDay = currentDate.getDate();
-
-    return [
-      {
-        _id: "sample-c-today-1",
-        title: "Họp giao ban kế hoạch",
-        startsAt: new Date(year, month, curDay, 9, 0).toISOString(),
-        endsAt: new Date(year, month, curDay, 10, 30).toISOString(),
-        location: "Phòng họp Ban Điều Hành",
-        status: "scheduled",
-        speakers: [],
-        reminderDays: 1,
-        __v: 0,
-        currentIndex: 0,
-        tiers: [],
-        fallbackSeconds: 60,
-      },
-      {
-        _id: "sample-c-today-2",
-        title: "Họp đột xuất (Đã hủy)",
-        startsAt: new Date(year, month, curDay, 14, 0).toISOString(),
-        endsAt: new Date(year, month, curDay, 15, 0).toISOString(),
-        location: "Online",
-        status: "cancelled",
-        speakers: [],
-        reminderDays: 1,
-        __v: 0,
-        currentIndex: 0,
-        tiers: [],
-        fallbackSeconds: 60,
-      },
-      {
-        _id: "sample-c1",
-        title: "Product Review",
-        startsAt: new Date(year, month, 1, 9, 0).toISOString(),
-        endsAt: new Date(year, month, 1, 10, 30).toISOString(),
-        location: "Phòng họp 1",
-        status: "scheduled",
-        speakers: [],
-        reminderDays: 1,
-        __v: 0,
-        currentIndex: 0,
-        tiers: [],
-        fallbackSeconds: 60,
-      },
-      {
-        _id: "sample-c2",
-        title: "Tên cuộc họp hủy",
-        startsAt: new Date(year, month, 1, 14, 0).toISOString(),
-        endsAt: new Date(year, month, 1, 15, 0).toISOString(),
-        location: "Online",
-        status: "cancelled",
-        speakers: [],
-        reminderDays: 1,
-        __v: 0,
-        currentIndex: 0,
-        tiers: [],
-        fallbackSeconds: 60,
-      },
-      {
-        _id: "sample-c3",
-        title: "Cuộc họp Ban",
-        startsAt: new Date(year, month, 15, 8, 30).toISOString(),
-        endsAt: new Date(year, month, 15, 10, 0).toISOString(),
-        location: "Hội trường A",
-        status: "scheduled",
-        speakers: [],
-        reminderDays: 1,
-        __v: 0,
-        currentIndex: 0,
-        tiers: [],
-        fallbackSeconds: 60,
-      },
-      {
-        _id: "sample-c4",
-        title: "Product Demo",
-        startsAt: new Date(year, month, 15, 14, 0).toISOString(),
-        endsAt: new Date(year, month, 15, 15, 30).toISOString(),
-        location: "Phòng họp 2",
-        status: "scheduled",
-        speakers: [],
-        reminderDays: 1,
-        __v: 0,
-        currentIndex: 0,
-        tiers: [],
-        fallbackSeconds: 60,
-      },
-      {
-        _id: "sample-c5",
-        title: "Product Release",
-        startsAt: new Date(year, month, 17, 9, 0).toISOString(),
-        endsAt: new Date(year, month, 17, 10, 0).toISOString(),
-        location: "Online",
-        status: "scheduled",
-        speakers: [],
-        reminderDays: 1,
-        __v: 0,
-        currentIndex: 0,
-        tiers: [],
-        fallbackSeconds: 60,
-      },
-      {
-        _id: "sample-c6",
-        title: "Họp chiến lược Q2",
-        startsAt: new Date(year, month, 17, 15, 0).toISOString(),
-        endsAt: new Date(year, month, 17, 16, 30).toISOString(),
-        location: "Phòng VIP",
-        status: "cancelled",
-        speakers: [],
-        reminderDays: 1,
-        __v: 0,
-        currentIndex: 0,
-        tiers: [],
-        fallbackSeconds: 60,
-      },
-      {
-        _id: "sample-c7",
-        title: "Retrospective",
-        startsAt: new Date(year, month, 19, 10, 0).toISOString(),
-        endsAt: new Date(year, month, 19, 11, 30).toISOString(),
-        location: "Phòng họp 3",
-        status: "scheduled",
-        speakers: [],
-        reminderDays: 1,
-        __v: 0,
-        currentIndex: 0,
-        tiers: [],
-        fallbackSeconds: 60,
-      },
-      {
-        _id: "sample-c8",
-        title: "Release Review",
-        startsAt: new Date(year, month, 20, 8, 30).toISOString(),
-        endsAt: new Date(year, month, 20, 9, 30).toISOString(),
-        location: "Online",
-        status: "scheduled",
-        speakers: [],
-        reminderDays: 1,
-        __v: 0,
-        currentIndex: 0,
-        tiers: [],
-        fallbackSeconds: 60,
-      },
-      {
-        _id: "sample-c9",
-        title: "Cs + Mobile",
-        startsAt: new Date(year, month, 20, 10, 0).toISOString(),
-        endsAt: new Date(year, month, 20, 11, 0).toISOString(),
-        location: "Phòng họp 1",
-        status: "scheduled",
-        speakers: [],
-        reminderDays: 1,
-        __v: 0,
-        currentIndex: 0,
-        tiers: [],
-        fallbackSeconds: 60,
-      },
-      {
-        _id: "sample-c10",
-        title: "Thảo luận UI/UX",
-        startsAt: new Date(year, month, 20, 14, 0).toISOString(),
-        endsAt: new Date(year, month, 20, 15, 0).toISOString(),
-        location: "Online",
-        status: "scheduled",
-        speakers: [],
-        reminderDays: 1,
-        __v: 0,
-        currentIndex: 0,
-        tiers: [],
-        fallbackSeconds: 60,
-      },
-      {
-        _id: "sample-c11",
-        title: "Cuộc họp tháng",
-        startsAt: new Date(year, month, 22, 9, 0).toISOString(),
-        endsAt: new Date(year, month, 22, 10, 30).toISOString(),
-        location: "Hội trường",
-        status: "scheduled",
-        speakers: [],
-        reminderDays: 1,
-        __v: 0,
-        currentIndex: 0,
-        tiers: [],
-        fallbackSeconds: 60,
-      },
-      {
-        _id: "sample-c12",
-        title: "Báo cáo tiến độ",
-        startsAt: new Date(year, month, 22, 14, 0).toISOString(),
-        endsAt: new Date(year, month, 22, 15, 0).toISOString(),
-        location: "Phòng họp 2",
-        status: "scheduled",
-        speakers: [],
-        reminderDays: 1,
-        __v: 0,
-        currentIndex: 0,
-        tiers: [],
-        fallbackSeconds: 60,
-      },
-      {
-        _id: "sample-c13",
-        title: "Feature Kickoff Q3",
-        startsAt: new Date(year, month, 25, 9, 30).toISOString(),
-        endsAt: new Date(year, month, 25, 11, 0).toISOString(),
-        location: "Phòng họp 3",
-        status: "scheduled",
-        speakers: [],
-        reminderDays: 1,
-        __v: 0,
-        currentIndex: 0,
-        tiers: [],
-        fallbackSeconds: 60,
-      },
-      {
-        _id: "sample-c14",
-        title: "Product Innovation",
-        startsAt: new Date(year, month, 27, 15, 0).toISOString(),
-        endsAt: new Date(year, month, 27, 16, 30).toISOString(),
-        location: "Phòng họp 1",
-        status: "scheduled",
-        speakers: [],
-        reminderDays: 1,
-        __v: 0,
-        currentIndex: 0,
-        tiers: [],
-        fallbackSeconds: 60,
-      },
-    ];
-  }, [currentDate]);
-
-  const allMeetings = useMemo(() => {
-    if (calendarMeetings.length > 0) {
-      return calendarMeetings;
-    }
-    return sampleMeetings;
-  }, [calendarMeetings, sampleMeetings]);
-
   // Map ngày -> danh sách cuộc họp
   const meetingsByDay = useMemo(() => {
     const map = new Map<string, Meeting[]>();
-    for (const m of allMeetings) {
+    for (const m of calendarMeetings) {
       const key = toDateKey(new Date(m.startsAt));
       const list = map.get(key) || [];
       list.push(m);
       map.set(key, list);
     }
     return map;
-  }, [allMeetings]);
+  }, [calendarMeetings]);
 
   // Tính ma trận ngày tháng cho chế độ Xem Tháng (7 cột: T2 - CN)
   const calendarGrid = useMemo(() => {
@@ -524,10 +283,14 @@ export default function MeetingsScreen() {
   // Khi chọn một ô trên lịch: Nếu ô trống thì chuyển sang tạo lịch đơn và fill sẵn ngày
   const handleCellPress = (cellDate: Date, hasEvents: boolean) => {
     if (!hasEvents) {
-      router.push({
-        pathname: "/meeting/create",
-        params: { date: toDateKey(cellDate) },
-      });
+      if (canCreateMeeting) {
+        router.push({
+          pathname: "/meeting/create",
+          params: { date: toDateKey(cellDate) },
+        });
+      } else {
+        handleSelectDay(cellDate);
+      }
       return;
     }
     handleSelectDay(cellDate);
@@ -598,7 +361,9 @@ export default function MeetingsScreen() {
                 <Plus color="#FFFFFF" size={19} strokeWidth={2.4} />
               </Pressable>
             )}
-            <Avatar initials={userInitials} url={user?.photoURL} size={32} />
+            <Pressable accessibilityRole="button" accessibilityLabel="Xem hồ sơ cá nhân" hitSlop={8} onPress={() => router.push("/profile")}>
+              <Avatar initials={userInitials} url={user?.photoURL} size={32} />
+            </Pressable>
           </View>
         </View>
       </View>
@@ -863,14 +628,14 @@ export default function MeetingsScreen() {
                                 isCancelled ? styles.textCancelled : styles.textMuted,
                               ]}
                             >
-                              {meeting.location || "Online"}
+                              {meeting.location?.trim() || "Chưa xác định"}
                             </Text>
                           </View>
                         </Pressable>
                       );
                     })}
                   </View>
-                ) : (
+                ) : canCreateMeeting ? (
                   <Pressable
                     onPress={() =>
                       router.push({
@@ -883,6 +648,10 @@ export default function MeetingsScreen() {
                     <Plus size={14} color="#00AECA" strokeWidth={2.4} />
                     <Text style={styles.weekEmptyText}>Chưa có lịch · Chạm để tạo cuộc họp</Text>
                   </Pressable>
+                ) : (
+                  <View style={styles.weekEmptyRow}>
+                    <Text style={styles.weekEmptyText}>Chưa có cuộc họp</Text>
+                  </View>
                 )}
               </View>
             );
@@ -1017,7 +786,7 @@ export default function MeetingsScreen() {
                           isCancelled ? styles.textCancelled : styles.textMuted,
                         ]}
                       >
-                        {meeting.location || "Online"}
+                        {meeting.location?.trim() || "Chưa xác định"}
                       </Text>
                     </View>
                   </Pressable>
@@ -1030,7 +799,7 @@ export default function MeetingsScreen() {
                 title="Không có cuộc họp"
                 message={`Ngày ${selectedDate.getDate()}/${selectedDate.getMonth() + 1} chưa có lịch họp nào.`}
               />
-              <Pressable
+              {canCreateMeeting ? <Pressable
                 onPress={() =>
                   router.push({
                     pathname: "/meeting/create",
@@ -1041,7 +810,7 @@ export default function MeetingsScreen() {
               >
                 <Plus color="#FFFFFF" size={17} strokeWidth={2.4} />
                 <Text style={styles.createMeetingQuickBtnText}>Tạo cuộc họp ngày này</Text>
-              </Pressable>
+              </Pressable> : null}
             </View>
           )}
         </ScrollView>
@@ -1078,7 +847,7 @@ export default function MeetingsScreen() {
               </View>
 
               <View style={styles.modalHeaderActions}>
-                <Pressable
+                {canCreateMeeting ? <Pressable
                   accessibilityLabel="Tạo cuộc họp ngày này"
                   hitSlop={8}
                   onPress={() => {
@@ -1091,7 +860,7 @@ export default function MeetingsScreen() {
                   style={styles.modalAddMeetingBtn}
                 >
                   <Plus color="#00AECA" size={19} strokeWidth={2.4} />
-                </Pressable>
+                </Pressable> : null}
 
                 <Pressable
                   accessibilityLabel="Đóng"
@@ -1172,7 +941,7 @@ export default function MeetingsScreen() {
                             isCancelled ? styles.textCancelled : styles.textMuted,
                           ]}
                         >
-                          {meeting.location || "Online"}
+                          {meeting.location?.trim() || "Chưa xác định"}
                         </Text>
                       </View>
                     </Pressable>
@@ -1185,7 +954,7 @@ export default function MeetingsScreen() {
                   <Text style={styles.sheetEmptyText}>
                     Ngày này chưa có cuộc họp nào được lên lịch.
                   </Text>
-                  <Pressable
+                  {canCreateMeeting ? <Pressable
                     onPress={() => {
                       setIsDayDetailModalVisible(false);
                       router.push({
@@ -1197,7 +966,7 @@ export default function MeetingsScreen() {
                   >
                     <Plus color="#FFFFFF" size={16} strokeWidth={2.4} />
                     <Text style={styles.sheetCreateBtnText}>Tạo cuộc họp ngày này</Text>
-                  </Pressable>
+                  </Pressable> : null}
                 </View>
               )}
             </ScrollView>

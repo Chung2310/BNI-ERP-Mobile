@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
 import { useLocalSearchParams } from "expo-router";
-import { RefreshCw, Search } from "lucide-react-native";
+import { Search } from "lucide-react-native";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
-import { Avatar, Button, Card, EmptyState, ErrorState, LoadingState, Screen } from "@/components/ui";
+import { HeaderRefreshAction } from "@/components/HeaderRefreshAction";
+import { Avatar, Card, EmptyState, ErrorState, LoadingState, Screen } from "@/components/ui";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { meetingService } from "@/services/meeting";
 import { colors, radius, spacing } from "@/theme/tokens";
@@ -24,7 +25,7 @@ export default function MeetingAttendeesScreen() {
   }, [meeting?.speakers, search]);
 
   return <Screen>
-    <BackHeader title="Danh sách check-in" subtitle={meeting ? `${meeting.speakers.length} người đã điểm danh` : undefined} compact />
+    <BackHeader title="Danh sách check-in" subtitle={meeting ? `${meeting.speakers.length} người đã điểm danh` : undefined} compact action={<HeaderRefreshAction label="Làm mới danh sách check-in" disabled={isLoading} onPress={() => void reload()} />} />
     {isLoading && !meeting ? <LoadingState /> : error && !meeting ? <ErrorState message={error} onRetry={reload} /> : !meeting ? null : (
       <>
         <Card style={styles.searchBox}>
@@ -43,7 +44,6 @@ export default function MeetingAttendeesScreen() {
             </View>)}
           </Card>
         )}
-        <Button tone="secondary" icon={RefreshCw} onPress={reload}>Làm mới danh sách</Button>
       </>
     )}
   </Screen>;
