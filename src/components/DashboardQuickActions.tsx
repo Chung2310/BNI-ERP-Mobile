@@ -1,5 +1,6 @@
 import { router, type Href } from 'expo-router';
 import {
+  BarChart3,
   Calendar,
   CalendarPlus,
   FolderOpen,
@@ -57,6 +58,14 @@ export function DashboardQuickActions({
     title: 'Lịch trình',
     href: '/(tabs)/meetings',
     color: '#00AECA',
+  });
+
+  // Thêm Thống kê vào tiện ích
+  actions.push({
+    icon: BarChart3,
+    title: 'Thống kê',
+    href: '/statistics',
+    color: '#0891B2',
   });
 
   if (canCreateMeeting) {

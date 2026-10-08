@@ -30,6 +30,7 @@ export default function RootLayout() {
           <Stack.Screen name="notifications" />
           <Stack.Screen name="fees" />
           <Stack.Screen name="rankings" />
+          <Stack.Screen name="statistics" />
           <Stack.Screen name="resources" />
           <Stack.Screen name="org-chart" />
           <Stack.Screen name="settings" />

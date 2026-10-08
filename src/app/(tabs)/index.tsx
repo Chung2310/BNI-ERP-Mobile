@@ -5,25 +5,21 @@ import {
   ChevronRight,
   Clock,
   MapPin,
-  Trophy,
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import {
   Avatar,
-  Card,
   EmptyState,
   ErrorState,
   LoadingState,
   Screen,
   SectionTitle,
 } from "@/components/ui";
-import { DashboardCharts } from "@/components/DashboardCharts";
 import { DashboardQuickActions } from "@/components/DashboardQuickActions";
 import { useAuth } from "@/context/AuthContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { applyMeetingChange, meetingService, subscribeMeetingChanges, type Meeting } from "@/services/meeting";
-import { userService } from "@/services/users";
 import { colors, radius, shadow, spacing } from "@/theme/tokens";
 
 function formatMeetingDetails(startsAt: string, endsAt?: string) {
@@ -234,12 +230,6 @@ export default function HomeScreen() {
     return `${startDay} thg ${startMonth} - ${endDay} thg ${endMonth}`;
   }, []);
 
-  const { data: dashboardData } = useAsyncData(async () => {
-    const history = await meetingService.history();
-    const members = await userService.colleagues().catch(() => []);
-    return { history, members };
-  }, "dashboard-charts");
-
   const { data, setData, error, isLoading, reload } = useAsyncData(() => meetingService.list());
   const hasFocused = useRef(false);
   useFocusEffect(
@@ -265,20 +255,6 @@ export default function HomeScreen() {
     () => meetings.filter((m) => m.status !== "cancelled"),
     [meetings]
   );
-
-  const chartMeetings = useMemo(
-    () =>
-      dashboardData?.history
-        ? dashboardData.history.filter((meeting) => meeting.status !== "cancelled")
-        : activeMeetings,
-    [dashboardData, activeMeetings],
-  );
-
-  const memberCount =
-    dashboardData?.members.length ||
-    new Set(
-      chartMeetings.flatMap((meeting) => meeting.speakers.map((speaker) => speaker.userId).filter(Boolean)),
-    ).size;
 
   const liveMeeting = useMemo(
     () => activeMeetings.find((meeting) => meeting.status === "live" || meeting.status === "paused"),
@@ -316,23 +292,6 @@ export default function HomeScreen() {
 
     return { upcomingMeetings: upcoming, thisWeekMeetings: thisWeek };
   }, [activeMeetings]);
-
-  const memberRankings = useMemo(() => {
-    const totals = new Map<string, { name: string; appearances: number; seconds: number }>();
-    chartMeetings.forEach((meeting) =>
-      meeting.speakers.forEach((speaker) => {
-        const key = speaker.userId || speaker.email || speaker.name;
-        if (!key) return;
-        const current = totals.get(key) || { name: speaker.name, appearances: 0, seconds: 0 };
-        current.appearances += 1;
-        current.seconds += speaker.spokenSeconds || 0;
-        totals.set(key, current);
-      }),
-    );
-    return [...totals.values()]
-      .sort((a, b) => b.appearances * 1000 + b.seconds - (a.appearances * 1000 + a.seconds))
-      .slice(0, 5);
-  }, [chartMeetings]);
 
   const displayName = user?.displayName || "Nguyễn Văn Việt";
   const userInitials = useMemo(() => {
@@ -522,89 +481,6 @@ export default function HomeScreen() {
           <SectionTitle>Tiện ích</SectionTitle>
           <DashboardQuickActions user={user} />
 
-          {/* Biểu đồ tổng quan */}
-          <SectionTitle>Biểu đồ tổng quan</SectionTitle>
-          <DashboardCharts meetings={chartMeetings} memberCount={memberCount} />
-
-          {/* BXH thành viên */}
-          <SectionTitle
-            action={
-              <Pressable
-                accessibilityLabel="Xem tất cả bảng xếp hạng"
-                hitSlop={8}
-                onPress={() => router.push("/rankings")}
-              >
-                <Text style={styles.link}>Xem tất cả</Text>
-              </Pressable>
-            }
-          >
-            BXH thành viên
-          </SectionTitle>
-          {memberRankings.length ? (
-            <Card style={styles.rankingsCard}>
-              {memberRankings.map((item, index) => {
-                const rank = index + 1;
-                const isTop1 = rank === 1;
-                const isTop2 = rank === 2;
-                const isTop3 = rank === 3;
-                const badgeColor = isTop1
-                  ? "#D99020"
-                  : isTop2
-                    ? "#64748B"
-                    : isTop3
-                      ? "#B45309"
-                      : colors.muted;
-                const badgeBg = isTop1
-                  ? "#FEF9EC"
-                  : isTop2
-                    ? "#F1F5F9"
-                    : isTop3
-                      ? "#FEF3EB"
-                      : "#F8FAFC";
-
-                return (
-                  <View
-                    key={item.name + index}
-                    style={[
-                      styles.rankRow,
-                      index !== memberRankings.length - 1 && styles.rankRowBorder,
-                    ]}
-                  >
-                    <View style={[styles.rankBadge, { backgroundColor: badgeBg }]}>
-                      <Text style={[styles.rankBadgeText, { color: badgeColor }]}>#{rank}</Text>
-                    </View>
-                    <Avatar
-                      initials={item.name
-                        .split(" ")
-                        .map((part) => part[0])
-                        .slice(-2)
-                        .join("")
-                        .toUpperCase()}
-                      size={34}
-                    />
-                    <View style={styles.rankInfo}>
-                      <Text numberOfLines={1} style={styles.rankName}>
-                        {item.name}
-                      </Text>
-                      <Text style={styles.rankMeta}>
-                        {item.appearances} buổi tham dự · {Math.round(item.seconds / 60)} phút phát biểu
-                      </Text>
-                    </View>
-                    {isTop1 ? (
-                      <View style={styles.trophyWrap}>
-                        <Trophy color="#D99020" size={16} strokeWidth={2.4} />
-                      </View>
-                    ) : null}
-                  </View>
-                );
-              })}
-            </Card>
-          ) : (
-            <EmptyState
-              title="Chưa có dữ liệu xếp hạng"
-              message="Bảng xếp hạng sẽ xuất hiện sau khi các cuộc họp diễn ra."
-            />
-          )}
         </>
       )}
     </Screen>
@@ -907,51 +783,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  /* Bảng xếp hạng */
-  rankingsCard: {
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-  },
-  rankRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    gap: 10,
-  },
-  rankRowBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#F0F4F6",
-  },
-  rankBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  rankBadgeText: {
-    fontSize: 12,
-    fontWeight: "900",
-  },
-  rankInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  rankName: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  rankMeta: {
-    color: colors.muted,
-    fontSize: 11,
-  },
-  trophyWrap: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: "#FEF9EC",
-    alignItems: "center",
-    justifyContent: "center",
-  },
 });
