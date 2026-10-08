@@ -4,7 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardResponsiveView } from '@/components/KeyboardResponsiveView';
-import { Check, X } from 'lucide-react-native';
+import { Ban, Check, ChevronRight, ImagePlus, LogOut, MessageCircle, MessageSquareLock, Pencil, Pin, ShieldCheck, Trash2, UserPlus, UserRound, Users, X, type LucideIcon } from 'lucide-react-native';
 import { chatService, type ChatRoom } from '@/services/chat';
 import { userService } from '@/services/users';
 import type { UserProfile } from '@/types';
@@ -30,6 +30,8 @@ export function ChatRoomSettingsModal({ room, currentUserId, onClose, onUpdated,
   const isAdmin = self?.role === 'admin';
   const pinned = Boolean(self?.isPinned);
   const blocked = Boolean(room.blockedBy?.some((id) => id === currentUserId));
+  const otherMember = room.members.find((member) => member.userId._id !== currentUserId);
+  const roomTitle = room.name?.trim() || (room.isGroup ? 'Nhóm trò chuyện' : otherMember?.userId.displayName || 'Trò chuyện');
 
   const run = async (operation: () => Promise<ChatRoom>, success?: () => void) => {
     if (busy) return;
@@ -103,45 +105,75 @@ export function ChatRoomSettingsModal({ room, currentUserId, onClose, onUpdated,
         {adding ? (
           <>
             <TextInput value={query} onChangeText={setQuery} placeholder='Tìm thành viên' placeholderTextColor={colors.muted} style={styles.input} />
-            <ScrollView keyboardShouldPersistTaps='handled' style={styles.scroll}>
+            <ScrollView keyboardShouldPersistTaps='handled' style={styles.scroll} contentContainerStyle={styles.addingContent}>
               {directory.filter((person) => person.displayName?.toLocaleLowerCase('vi').includes(query.trim().toLocaleLowerCase('vi'))).map((person) => {
                 const checked = selected.includes(person.uid);
-                return <Pressable key={person.uid} onPress={() => setSelected((current) => checked ? current.filter((id) => id !== person.uid) : [...current, person.uid])} style={styles.row}>
+                return <Pressable key={person.uid} accessibilityRole='checkbox' accessibilityState={{ checked }} onPress={() => setSelected((current) => checked ? current.filter((id) => id !== person.uid) : [...current, person.uid])} style={styles.memberRow}>
+                  <View style={styles.memberIcon}><UserRound size={17} color={colors.primaryDark} /></View>
                   <View style={styles.rowText}><Text style={styles.rowTitle}>{person.displayName}</Text><Text style={styles.hint}>{person.email}</Text></View>
                   {checked ? <Check size={19} color={colors.primaryDark} /> : null}
                 </Pressable>;
               })}
             </ScrollView>
-            <Action label={`Thêm ${selected.length} thành viên`} disabled={!selected.length || busy} onPress={() => void run(() => chatService.addMembers(room._id, selected), () => { setSelected([]); setAdding(false); })} />
+            <Pressable accessibilityRole='button' disabled={!selected.length || busy} onPress={() => void run(() => chatService.addMembers(room._id, selected), () => { setSelected([]); setAdding(false); })} style={[styles.addButton, (!selected.length || busy) && styles.disabled]}><Text style={styles.addButtonText}>Thêm {selected.length} thành viên</Text></Pressable>
           </>
         ) : (
           <ScrollView keyboardShouldPersistTaps='handled' contentContainerStyle={styles.content}>
             {busy ? <ActivityIndicator color={colors.primaryDark} /> : null}
-            <Action label={pinned ? 'Bỏ ghim cuộc trò chuyện' : 'Ghim cuộc trò chuyện'} disabled={busy} onPress={() => void run(() => chatService.togglePinRoom(room._id))} />
-            {!room.isGroup ? <Action label={blocked ? 'Bỏ chặn người này' : 'Chặn người này'} disabled={busy} danger={!blocked} onPress={() => void run(() => chatService.setBlocked(room._id, !blocked))} /> : null}
+            <View style={styles.summary}>
+              <View style={styles.summaryIcon}>{room.isGroup ? <Users size={28} color={colors.primaryDark} /> : <MessageCircle size={28} color={colors.primaryDark} />}</View>
+              <Text style={styles.summaryTitle} numberOfLines={2}>{roomTitle}</Text>
+              <Text style={styles.summaryMeta}>{room.isGroup ? `${room.members.length} thành viên` : 'Trò chuyện cá nhân'}</Text>
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Tùy chọn</Text>
+              <View style={styles.group}>
+                <Action icon={Pin} label={pinned ? 'Bỏ ghim cuộc trò chuyện' : 'Ghim cuộc trò chuyện'} disabled={busy} divider={!room.isGroup} onPress={() => void run(() => chatService.togglePinRoom(room._id))} />
+                {!room.isGroup ? <Action icon={blocked ? ShieldCheck : Ban} label={blocked ? 'Bỏ chặn người này' : 'Chặn người này'} disabled={busy} danger={!blocked} onPress={() => void run(() => chatService.setBlocked(room._id, !blocked))} /> : null}
+              </View>
+            </View>
 
             {room.isGroup ? (
               <>
                 {isAdmin ? <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Tên nhóm</Text>
-                  <Action label='Đổi ảnh nhóm' disabled={busy} onPress={() => void updateAvatar()} />
-                  <View style={styles.rename}><TextInput value={name} onChangeText={setName} maxLength={80} style={styles.renameInput} /><Pressable disabled={busy || !name.trim() || name.trim() === room.name} onPress={() => void run(() => chatService.updateRoom(room._id, { name: name.trim() }))} style={styles.save}><Text style={styles.saveText}>Lưu</Text></Pressable></View>
-                  <View style={styles.row}><Text style={styles.rowTitle}>Chỉ quản trị viên được nhắn</Text><Switch value={Boolean(room.onlyAdminsCanMessage)} disabled={busy} onValueChange={(value) => void run(() => chatService.updateRoom(room._id, { onlyAdminsCanMessage: value }))} /></View>
+                  <Text style={styles.sectionTitle}>Quản lý nhóm</Text>
+                  <View style={styles.group}>
+                    <Action icon={ImagePlus} label='Đổi ảnh nhóm' disabled={busy} divider onPress={() => void updateAvatar()} />
+                    <View style={[styles.settingRow, styles.divider]}>
+                      <View style={styles.iconBox}><Pencil size={18} color={colors.primaryDark} /></View>
+                      <TextInput accessibilityLabel='Tên nhóm' value={name} onChangeText={setName} placeholder='Tên nhóm' placeholderTextColor={colors.muted} maxLength={80} style={styles.renameInput} />
+                      <Pressable accessibilityRole='button' accessibilityLabel='Lưu tên nhóm' disabled={busy || !name.trim() || name.trim() === room.name} onPress={() => void run(() => chatService.updateRoom(room._id, { name: name.trim() }))} style={[styles.save, (busy || !name.trim() || name.trim() === room.name) && styles.disabled]}><Text style={styles.saveText}>Lưu</Text></Pressable>
+                    </View>
+                    <View style={styles.settingRow}>
+                      <View style={styles.iconBox}><MessageSquareLock size={18} color={colors.primaryDark} /></View>
+                      <Text style={styles.switchTitle}>Chỉ quản trị viên được nhắn</Text>
+                      <Switch accessibilityLabel='Chỉ quản trị viên được nhắn' value={Boolean(room.onlyAdminsCanMessage)} disabled={busy} onValueChange={(value) => void run(() => chatService.updateRoom(room._id, { onlyAdminsCanMessage: value }))} />
+                    </View>
+                  </View>
                 </View> : null}
 
                 <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Thành viên ({room.members.length})</Text>
-                  {isAdmin ? <Action label='Thêm thành viên' disabled={busy} onPress={() => void startAdding()} /> : null}
-                  {room.members.map((member) => {
-                    const targetId = member.userId._id;
-                    return <View key={targetId} style={styles.row}>
-                      <View style={styles.rowText}><Text style={styles.rowTitle}>{member.userId.displayName}{targetId === currentUserId ? ' (Bạn)' : ''}</Text><Text style={styles.hint}>{member.role === 'admin' ? 'Trưởng nhóm' : member.role === 'deputy' ? 'Phó nhóm' : member.userId.email}</Text></View>
-                      {isAdmin && targetId !== currentUserId ? <Pressable onPress={() => manageMember(targetId, member.userId.displayName, member.role)} style={styles.manage}><Text style={styles.manageText}>Quản lý</Text></Pressable> : null}
-                    </View>;
-                  })}
+                  <View style={styles.sectionHeader}>
+                    <View style={styles.sectionHeading}><Users size={17} color={colors.primaryDark} /><Text style={styles.sectionTitle}>Thành viên ({room.members.length})</Text></View>
+                    {isAdmin ? <Pressable accessibilityRole='button' accessibilityLabel='Thêm thành viên' disabled={busy} onPress={() => void startAdding()} style={styles.addMember}><UserPlus size={17} color={colors.primaryDark} /><Text style={styles.addMemberText}>Thêm</Text></Pressable> : null}
+                  </View>
+                  <View style={styles.group}>
+                    {room.members.map((member, index) => {
+                      const targetId = member.userId._id;
+                      return <View key={targetId} style={[styles.memberRow, index < room.members.length - 1 && styles.divider]}>
+                        <View style={styles.memberIcon}><UserRound size={17} color={colors.primaryDark} /></View>
+                        <View style={styles.rowText}><Text style={styles.rowTitle} numberOfLines={1}>{member.userId.displayName}{targetId === currentUserId ? ' (Bạn)' : ''}</Text><Text style={styles.hint}>{member.role === 'admin' ? 'Trưởng nhóm' : member.role === 'deputy' ? 'Phó nhóm' : member.userId.email}</Text></View>
+                        {isAdmin && targetId !== currentUserId ? <Pressable accessibilityRole='button' accessibilityLabel={`Quản lý ${member.userId.displayName}`} onPress={() => manageMember(targetId, member.userId.displayName, member.role)} style={styles.manage}><ChevronRight size={19} color={colors.muted} /></Pressable> : null}
+                      </View>;
+                    })}
+                  </View>
                 </View>
-                <Action label='Rời nhóm' disabled={busy} danger onPress={leave} />
-                {isAdmin ? <Action label='Xóa trò chuyện' disabled={busy} danger onPress={deleteGroup} /> : null}
+
+                <View style={styles.group}>
+                  <Action icon={LogOut} label='Rời nhóm' disabled={busy} danger divider={isAdmin} onPress={leave} />
+                  {isAdmin ? <Action icon={Trash2} label='Xóa trò chuyện' disabled={busy} danger onPress={deleteGroup} /> : null}
+                </View>
               </>
             ) : null}
           </ScrollView>
@@ -153,35 +185,50 @@ export function ChatRoomSettingsModal({ room, currentUserId, onClose, onUpdated,
   );
 }
 
-function Action({ label, onPress, danger, disabled }: { label: string; onPress: () => void; danger?: boolean; disabled?: boolean }) {
-  return <Pressable accessibilityRole='button' disabled={disabled} onPress={onPress} style={styles.action}><Text style={[styles.actionText, danger && styles.danger, disabled && styles.disabled]}>{label}</Text></Pressable>;
+function Action({ icon: Icon, label, onPress, danger, disabled, divider }: { icon: LucideIcon; label: string; onPress: () => void; danger?: boolean; disabled?: boolean; divider?: boolean }) {
+  return <Pressable accessibilityRole='button' accessibilityLabel={label} disabled={disabled} onPress={onPress} style={[styles.settingRow, divider && styles.divider, disabled && styles.disabled]}><View style={[styles.iconBox, danger && styles.dangerIconBox]}><Icon size={18} color={danger ? colors.danger : colors.primaryDark} /></View><Text style={[styles.actionText, danger && styles.danger]}>{label}</Text><ChevronRight size={17} color={colors.muted} /></Pressable>;
 }
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end' },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0, 0, 0, 0.4)' },
-  sheet: { maxHeight: '85%', borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, backgroundColor: colors.background, overflow: 'hidden' },
+  sheet: { maxHeight: '88%', borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, backgroundColor: colors.background, overflow: 'hidden' },
   addingSheet: { height: '80%' },
   header: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, backgroundColor: colors.surface },
   title: { color: colors.text, fontSize: 15, fontWeight: '700' },
   close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  content: { padding: spacing.md, paddingBottom: 40, gap: spacing.md },
-  scroll: { flexShrink: 1, paddingHorizontal: spacing.md },
-  action: { minHeight: 48, justifyContent: 'center', paddingHorizontal: spacing.md, borderRadius: radius.md, backgroundColor: colors.surface },
-  actionText: { color: colors.primaryDark, fontSize: 14, fontWeight: '700' },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.lg },
+  scroll: { flexShrink: 1 },
+  summary: { alignItems: 'center', gap: 5, paddingVertical: spacing.sm },
+  summaryIcon: { width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft },
+  summaryTitle: { color: colors.text, fontSize: 18, fontWeight: '800', textAlign: 'center' },
+  summaryMeta: { color: colors.muted, fontSize: 12 },
+  group: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, overflow: 'hidden' },
+  settingRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.md },
+  divider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  iconBox: { width: 32, height: 32, borderRadius: 10, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  dangerIconBox: { backgroundColor: '#FFF0F2' },
+  actionText: { flex: 1, color: colors.text, fontSize: 14, fontWeight: '600' },
   danger: { color: colors.danger },
   disabled: { opacity: 0.4 },
   section: { gap: spacing.sm },
+  sectionHeader: { minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionHeading: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   sectionTitle: { color: colors.muted, fontSize: 12, fontWeight: '800' },
-  row: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, backgroundColor: colors.surface },
+  addMember: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: spacing.sm },
+  addMemberText: { color: colors.primaryDark, fontSize: 13, fontWeight: '700' },
+  memberRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.md, backgroundColor: colors.surface },
+  memberIcon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft },
   rowText: { flex: 1 },
   rowTitle: { color: colors.text, fontSize: 14, fontWeight: '600' },
+  switchTitle: { flex: 1, color: colors.text, fontSize: 14, fontWeight: '600' },
   hint: { marginTop: 3, color: colors.muted, fontSize: 11 },
-  manage: { minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.sm },
-  manageText: { color: colors.primaryDark, fontSize: 12, fontWeight: '700' },
-  rename: { flexDirection: 'row', gap: spacing.sm },
-  renameInput: { flex: 1, minHeight: 44, paddingHorizontal: spacing.md, borderRadius: radius.md, backgroundColor: colors.surface, color: colors.text },
-  save: { minWidth: 54, justifyContent: 'center', alignItems: 'center', borderRadius: radius.md, backgroundColor: colors.primarySoft },
+  manage: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  renameInput: { flex: 1, minWidth: 0, minHeight: 44, color: colors.text, fontSize: 14 },
+  save: { minWidth: 48, minHeight: 36, justifyContent: 'center', alignItems: 'center', borderRadius: radius.sm, backgroundColor: colors.primarySoft },
   saveText: { color: colors.primaryDark, fontSize: 13, fontWeight: '700' },
   input: { minHeight: 46, margin: spacing.md, paddingHorizontal: spacing.md, borderRadius: radius.md, backgroundColor: colors.surface, color: colors.text },
+  addingContent: { marginHorizontal: spacing.md, borderRadius: radius.lg, overflow: 'hidden' },
+  addButton: { minHeight: 48, marginHorizontal: spacing.md, marginTop: spacing.sm, borderRadius: radius.md, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  addButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
 });
