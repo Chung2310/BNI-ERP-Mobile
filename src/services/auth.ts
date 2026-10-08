@@ -120,6 +120,13 @@ export const authService = {
     await clearLocalSession();
   },
 
+  async changePassword(password: string) {
+    await apiRequest("/api/v1/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    });
+  },
+
   async isBiometricEnabled() {
     return (await SecureStore.getItemAsync(BIOMETRIC_KEY)) === "true";
   },

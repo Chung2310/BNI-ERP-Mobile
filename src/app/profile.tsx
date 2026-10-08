@@ -2,7 +2,7 @@ import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useEffect, useState } from "react";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import { Camera, LogOut, Pencil, Trash2, X } from "lucide-react-native";
+import { Camera, ChevronRight, LockKeyhole, LogOut, Pencil, Settings, Trash2, X } from "lucide-react-native";
 import { ImageBackground, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Alert } from "@/components/AppAlert";
 import { BackHeader } from "@/components/BackHeader";
@@ -48,9 +48,10 @@ export default function ProfileScreen() {
   const [avatarBase64, setAvatarBase64] = useState<string | null>(null);
   const [coverBase64, setCoverBase64] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [accountPanel, setAccountPanel] = useState<"menu" | "password" | "delete" | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [deletePassword, setDeletePassword] = useState("");
-  const [deletePhrase, setDeletePhrase] = useState("");
 
   useEffect(() => {
     void refreshProfile().then(setProfile).catch(() => undefined);
@@ -138,25 +139,49 @@ export default function ProfileScreen() {
     ]);
   };
 
-  const closeDelete = () => {
+  const closeAccountPanel = () => {
     if (busy) return;
-    setDeleteOpen(false);
+    setAccountPanel(null);
+    setNewPassword("");
+    setConfirmPassword("");
     setDeletePassword("");
-    setDeletePhrase("");
+  };
+
+  const changePassword = async () => {
+    if (busy) return;
+    if (newPassword.length < 6) {
+      Alert.alert("Mật khẩu chưa hợp lệ", "Mật khẩu mới cần có ít nhất 6 ký tự.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      Alert.alert("Mật khẩu chưa khớp", "Hãy nhập lại mật khẩu xác nhận.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await authService.changePassword(newPassword);
+      setAccountPanel(null);
+      setNewPassword("");
+      setConfirmPassword("");
+      Alert.alert("Đã đổi mật khẩu", "Bạn có thể dùng mật khẩu mới từ lần đăng nhập tiếp theo.");
+    } catch (cause) {
+      Alert.alert("Không thể đổi mật khẩu", friendlyErrorMessage(cause, "Vui lòng thử lại."));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const confirmDelete = async () => {
     if (busy || profile?.role === "admin" || user?.role === "admin") return;
-    if (deletePhrase.trim() !== "XÓA TÀI KHOẢN" || !deletePassword) {
-      Alert.alert("Chưa đủ xác nhận", "Nhập mật khẩu hiện tại và cụm XÓA TÀI KHOẢN để tiếp tục.");
+    if (!deletePassword) {
+      Alert.alert("Chưa nhập mật khẩu", "Vui lòng nhập mật khẩu hiện tại để xóa tài khoản.");
       return;
     }
     setBusy(true);
     try {
       await deleteAccount(deletePassword);
-      setDeleteOpen(false);
+      setAccountPanel(null);
       setDeletePassword("");
-      setDeletePhrase("");
       router.replace("/login");
     } catch (cause) {
       Alert.alert("Không thể xóa tài khoản", friendlyErrorMessage(cause, "Vui lòng thử lại."));
@@ -174,7 +199,10 @@ export default function ProfileScreen() {
   return <Screen scrollViewProps={{ keyboardShouldPersistTaps: "handled" }}>
     <BackHeader title={form ? "Chỉnh sửa hồ sơ" : "Hồ sơ cá nhân"} compact
       onBack={form ? cancelEdit : undefined}
-      action={!form ? <Pressable accessibilityRole="button" accessibilityLabel="Chỉnh sửa hồ sơ cá nhân" onPress={startEdit} style={styles.editButton}><Pencil size={19} color={colors.primaryDark} /></Pressable> : null}
+      action={!form ? <View style={styles.headerActions}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Chỉnh sửa hồ sơ cá nhân" onPress={startEdit} style={styles.headerButton}><Pencil size={19} color={colors.primaryDark} /></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Cài đặt tài khoản" disabled={busy} onPress={() => setAccountPanel("menu")} style={styles.headerButton}><Settings size={20} color={colors.primaryDark} /></Pressable>
+      </View> : null}
     />
     <Card style={styles.profileCard}>
       <Pressable disabled={!form || busy} accessibilityRole="button" accessibilityLabel="Đổi ảnh bìa" onPress={() => void pickPhoto("cover")} style={styles.coverPress}>
@@ -212,18 +240,27 @@ export default function ProfileScreen() {
     {!form ? <Button icon={LogOut} tone="danger" fullWidth disabled={busy} onPress={confirmSignOut}>
       {busy ? "Đang đăng xuất..." : "Đăng xuất"}
     </Button> : null}
-    {!form && profile.role !== "admin" && user?.role !== "admin" ? <Button icon={Trash2} tone="danger" fullWidth disabled={busy} onPress={() => setDeleteOpen(true)}>Xóa tài khoản</Button> : null}
-    <Modal visible={deleteOpen && profile.role !== "admin" && user?.role !== "admin"} transparent animationType="fade" onRequestClose={closeDelete}>
+    <Modal visible={accountPanel !== null} transparent animationType="fade" onRequestClose={closeAccountPanel}>
       <View style={styles.deleteOverlay}>
-        <Pressable accessibilityLabel="Đóng xác nhận xóa tài khoản" disabled={busy} onPress={closeDelete} style={styles.deleteBackdrop} />
+        <Pressable accessibilityLabel="Đóng cài đặt tài khoản" disabled={busy} onPress={closeAccountPanel} style={styles.deleteBackdrop} />
         <View accessibilityViewIsModal style={styles.deleteDialog}>
-          <View style={styles.deleteHeader}><Text style={styles.deleteTitle}>Xóa tài khoản?</Text><Pressable accessibilityRole="button" accessibilityLabel="Đóng" disabled={busy} onPress={closeDelete} style={styles.deleteClose}><X color={colors.muted} size={21} /></Pressable></View>
-          <Text style={styles.deleteDescription}>Tài khoản của bạn sẽ bị xóa vĩnh viễn và bạn sẽ đăng xuất khỏi ứng dụng. Hành động này không thể hoàn tác.</Text>
-          <Text style={styles.label}>Mật khẩu hiện tại</Text>
-          <TextInput accessibilityLabel="Mật khẩu hiện tại" value={deletePassword} onChangeText={setDeletePassword} secureTextEntry autoCapitalize="none" autoCorrect={false} editable={!busy} placeholder="Nhập mật khẩu" style={styles.input} />
-          <Text style={styles.label}>Nhập XÓA TÀI KHOẢN để xác nhận</Text>
-          <TextInput accessibilityLabel="Nhập XÓA TÀI KHOẢN để xác nhận" value={deletePhrase} onChangeText={setDeletePhrase} autoCapitalize="characters" autoCorrect={false} editable={!busy} placeholder="XÓA TÀI KHOẢN" style={styles.input} />
-          <View style={styles.actions}><Button tone="secondary" style={styles.flex} disabled={busy} onPress={closeDelete}>Hủy</Button><Button tone="danger" style={styles.flex} disabled={busy || !deletePassword || deletePhrase.trim() !== "XÓA TÀI KHOẢN"} onPress={() => void confirmDelete()}>{busy ? "Đang xóa..." : "Xóa tài khoản"}</Button></View>
+          <View style={styles.deleteHeader}><Text style={styles.deleteTitle}>{accountPanel === "menu" ? "Cài đặt tài khoản" : accountPanel === "password" ? "Đổi mật khẩu" : "Xóa tài khoản?"}</Text><Pressable accessibilityRole="button" accessibilityLabel="Đóng" disabled={busy} onPress={closeAccountPanel} style={styles.deleteClose}><X color={colors.muted} size={21} /></Pressable></View>
+          {accountPanel === "menu" ? <>
+            <Pressable accessibilityRole="button" onPress={() => setAccountPanel("password")} style={styles.accountOption}><LockKeyhole size={20} color={colors.primaryDark} /><Text style={styles.accountOptionText}>Đổi mật khẩu</Text><ChevronRight size={18} color={colors.muted} /></Pressable>
+            {profile.role !== "admin" && user?.role !== "admin" ? <Pressable accessibilityRole="button" onPress={() => setAccountPanel("delete")} style={styles.accountOption}><Trash2 size={20} color={colors.danger} /><Text style={[styles.accountOptionText, styles.dangerText]}>Xóa tài khoản</Text><ChevronRight size={18} color={colors.muted} /></Pressable> : null}
+          </> : accountPanel === "password" ? <>
+            <Text style={styles.deleteDescription}>Mật khẩu mới cần có ít nhất 6 ký tự.</Text>
+            <Text style={styles.label}>Mật khẩu mới</Text>
+            <TextInput accessibilityLabel="Mật khẩu mới" value={newPassword} onChangeText={setNewPassword} secureTextEntry autoCapitalize="none" autoCorrect={false} editable={!busy} placeholder="Nhập mật khẩu mới" style={styles.input} />
+            <Text style={styles.label}>Xác nhận mật khẩu mới</Text>
+            <TextInput accessibilityLabel="Xác nhận mật khẩu mới" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry autoCapitalize="none" autoCorrect={false} editable={!busy} placeholder="Nhập lại mật khẩu mới" style={styles.input} />
+            <View style={styles.actions}><Button tone="secondary" style={styles.flex} disabled={busy} onPress={closeAccountPanel}>Hủy</Button><Button style={styles.flex} disabled={busy || newPassword.length < 6 || !confirmPassword} onPress={() => void changePassword()}>{busy ? "Đang lưu..." : "Lưu mật khẩu"}</Button></View>
+          </> : accountPanel === "delete" ? <>
+            <Text style={styles.deleteDescription}>Tài khoản của bạn sẽ bị xóa vĩnh viễn và bạn sẽ đăng xuất khỏi ứng dụng. Hành động này không thể hoàn tác.</Text>
+            <Text style={styles.label}>Mật khẩu hiện tại</Text>
+            <TextInput accessibilityLabel="Mật khẩu hiện tại" value={deletePassword} onChangeText={setDeletePassword} secureTextEntry autoCapitalize="none" autoCorrect={false} editable={!busy} placeholder="Nhập mật khẩu" style={styles.input} />
+            <View style={styles.actions}><Button tone="secondary" style={styles.flex} disabled={busy} onPress={closeAccountPanel}>Hủy</Button><Button tone="danger" style={styles.flex} disabled={busy || !deletePassword} onPress={() => void confirmDelete()}>{busy ? "Đang xóa..." : "Xóa tài khoản"}</Button></View>
+          </> : null}
         </View>
       </View>
     </Modal>
@@ -232,7 +269,8 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 }, empty: { color: colors.muted, padding: spacing.lg },
-  editButton: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center" },
+  headerActions: { flexDirection: "row", alignItems: "center" },
+  headerButton: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center" },
   profileCard: { alignItems: "center", overflow: "hidden", paddingTop: 0 },
   coverPress: { width: "120%" },
   cover: { width: "100%", height: 100, backgroundColor: colors.primarySoft },
@@ -258,4 +296,7 @@ const styles = StyleSheet.create({
   deleteTitle: { color: colors.text, fontSize: 19, fontWeight: "800" },
   deleteClose: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center" },
   deleteDescription: { color: colors.muted, fontSize: 13, lineHeight: 19, marginBottom: spacing.sm },
+  accountOption: { minHeight: touchTarget, flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  accountOptionText: { flex: 1, color: colors.text, fontSize: 15, fontWeight: "700" },
+  dangerText: { color: colors.danger },
 });

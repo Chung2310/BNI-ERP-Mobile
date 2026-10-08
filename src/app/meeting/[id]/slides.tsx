@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { useLocalSearchParams } from "expo-router";
 import { Expand, X } from "lucide-react-native";
-import { Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Modal, PanResponder, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BackHeader } from "@/components/BackHeader";
 import { HeaderRefreshAction } from "@/components/HeaderRefreshAction";
@@ -25,6 +25,31 @@ export default function MeetingSlidesScreen() {
   const selected = deck?.slides.find((slide) => slide.id === selectedId) || deck?.slides[0];
   const previewWidth = Math.min(screenWidth - 42, 760);
   const slideWidth = Math.max(0, Math.min(modalSize.width - 16, (modalSize.height - insets.top - insets.bottom - 64) * 16 / 9));
+
+  const nextSlide = useCallback(() => {
+    const slides = deck?.slides || [];
+    if (slides.length < 2) return;
+    setSelectedId((current) => {
+      const index = slides.findIndex((slide) => slide.id === current);
+      return slides[((index < 0 ? 0 : index) + 1) % slides.length].id;
+    });
+  }, [deck?.slides]);
+
+  const swipe = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gesture) => Math.max(Math.abs(gesture.dx), Math.abs(gesture.dy)) > 16,
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderRelease: (_, gesture) => {
+      if (Math.max(Math.abs(gesture.dx), Math.abs(gesture.dy)) < 40) return;
+      nextSlide();
+    },
+  }), [nextSlide]);
+  const fullscreenSwipe = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderRelease: (_, gesture) => {
+      if (Math.max(Math.abs(gesture.dx), Math.abs(gesture.dy)) >= 40) nextSlide();
+    },
+  }), [nextSlide]);
 
   useEffect(() => {
     if (!expanded) return;
@@ -56,10 +81,10 @@ export default function MeetingSlidesScreen() {
     ) : <>
       <Card style={styles.previewCard}>
         <View style={styles.previewHeading}><Text style={styles.heading}>Nội dung slide</Text><Text style={styles.counter}>{deck.slides.findIndex((slide) => slide.id === selected?.id) + 1}/{deck.slides.length}</Text></View>
-        {selected ? <Pressable accessibilityRole="button" accessibilityLabel={`Phóng to slide của ${selected.name}`} onPress={() => setExpanded(true)} style={styles.previewTap}>
+        {selected ? <View {...swipe.panHandlers}><Pressable accessibilityRole="button" accessibilityLabel={`Phóng to slide của ${selected.name}`} onPress={() => setExpanded(true)} style={styles.previewTap}>
           <ProfileSlideCanvas key={selected.id} slide={selected} width={previewWidth} />
           <View style={styles.expandHint}><Expand size={14} color={colors.primaryDark} /><Text style={styles.expandText}>Chạm để phóng to</Text></View>
-        </Pressable> : null}
+        </Pressable></View> : null}
       </Card>
       <Text style={styles.listTitle}>Danh sách slide</Text>
       {deck.slides.map((slide, index) => <Pressable key={slide.id} accessibilityRole="button" accessibilityState={{ selected: slide.id === selected?.id }} onPress={() => setSelectedId(slide.id)} style={[styles.slideRow, slide.id === selected?.id && styles.selectedRow]}>
@@ -77,6 +102,7 @@ export default function MeetingSlidesScreen() {
           {selected ? <ProfileSlideCanvas key={selected.id} slide={selected} width={slideWidth} /> : null}
           <Text style={styles.modalTitle} numberOfLines={2}>{selected?.name}</Text>
         </View>
+        <View {...fullscreenSwipe.panHandlers} collapsable={false} style={styles.fullscreenGesture} />
         <Pressable accessibilityRole="button" accessibilityLabel="Đóng slide" onPress={() => setExpanded(false)} style={[styles.close, { top: insets.top + spacing.sm }]}>
           <X color="#FFFFFF" size={24} />
         </Pressable>
@@ -102,6 +128,7 @@ const styles = StyleSheet.create({
   kind: { color: colors.muted, fontSize: 11, fontWeight: "700" },
   modal: { flex: 1, backgroundColor: "#000000", alignItems: "center", justifyContent: "center" },
   slideContent: { alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.sm },
+  fullscreenGesture: { ...StyleSheet.absoluteFill, zIndex: 1, backgroundColor: "transparent" },
   modalTitle: { color: "#FFFFFF", fontSize: 15, fontWeight: "800", textAlign: "center", marginTop: spacing.sm, paddingHorizontal: spacing.md },
-  close: { position: "absolute", right: spacing.sm, width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(0,0,0,0.65)", alignItems: "center", justifyContent: "center" },
+  close: { position: "absolute", right: spacing.sm, zIndex: 2, width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(0,0,0,0.65)", alignItems: "center", justifyContent: "center" },
 });

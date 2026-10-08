@@ -199,7 +199,6 @@ export default function MeetingDetailScreen() {
                 <Metric label="THỨ TỰ" value={String(attendancePosition)} />
                 <Metric label="PHÁT BIỂU" value={`${attendance.seconds} giây`} />
               </View>
-              {currentSpeaker?.id === attendance.id && meetingOpen ? <Text style={styles.currentNotice}>Đang đến lượt phát biểu của bạn.</Text> : null}
             </>
           ) : (
             <>
@@ -228,7 +227,6 @@ export default function MeetingDetailScreen() {
                 <View style={styles.grow}>
                   <Text style={styles.speakerName}>{speaker.name}</Text>
                   <Text style={styles.speakerMeta}>{speaker.userId ? "Thành viên" : "Khách mời"} · {speaker.seconds} giây · {dateTime(speaker.checkedInAt)}</Text>
-                  {isCurrent ? <Text style={styles.liveText}>ĐANG PHÁT BIỂU</Text> : speaker.deferred ? <Text style={styles.deferredText}>ĐÃ CHUYỂN CUỐI LƯỢT</Text> : (speaker.spokenSeconds || 0) > 0 ? <Text style={styles.doneText}>Đã phát biểu {Math.round(Math.min(speaker.seconds, speaker.spokenSeconds ?? 0))} giây</Text> : null}
                 </View>
               </View>
             );
@@ -336,7 +334,6 @@ const styles = StyleSheet.create({
   cardTitle: { color: colors.text, fontSize: 15, fontWeight: "900" },
   attendance: { gap: spacing.md, borderColor: "#B9E7EE", backgroundColor: colors.primarySoft },
   sectionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
-  currentNotice: { borderRadius: radius.md, backgroundColor: colors.surface, color: colors.primaryDark, padding: spacing.md, fontSize: 13, fontWeight: "800" },
   speakersCard: { gap: 0, paddingVertical: spacing.sm },
   searchBox: { height: 38, flexDirection: "row", alignItems: "center", gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, backgroundColor: colors.background, margin: spacing.sm, paddingHorizontal: spacing.md },
   searchInput: { flex: 1, minWidth: 0, color: colors.text, fontSize: 12, paddingVertical: 0 },
@@ -346,7 +343,4 @@ const styles = StyleSheet.create({
   grow: { flex: 1 },
   speakerName: { color: colors.text, fontSize: 13, fontWeight: "800" },
   speakerMeta: { marginTop: 3, color: colors.muted, fontSize: 10, lineHeight: 15 },
-  liveText: { marginTop: 3, color: colors.danger, fontSize: 9, fontWeight: "900" },
-  deferredText: { marginTop: 3, color: colors.warning, fontSize: 9, fontWeight: "900" },
-  doneText: { marginTop: 3, color: colors.success, fontSize: 9, fontWeight: "800" },
 });
