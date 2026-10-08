@@ -18,7 +18,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Avatar, Card, EmptyState } from "@/components/ui";
+import { Avatar, EmptyState } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import {
@@ -33,12 +33,34 @@ import { hasPermission } from "@/utils/permissions";
 type ViewMode = "month" | "week" | "day";
 
 const DAY_LABELS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+const DAY_OF_WEEK_NAMES = [
+  "Chủ Nhật",
+  "Thứ Hai",
+  "Thứ Ba",
+  "Thứ Tư",
+  "Thứ Năm",
+  "Thứ Sáu",
+  "Thứ Bảy",
+];
 
 function toDateKey(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+function formatMeetingTime(startsAt: string, endsAt?: string): string {
+  const start = new Date(startsAt).toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  if (!endsAt) return start;
+  const end = new Date(endsAt).toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `${start} - ${end}`;
 }
 
 export default function MeetingsScreen() {
@@ -97,8 +119,37 @@ export default function MeetingsScreen() {
   const sampleMeetings: Meeting[] = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
+    const curDay = currentDate.getDate();
 
     return [
+      {
+        _id: "sample-c-today-1",
+        title: "Họp giao ban kế hoạch",
+        startsAt: new Date(year, month, curDay, 9, 0).toISOString(),
+        endsAt: new Date(year, month, curDay, 10, 30).toISOString(),
+        location: "Phòng họp Ban Điều Hành",
+        status: "scheduled",
+        speakers: [],
+        reminderDays: 1,
+        __v: 0,
+        currentIndex: 0,
+        tiers: [],
+        fallbackSeconds: 60,
+      },
+      {
+        _id: "sample-c-today-2",
+        title: "Họp đột xuất (Đã hủy)",
+        startsAt: new Date(year, month, curDay, 14, 0).toISOString(),
+        endsAt: new Date(year, month, curDay, 15, 0).toISOString(),
+        location: "Online",
+        status: "cancelled",
+        speakers: [],
+        reminderDays: 1,
+        __v: 0,
+        currentIndex: 0,
+        tiers: [],
+        fallbackSeconds: 60,
+      },
       {
         _id: "sample-c1",
         title: "Product Review",
@@ -158,8 +209,8 @@ export default function MeetingsScreen() {
       {
         _id: "sample-c5",
         title: "Product Release",
-        startsAt: new Date(year, month, 17, 10, 0).toISOString(),
-        endsAt: new Date(year, month, 17, 11, 30).toISOString(),
+        startsAt: new Date(year, month, 17, 9, 0).toISOString(),
+        endsAt: new Date(year, month, 17, 10, 0).toISOString(),
         location: "Online",
         status: "scheduled",
         speakers: [],
@@ -171,11 +222,11 @@ export default function MeetingsScreen() {
       },
       {
         _id: "sample-c6",
-        title: "Feature Kickoff",
-        startsAt: new Date(year, month, 18, 9, 0).toISOString(),
-        endsAt: new Date(year, month, 18, 10, 0).toISOString(),
-        location: "Phòng họp 3",
-        status: "scheduled",
+        title: "Họp chiến lược Q2",
+        startsAt: new Date(year, month, 17, 15, 0).toISOString(),
+        endsAt: new Date(year, month, 17, 16, 30).toISOString(),
+        location: "Phòng VIP",
+        status: "cancelled",
         speakers: [],
         reminderDays: 1,
         __v: 0,
@@ -185,10 +236,10 @@ export default function MeetingsScreen() {
       },
       {
         _id: "sample-c7",
-        title: "Triển khai hệ thống",
-        startsAt: new Date(year, month, 19, 14, 0).toISOString(),
-        endsAt: new Date(year, month, 19, 16, 0).toISOString(),
-        location: "Phòng dự án",
+        title: "Retrospective",
+        startsAt: new Date(year, month, 19, 10, 0).toISOString(),
+        endsAt: new Date(year, month, 19, 11, 30).toISOString(),
+        location: "Phòng họp 3",
         status: "scheduled",
         speakers: [],
         reminderDays: 1,
@@ -377,14 +428,91 @@ export default function MeetingsScreen() {
     return weeks;
   }, [currentDate]);
 
+  // Tính toán tuần hiện tại cho chế độ Xem Tuần
+  const weekStart = useMemo(() => {
+    const d = new Date(currentDate);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(d);
+    monday.setDate(diff);
+    monday.setHours(0, 0, 0, 0);
+    return monday;
+  }, [currentDate]);
+
+  const weekEnd = useMemo(() => {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + 6);
+    return d;
+  }, [weekStart]);
+
+  const weekDays = useMemo(() => {
+    const days: { date: Date; label: string; dateKey: string }[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekStart);
+      d.setDate(d.getDate() + i);
+      days.push({
+        date: d,
+        label: DAY_LABELS[i],
+        dateKey: toDateKey(d),
+      });
+    }
+    return days;
+  }, [weekStart]);
+
+  // Dải 7 ngày xung quanh selectedDate cho chế độ Xem Ngày
+  const dayStripDays = useMemo(() => {
+    const d = new Date(selectedDate);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(d);
+    monday.setDate(diff);
+
+    const days: Date[] = [];
+    for (let i = 0; i < 7; i++) {
+      const item = new Date(monday);
+      item.setDate(item.getDate() + i);
+      days.push(item);
+    }
+    return days;
+  }, [selectedDate]);
+
   const todayKey = useMemo(() => toDateKey(new Date()), []);
 
-  const handlePrevMonth = () => {
-    setCurrentDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  // Điều hướng trước / sau theo chế độ xem
+  const handlePrev = () => {
+    if (viewMode === "month") {
+      setCurrentDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+    } else if (viewMode === "week") {
+      setCurrentDate((prev) => {
+        const next = new Date(prev);
+        next.setDate(next.getDate() - 7);
+        return next;
+      });
+    } else {
+      setSelectedDate((prev) => {
+        const next = new Date(prev);
+        next.setDate(next.getDate() - 1);
+        return next;
+      });
+    }
   };
 
-  const handleNextMonth = () => {
-    setCurrentDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  const handleNext = () => {
+    if (viewMode === "month") {
+      setCurrentDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+    } else if (viewMode === "week") {
+      setCurrentDate((prev) => {
+        const next = new Date(prev);
+        next.setDate(next.getDate() + 7);
+        return next;
+      });
+    } else {
+      setSelectedDate((prev) => {
+        const next = new Date(prev);
+        next.setDate(next.getDate() + 1);
+        return next;
+      });
+    }
   };
 
   const handleSelectDay = (date: Date) => {
@@ -407,7 +535,19 @@ export default function MeetingsScreen() {
       .toUpperCase();
   }, [user?.displayName]);
 
-  const monthDisplayStr = `${String(currentDate.getMonth() + 1).padStart(2, "0")} / ${currentDate.getFullYear()}`;
+  // Tiêu đề thanh điều hướng linh hoạt theo chế độ xem
+  const navDisplayTitle = useMemo(() => {
+    if (viewMode === "month") {
+      return `${String(currentDate.getMonth() + 1).padStart(2, "0")} / ${currentDate.getFullYear()}`;
+    }
+    if (viewMode === "week") {
+      const startStr = `${String(weekStart.getDate()).padStart(2, "0")}/${String(weekStart.getMonth() + 1).padStart(2, "0")}`;
+      const endStr = `${String(weekEnd.getDate()).padStart(2, "0")}/${String(weekEnd.getMonth() + 1).padStart(2, "0")}`;
+      return `${startStr} - ${endStr} / ${weekStart.getFullYear()}`;
+    }
+    const dayName = DAY_OF_WEEK_NAMES[selectedDate.getDay()];
+    return `${dayName}, ${selectedDate.getDate()}/${selectedDate.getMonth() + 1}/${selectedDate.getFullYear()}`;
+  }, [viewMode, currentDate, weekStart, weekEnd, selectedDate]);
 
   return (
     <View style={styles.container}>
@@ -480,23 +620,23 @@ export default function MeetingsScreen() {
         </View>
       </View>
 
-      {/* 3. Thanh điều hướng Tháng: < 06 / 2026 > */}
+      {/* 3. Thanh điều hướng: < Tiêu đề > linh hoạt theo Tháng, Tuần, Ngày */}
       <View style={styles.monthNavRow}>
         <Pressable
-          accessibilityLabel="Tháng trước"
+          accessibilityLabel="Trước"
           hitSlop={10}
-          onPress={handlePrevMonth}
+          onPress={handlePrev}
           style={({ pressed }) => [styles.navArrowBtn, pressed && styles.pressed]}
         >
           <ChevronLeft color="#475569" size={20} strokeWidth={2.4} />
         </Pressable>
 
-        <Text style={styles.monthTitleText}>{monthDisplayStr}</Text>
+        <Text style={styles.monthTitleText}>{navDisplayTitle}</Text>
 
         <Pressable
-          accessibilityLabel="Tháng tiếp theo"
+          accessibilityLabel="Tiếp theo"
           hitSlop={10}
-          onPress={handleNextMonth}
+          onPress={handleNext}
           style={({ pressed }) => [styles.navArrowBtn, pressed && styles.pressed]}
         >
           <ChevronRight color="#475569" size={20} strokeWidth={2.4} />
@@ -504,6 +644,8 @@ export default function MeetingsScreen() {
       </View>
 
       {/* 4. Nội dung lịch tương ứng từng chế độ xem */}
+
+      {/* CHẾ ĐỘ XEM THÁNG: Giữ nguyên chuẩn đẹp như người dùng đã xác nhận */}
       {viewMode === "month" && (
         <ScrollView
           style={styles.calendarScroll}
@@ -596,165 +738,253 @@ export default function MeetingsScreen() {
         </ScrollView>
       )}
 
-      {/* Chế độ xem Tuần: Đơn sắc hơn - Nền trắng, text đen, viền màu brand cho cuộc họp bình thường */}
+      {/* CHẾ ĐỘ XEM TUẦN: Thiết kế đơn sắc - Nền trắng, text đen như bình thường, viền màu brand */}
       {viewMode === "week" && (
         <ScrollView
           style={styles.calendarScroll}
           contentContainerStyle={styles.weekViewContainer}
           showsVerticalScrollIndicator={false}
         >
-          {DAY_LABELS.map((dayLabel, index) => {
-            const currentDayOfWeek = currentDate.getDay();
-            const diffToMonday =
-              currentDate.getDate() - currentDayOfWeek + (currentDayOfWeek === 0 ? -6 : 1);
-            const targetDate = new Date(currentDate);
-            targetDate.setDate(diffToMonday + index);
-            const key = toDateKey(targetDate);
-            const dayEvents = meetingsByDay.get(key) || [];
-            const isToday = key === todayKey;
+          {weekDays.map((item) => {
+            const dayEvents = meetingsByDay.get(item.dateKey) || [];
+            const isToday = item.dateKey === todayKey;
 
             return (
-              <Card key={key} style={styles.weekDayCard}>
+              <View key={item.dateKey} style={styles.weekDaySection}>
+                {/* Header ngày trong tuần */}
                 <View style={styles.weekDayHeader}>
-                  <Text style={[styles.weekDayLabel, isToday && styles.weekDayLabelToday]}>
-                    {dayLabel} - {targetDate.getDate()}/{targetDate.getMonth() + 1}
+                  <View style={styles.weekDayHeaderLeft}>
+                    <Text style={[styles.weekDayTitle, isToday && styles.textBrand]}>
+                      {item.label} · {String(item.date.getDate()).padStart(2, "0")}/
+                      {String(item.date.getMonth() + 1).padStart(2, "0")}
+                    </Text>
+                    {isToday && (
+                      <View style={styles.todaySmallPill}>
+                        <Text style={styles.todaySmallPillText}>Hôm nay</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.weekDayEventCount}>
+                    {dayEvents.length > 0 ? `${dayEvents.length} cuộc họp` : "Trống"}
                   </Text>
-                  {isToday ? (
-                    <View style={styles.todaySmallBadge}>
-                      <Text style={styles.todaySmallBadgeText}>Hôm nay</Text>
-                    </View>
-                  ) : null}
                 </View>
 
+                {/* Danh sách cuộc họp theo ngày */}
                 {dayEvents.length > 0 ? (
-                  dayEvents.map((meeting) => {
-                    const isCancelled = meeting.status === "cancelled";
-                    const startTime = new Date(meeting.startsAt).toLocaleTimeString("vi-VN", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    });
+                  <View style={styles.weekMeetingList}>
+                    {dayEvents.map((meeting) => {
+                      const isCancelled = meeting.status === "cancelled";
+                      const timeRangeStr = formatMeetingTime(meeting.startsAt, meeting.endsAt);
 
-                    return (
-                      <Pressable
-                        key={meeting._id}
-                        onPress={() =>
-                          router.push({ pathname: "/meeting/[id]", params: { id: meeting._id } })
-                        }
-                        style={[
-                          styles.weekMeetingItem,
-                          isCancelled
-                            ? styles.weekMeetingItemCancelled
-                            : styles.weekMeetingItemBrand,
-                        ]}
-                      >
-                        <View style={styles.weekMeetingInfo}>
-                          <Text
-                            style={[
-                              styles.weekMeetingTitle,
-                              isCancelled ? styles.textCancelled : styles.textDark,
-                            ]}
-                          >
-                            {meeting.title}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.weekMeetingTime,
-                              isCancelled ? styles.textCancelled : styles.textMuted,
-                            ]}
-                          >
-                            {startTime} · {meeting.location || "Trực tiếp"}
-                          </Text>
-                        </View>
-                        {isCancelled && (
-                          <View style={styles.cancelledBadgeSmall}>
-                            <Text style={styles.cancelledBadgeSmallText}>ĐÃ HỦY</Text>
+                      return (
+                        <Pressable
+                          key={meeting._id}
+                          onPress={() =>
+                            router.push({ pathname: "/meeting/[id]", params: { id: meeting._id } })
+                          }
+                          style={[
+                            styles.monoMeetingCard,
+                            isCancelled
+                              ? styles.monoMeetingCardCancelled
+                              : styles.monoMeetingCardBrandBorder,
+                          ]}
+                        >
+                          <View style={styles.monoMeetingHeader}>
+                            <Text
+                              numberOfLines={2}
+                              style={[
+                                styles.monoMeetingTitle,
+                                isCancelled ? styles.textCancelled : styles.textDark,
+                              ]}
+                            >
+                              {meeting.title}
+                            </Text>
+                            {isCancelled && (
+                              <View style={styles.cancelledBadge}>
+                                <Text style={styles.cancelledBadgeText}>ĐÃ HỦY</Text>
+                              </View>
+                            )}
                           </View>
-                        )}
-                      </Pressable>
-                    );
-                  })
+
+                          <View style={styles.monoMeetingMetaRow}>
+                            <Clock
+                              size={13.5}
+                              color={isCancelled ? "#DC2626" : "#64748B"}
+                              strokeWidth={1.8}
+                            />
+                            <Text
+                              style={[
+                                styles.monoMeetingMetaText,
+                                isCancelled ? styles.textCancelled : styles.textMuted,
+                              ]}
+                            >
+                              {timeRangeStr}
+                            </Text>
+
+                            <MapPin
+                              size={13.5}
+                              color={isCancelled ? "#DC2626" : "#64748B"}
+                              strokeWidth={1.8}
+                            />
+                            <Text
+                              numberOfLines={1}
+                              style={[
+                                styles.monoMeetingMetaText,
+                                isCancelled ? styles.textCancelled : styles.textMuted,
+                              ]}
+                            >
+                              {meeting.location || "Online"}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
                 ) : (
-                  <Text style={styles.weekEmptyText}>Không có lịch họp</Text>
+                  <View style={styles.weekEmptyRow}>
+                    <Text style={styles.weekEmptyText}>Không có lịch họp</Text>
+                  </View>
                 )}
-              </Card>
+              </View>
             );
           })}
         </ScrollView>
       )}
 
-      {/* Chế độ xem Ngày: Đơn sắc hơn - Nền trắng, text đen, viền màu brand cho cuộc họp bình thường */}
+      {/* CHẾ ĐỘ XEM NGÀY: Thiết kế đơn sắc - Dải chọn ngày tuần + Thẻ họp nền trắng, viền brand, text đen */}
       {viewMode === "day" && (
         <ScrollView
           style={styles.calendarScroll}
           contentContainerStyle={styles.dayViewContainer}
           showsVerticalScrollIndicator={false}
         >
+          {/* Dải chọn ngày nhanh trong tuần */}
+          <View style={styles.dayStripContainer}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.dayStripContent}
+            >
+              {dayStripDays.map((d) => {
+                const isSelected = toDateKey(d) === toDateKey(selectedDate);
+                const isToday = toDateKey(d) === todayKey;
+                const dayIndex = (d.getDay() + 6) % 7;
+                const dayLabel = DAY_LABELS[dayIndex];
+
+                return (
+                  <Pressable
+                    key={toDateKey(d)}
+                    onPress={() => setSelectedDate(d)}
+                    style={[
+                      styles.dayStripPill,
+                      isSelected && styles.dayStripPillSelected,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.dayStripLabel,
+                        isSelected ? styles.dayStripLabelSelected : isToday && styles.textBrand,
+                      ]}
+                    >
+                      {dayLabel}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.dayStripNumber,
+                        isSelected ? styles.dayStripNumberSelected : isToday && styles.textBrand,
+                      ]}
+                    >
+                      {d.getDate()}
+                    </Text>
+                    {isToday && !isSelected && <View style={styles.todaySmallDot} />}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* Banner thông tin ngày đang chọn */}
           <View style={styles.dayViewDateBanner}>
             <Text style={styles.dayViewDateText}>
               Lịch ngày {selectedDate.getDate()}/{selectedDate.getMonth() + 1}/
               {selectedDate.getFullYear()}
             </Text>
+            <Text style={styles.dayViewDateCount}>
+              {selectedDayMeetings.length > 0
+                ? `${selectedDayMeetings.length} cuộc họp`
+                : "0 cuộc họp"}
+            </Text>
           </View>
 
+          {/* Danh sách cuộc họp trong ngày */}
           {selectedDayMeetings.length > 0 ? (
-            selectedDayMeetings.map((meeting) => {
-              const isCancelled = meeting.status === "cancelled";
-              const start = new Date(meeting.startsAt);
-              const timeStr = start.toLocaleTimeString("vi-VN", {
-                hour: "2-digit",
-                minute: "2-digit",
-              });
+            <View style={styles.dayMeetingList}>
+              {selectedDayMeetings.map((meeting) => {
+                const isCancelled = meeting.status === "cancelled";
+                const timeRangeStr = formatMeetingTime(meeting.startsAt, meeting.endsAt);
 
-              return (
-                <Pressable
-                  key={meeting._id}
-                  style={[
-                    styles.dayDetailCard,
-                    isCancelled ? styles.dayDetailCardCancelled : styles.dayDetailCardBrand,
-                  ]}
-                  onPress={() =>
-                    router.push({ pathname: "/meeting/[id]", params: { id: meeting._id } })
-                  }
-                >
-                  <Text
+                return (
+                  <Pressable
+                    key={meeting._id}
                     style={[
-                      styles.dayDetailTitle,
-                      isCancelled ? styles.textCancelled : styles.textDark,
+                      styles.dayMeetingCard,
+                      isCancelled
+                        ? styles.monoMeetingCardCancelled
+                        : styles.monoMeetingCardBrandBorder,
                     ]}
+                    onPress={() =>
+                      router.push({ pathname: "/meeting/[id]", params: { id: meeting._id } })
+                    }
                   >
-                    {meeting.title}
-                  </Text>
-                  <View style={styles.dayDetailMetaRow}>
-                    <Clock
-                      size={14}
-                      color={isCancelled ? "#DC2626" : "#64748B"}
-                      strokeWidth={1.8}
-                    />
-                    <Text
-                      style={[
-                        styles.dayDetailMetaText,
-                        isCancelled ? styles.textCancelled : styles.textMuted,
-                      ]}
-                    >
-                      {timeStr}
-                    </Text>
-                    <MapPin
-                      size={14}
-                      color={isCancelled ? "#DC2626" : "#64748B"}
-                      strokeWidth={1.8}
-                    />
-                    <Text
-                      style={[
-                        styles.dayDetailMetaText,
-                        isCancelled ? styles.textCancelled : styles.textMuted,
-                      ]}
-                    >
-                      {meeting.location || "---"}
-                    </Text>
-                  </View>
-                </Pressable>
-              );
-            })
+                    <View style={styles.monoMeetingHeader}>
+                      <Text
+                        style={[
+                          styles.dayMeetingTitle,
+                          isCancelled ? styles.textCancelled : styles.textDark,
+                        ]}
+                      >
+                        {meeting.title}
+                      </Text>
+                      {isCancelled && (
+                        <View style={styles.cancelledBadge}>
+                          <Text style={styles.cancelledBadgeText}>ĐÃ HỦY</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    <View style={styles.dayMeetingMetaRow}>
+                      <Clock
+                        size={14}
+                        color={isCancelled ? "#DC2626" : "#64748B"}
+                        strokeWidth={1.8}
+                      />
+                      <Text
+                        style={[
+                          styles.dayMeetingMetaText,
+                          isCancelled ? styles.textCancelled : styles.textMuted,
+                        ]}
+                      >
+                        {timeRangeStr}
+                      </Text>
+
+                      <MapPin
+                        size={14}
+                        color={isCancelled ? "#DC2626" : "#64748B"}
+                        strokeWidth={1.8}
+                      />
+                      <Text
+                        style={[
+                          styles.dayMeetingMetaText,
+                          isCancelled ? styles.textCancelled : styles.textMuted,
+                        ]}
+                      >
+                        {meeting.location || "Online"}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
           ) : (
             <EmptyState
               title="Không có cuộc họp"
@@ -764,7 +994,7 @@ export default function MeetingsScreen() {
         </ScrollView>
       )}
 
-      {/* 5. Bottom Sheet xem chi tiết khi bấm vào một ô ngày */}
+      {/* 5. Bottom Sheet xem chi tiết khi bấm vào một ô ngày ở chế độ Tháng */}
       <Modal
         visible={isDayDetailModalVisible}
         transparent
@@ -812,23 +1042,21 @@ export default function MeetingsScreen() {
               {selectedDayMeetings.length > 0 ? (
                 selectedDayMeetings.map((meeting) => {
                   const isCancelled = meeting.status === "cancelled";
-                  const start = new Date(meeting.startsAt);
-                  const startTime = start.toLocaleTimeString("vi-VN", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  });
+                  const timeRangeStr = formatMeetingTime(meeting.startsAt, meeting.endsAt);
 
                   return (
                     <Pressable
                       key={meeting._id}
                       style={[
                         styles.sheetMeetingCard,
-                        isCancelled ? styles.sheetCardCancelled : styles.sheetCardBrand,
+                        isCancelled
+                          ? styles.monoMeetingCardCancelled
+                          : styles.monoMeetingCardBrandBorder,
                       ]}
                       onPress={() => {
                         setIsDayDetailModalVisible(false);
                         router.push({
-                          pathname: meeting.status === "live" ? "/meeting/[id]/live" : "/meeting/[id]",
+                          pathname: "/meeting/[id]",
                           params: { id: meeting._id },
                         });
                       }}
@@ -843,8 +1071,8 @@ export default function MeetingsScreen() {
                           {meeting.title}
                         </Text>
                         {isCancelled && (
-                          <View style={styles.cancelledTag}>
-                            <Text style={styles.cancelledTagText}>ĐÃ HỦY</Text>
+                          <View style={styles.cancelledBadge}>
+                            <Text style={styles.cancelledBadgeText}>ĐÃ HỦY</Text>
                           </View>
                         )}
                       </View>
@@ -861,7 +1089,7 @@ export default function MeetingsScreen() {
                             isCancelled ? styles.textCancelled : styles.textMuted,
                           ]}
                         >
-                          {startTime}
+                          {timeRangeStr}
                         </Text>
                         <MapPin
                           size={13}
@@ -874,7 +1102,7 @@ export default function MeetingsScreen() {
                             isCancelled ? styles.textCancelled : styles.textMuted,
                           ]}
                         >
-                          {meeting.location || "---"}
+                          {meeting.location || "Online"}
                         </Text>
                       </View>
                     </Pressable>
@@ -957,7 +1185,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   segmentBtnActive: {
-    backgroundColor: "#E2E8F0",
+    backgroundColor: "#FFFFFF",
     ...shadow,
   },
   segmentBtnText: {
@@ -970,23 +1198,25 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
 
-  /* 3. Thanh điều hướng Tháng: < 06 / 2026 > */
+  /* 3. Thanh điều hướng: < Tiêu đề > */
   monthNavRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingVertical: 10,
     backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
   },
   navArrowBtn: {
     padding: 4,
   },
   monthTitleText: {
     color: "#0F172A",
-    fontSize: 15.5,
+    fontSize: 15,
     fontWeight: "800",
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
 
   /* 4. Lưới lịch tháng */
@@ -998,7 +1228,6 @@ const styles = StyleSheet.create({
   },
   dayLabelsRow: {
     flexDirection: "row",
-    borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: "#F1F5F9",
     backgroundColor: "#FAFAFA",
@@ -1046,7 +1275,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   todayCircle: {
-    backgroundColor: "#00AECA", // Màu brand làm nổi bật ngày hiện tại
+    backgroundColor: "#00AECA", // Màu brand làm nổi bật ngày hiện tại ở Tháng
   },
   dayNumberText: {
     color: "#1E293B",
@@ -1102,91 +1331,173 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
 
-  /* Chế độ xem Tuần: Đơn sắc hơn - Nền trắng, text đen, viền màu brand */
-  weekViewContainer: {
-    padding: 14,
-    gap: 10,
-  },
-  weekDayCard: {
+  /* ============================================================ */
+  /* THIẾT KẾ ĐƠN SẮC CHO CHẾ ĐỘ XEM TUẦN & NGÀY                  */
+  /* Nền trắng (#FFFFFF), text đen (#0F172A), viền màu brand     */
+  /* ============================================================ */
+
+  monoMeetingCard: {
+    backgroundColor: "#FFFFFF", // Nền trắng đơn sắc
+    borderRadius: 10,
     padding: 12,
+    gap: 6,
+    ...shadow,
+  },
+  monoMeetingCardBrandBorder: {
+    borderWidth: 1.5,
+    borderColor: "#00AECA", // Viền màu brand chuẩn
+  },
+  monoMeetingCardCancelled: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1.5,
+    borderColor: "#DC2626", // Viền đỏ tươi khi bị hủy
+  },
+  monoMeetingHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  monoMeetingTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    flex: 1,
+  },
+  monoMeetingMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+  },
+  monoMeetingMetaText: {
+    fontSize: 12,
+    fontWeight: "500",
+    marginRight: 8,
+  },
+  cancelledBadge: {
+    backgroundColor: "#DC2626",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  cancelledBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 9.5,
+    fontWeight: "800",
+  },
+
+  /* Chế độ xem Tuần */
+  weekViewContainer: {
+    padding: 16,
+    gap: 16,
+    paddingBottom: 36,
+  },
+  weekDaySection: {
     gap: 8,
   },
   weekDayHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingBottom: 4,
   },
-  weekDayLabel: {
-    color: "#0F172A",
-    fontSize: 13.5,
-    fontWeight: "700",
-  },
-  weekDayLabelToday: {
-    color: "#00AECA",
-  },
-  todaySmallBadge: {
-    backgroundColor: "#E4F8FB",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: radius.pill,
-  },
-  todaySmallBadgeText: {
-    color: "#00AECA",
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  weekMeetingItem: {
+  weekDayHeaderLeft: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    padding: 10,
-    borderRadius: 8,
+    gap: 8,
   },
-  weekMeetingItemBrand: {
-    backgroundColor: "#FFFFFF", // Nền trắng đơn sắc
-    borderWidth: 1.5,
-    borderColor: "#00AECA", // Viền màu brand
-  },
-  weekMeetingItemCancelled: {
-    backgroundColor: "#FFF5F5",
-    borderWidth: 1.5,
-    borderColor: "#FCA5A5",
-  },
-  weekMeetingInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  weekMeetingTitle: {
-    fontSize: 13,
+  weekDayTitle: {
+    color: "#0F172A",
+    fontSize: 14,
     fontWeight: "700",
   },
-  weekMeetingTime: {
+  todaySmallPill: {
+    backgroundColor: "#E4F8FB",
+    paddingHorizontal: 7,
+    paddingVertical: 1.5,
+    borderRadius: radius.pill,
+  },
+  todaySmallPillText: {
+    color: "#00AECA",
     fontSize: 11,
-    fontWeight: "500",
+    fontWeight: "700",
   },
-  cancelledBadgeSmall: {
-    backgroundColor: "#DC2626",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+  weekDayEventCount: {
+    color: "#94A3B8",
+    fontSize: 12,
   },
-  cancelledBadgeSmallText: {
-    color: "#FFFFFF",
-    fontSize: 9,
-    fontWeight: "800",
+  weekMeetingList: {
+    gap: 8,
+  },
+  weekEmptyRow: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
   },
   weekEmptyText: {
     color: "#94A3B8",
-    fontSize: 12,
+    fontSize: 12.5,
     fontStyle: "italic",
   },
 
-  /* Chế độ xem Ngày: Đơn sắc hơn - Nền trắng, text đen, viền màu brand */
+  /* Chế độ xem Ngày */
   dayViewContainer: {
-    padding: 14,
-    gap: 10,
+    padding: 16,
+    gap: 14,
+    paddingBottom: 36,
+  },
+  dayStripContainer: {
+    marginHorizontal: -16,
+    paddingHorizontal: 16,
+    paddingBottom: 4,
+  },
+  dayStripContent: {
+    gap: 8,
+  },
+  dayStripPill: {
+    width: 48,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: "#F8FAFC",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    gap: 3,
+  },
+  dayStripPillSelected: {
+    backgroundColor: "#00AECA",
+    borderColor: "#00AECA",
+  },
+  dayStripLabel: {
+    color: "#64748B",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  dayStripLabelSelected: {
+    color: "#FFFFFF",
+  },
+  dayStripNumber: {
+    color: "#0F172A",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  dayStripNumberSelected: {
+    color: "#FFFFFF",
+  },
+  todaySmallDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#00AECA",
   },
   dayViewDateBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingVertical: 8,
     paddingHorizontal: 12,
     backgroundColor: "#F8FAFC",
@@ -1194,41 +1505,42 @@ const styles = StyleSheet.create({
   },
   dayViewDateText: {
     color: "#0F172A",
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: "700",
   },
-  dayDetailCard: {
-    padding: 14,
+  dayViewDateCount: {
+    color: "#64748B",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  dayMeetingList: {
+    gap: 10,
+  },
+  dayMeetingCard: {
+    backgroundColor: "#FFFFFF",
     borderRadius: 12,
+    padding: 14,
     gap: 8,
-  },
-  dayDetailCardBrand: {
-    backgroundColor: "#FFFFFF", // Nền trắng đơn sắc
-    borderWidth: 1.5,
-    borderColor: "#00AECA", // Viền màu brand
     ...shadow,
   },
-  dayDetailCardCancelled: {
-    backgroundColor: "#FFF5F5",
-    borderWidth: 1.5,
-    borderColor: "#FCA5A5",
-    ...shadow,
-  },
-  dayDetailTitle: {
-    fontSize: 14,
+  dayMeetingTitle: {
+    fontSize: 15,
     fontWeight: "700",
+    flex: 1,
   },
-  dayDetailMetaRow: {
+  dayMeetingMetaRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    flexWrap: "wrap",
   },
-  dayDetailMetaText: {
-    fontSize: 12,
+  dayMeetingMetaText: {
+    fontSize: 12.5,
     fontWeight: "500",
+    marginRight: 10,
   },
 
-  /* Bottom sheet modal: Đơn sắc hơn - Nền trắng, text đen, viền màu brand */
+  /* Bottom sheet modal chi tiết ngày */
   modalOverlay: {
     flex: 1,
     justifyContent: "flex-end",
@@ -1292,48 +1604,32 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   sheetMeetingCard: {
+    backgroundColor: "#FFFFFF",
     padding: 12,
     borderRadius: 10,
     gap: 6,
-  },
-  sheetCardBrand: {
-    backgroundColor: "#FFFFFF", // Nền trắng đơn sắc
-    borderWidth: 1.5,
-    borderColor: "#00AECA", // Viền màu brand
-  },
-  sheetCardCancelled: {
-    backgroundColor: "#FFF5F5",
-    borderWidth: 1.5,
-    borderColor: "#FCA5A5",
+    ...shadow,
   },
   sheetMeetingHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: 8,
   },
   sheetMeetingTitle: {
     fontSize: 13.5,
     fontWeight: "700",
     flex: 1,
   },
-  cancelledTag: {
-    backgroundColor: "#DC2626",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  cancelledTagText: {
-    color: "#FFFFFF",
-    fontSize: 9,
-    fontWeight: "800",
-  },
   sheetMetaRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    flexWrap: "wrap",
   },
   sheetMetaText: {
     fontSize: 11.5,
+    marginRight: 8,
   },
   sheetEmpty: {
     alignItems: "center",
@@ -1351,7 +1647,7 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
   },
 
-  /* Text color helpers */
+  /* Text color & Brand helpers */
   textDark: {
     color: "#0F172A", // Text đen / đậm như bình thường
   },
@@ -1360,5 +1656,8 @@ const styles = StyleSheet.create({
   },
   textCancelled: {
     color: "#DC2626", // Text đỏ tươi cho cuộc họp bị hủy
+  },
+  textBrand: {
+    color: "#00AECA",
   },
 });
