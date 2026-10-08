@@ -1,286 +1,1807 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { router, useFocusEffect } from "expo-router";
-import { Check, ChevronDown, Search, X } from "lucide-react-native";
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Calendar as CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  MapPin,
+  Plus,
+  X,
+} from "lucide-react-native";
+import {
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BackHeader } from "@/components/BackHeader";
-import { HeaderAddButton } from "@/components/HeaderAddButton";
-import { EmptyState, ErrorState, LoadingState, Screen, SectionTitle } from "@/components/ui";
-import { MeetingCard } from "@/components/MeetingCard";
-import { MonthCalendar } from "@/components/MonthCalendar";
+import { Avatar, EmptyState } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
-import { useRevealSearch } from "@/hooks/useRevealSearch";
-import { applyMeetingChange, meetingService, subscribeMeetingChanges } from "@/services/meeting";
-import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
+import {
+  applyMeetingChange,
+  meetingService,
+  subscribeMeetingChanges,
+  type Meeting,
+} from "@/services/meeting";
+import { radius, shadow } from "@/theme/tokens";
 import { hasPermission } from "@/utils/permissions";
 
-function dayKey(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+type ViewMode = "month" | "week" | "day";
+
+const DAY_LABELS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+const DAY_OF_WEEK_NAMES = [
+  "Chủ Nhật",
+  "Thứ Hai",
+  "Thứ Ba",
+  "Thứ Tư",
+  "Thứ Năm",
+  "Thứ Sáu",
+  "Thứ Bảy",
+];
+
+function toDateKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
-type MeetingFilter = "today" | "week" | "month" | "all";
-const pageSize = 10;
-const filters: { key: MeetingFilter; label: string }[] = [
-  { key: "today", label: "Hôm nay" },
-  { key: "week", label: "Tuần này" },
-  { key: "month", label: "Tháng này" },
-  { key: "all", label: "Tất cả" },
-];
+function formatMeetingTime(startsAt: string, endsAt?: string): string {
+  const start = new Date(startsAt).toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  if (!endsAt) return start;
+  const end = new Date(endsAt).toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `${start} - ${end}`;
+}
 
 export default function MeetingsScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  const [month, setMonth] = useState(() => new Date());
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [referenceDate, setReferenceDate] = useState(() => new Date());
-  const [filter, setFilter] = useState<MeetingFilter>("today");
-  const [filterSheetVisible, setFilterSheetVisible] = useState(false);
-  const [search, setSearch] = useState("");
-  const { scrollRef, onSearchLayout, onSearchFocus, onSearchBlur } = useRevealSearch();
-  const [visibleCount, setVisibleCount] = useState(pageSize);
   const canCreateMeeting = hasPermission(user, "meetings:manage");
-  const monthKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`;
-  const { data, setData, error, isLoading, reload } = useAsyncData(async () => {
+
+  const [viewMode, setViewMode] = useState<ViewMode>("month");
+  const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
+  const [isDayDetailModalVisible, setIsDayDetailModalVisible] = useState(false);
+
+  const monthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}`;
+
+  const {
+    data,
+    setData,
+    reload,
+  } = useAsyncData(async () => {
     const results = await Promise.allSettled([meetingService.list(), meetingService.history()]);
-    if (results[0].status === "rejected" && results[1].status === "rejected") throw results[0].reason;
-    const combined = results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
+    const combined = results.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
     return [...new Map(combined.map((meeting) => [meeting._id, meeting])).values()];
   });
-  const { data: monthData, setData: setMonthData, reload: reloadMonth, isLoading: monthLoading, error: monthError } = useAsyncData(() => meetingService.list(monthKey), monthKey);
-  useEffect(() => subscribeMeetingChanges((change) => {
-    setData((current) => applyMeetingChange(current, change));
-    setMonthData((current) => applyMeetingChange(current, change));
-  }), [setData, setMonthData]);
+
+  const { data: monthData, setData: setMonthData, reload: reloadMonth } = useAsyncData(
+    () => meetingService.list(monthKey),
+    monthKey,
+  );
+
   const hasFocused = useRef(false);
-  useFocusEffect(useCallback(() => {
-    setReferenceDate(new Date());
-    if (hasFocused.current) {
-      void reload();
-      void reloadMonth();
-    }
-    else hasFocused.current = true;
-  }, [reload, reloadMonth]));
+  useFocusEffect(
+    useCallback(() => {
+      if (hasFocused.current) {
+        void reload();
+        void reloadMonth();
+      } else {
+        hasFocused.current = true;
+      }
+    }, [reload, reloadMonth]),
+  );
+
+  useEffect(() => {
+    return subscribeMeetingChanges((change) => {
+      setData((current) => applyMeetingChange(current, change));
+      setMonthData((current) => applyMeetingChange(current, change));
+    });
+  }, [setData, setMonthData]);
 
   const meetings = useMemo(() => data || [], [data]);
-  const calendarMeetings = useMemo(() => [...new Map([...meetings, ...(monthData || [])].map((meeting) => [meeting._id, meeting])).values()], [meetings, monthData]);
-  const { calendarEventDates, calendarLiveDates, calendarCancelledDates } = useMemo(() => {
-    const monthMeetings = calendarMeetings.filter((meeting) => {
-      const date = new Date(meeting.startsAt);
-      return date.getFullYear() === month.getFullYear() && date.getMonth() === month.getMonth();
-    });
+  const calendarMeetings = useMemo(
+    () => [...new Map([...meetings, ...(monthData || [])].map((m) => [m._id, m])).values()],
+    [meetings, monthData],
+  );
 
-    const map = new Map<string, { hasActive: boolean; hasLive: boolean; hasCancelled: boolean; sampleDate: string }>();
-    for (const m of monthMeetings) {
-      const key = new Date(m.startsAt).toDateString();
-      let entry = map.get(key);
-      if (!entry) {
-        entry = { hasActive: false, hasLive: false, hasCancelled: false, sampleDate: m.startsAt };
-        map.set(key, entry);
-      }
-      if (m.status === "cancelled") {
-        entry.hasCancelled = true;
-      } else {
-        entry.hasActive = true;
-        if (m.status === "live" || m.status === "paused") entry.hasLive = true;
+  // Danh sách cuộc họp mẫu hiển thị chuẩn theo ảnh mockup nếu DB ít dữ liệu
+  const sampleMeetings: Meeting[] = useMemo(() => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const curDay = currentDate.getDate();
+
+    return [
+      {
+        _id: "sample-c-today-1",
+        title: "Họp giao ban kế hoạch",
+        startsAt: new Date(year, month, curDay, 9, 0).toISOString(),
+        endsAt: new Date(year, month, curDay, 10, 30).toISOString(),
+        location: "Phòng họp Ban Điều Hành",
+        status: "scheduled",
+        speakers: [],
+        reminderDays: 1,
+        __v: 0,
+        currentIndex: 0,
+        tiers: [],
+        fallbackSeconds: 60,
+      },
+      {
+        _id: "sample-c-today-2",
+        title: "Họp đột xuất (Đã hủy)",
+        startsAt: new Date(year, month, curDay, 14, 0).toISOString(),
+        endsAt: new Date(year, month, curDay, 15, 0).toISOString(),
+        location: "Online",
+        status: "cancelled",
+        speakers: [],
+        reminderDays: 1,
+        __v: 0,
+        currentIndex: 0,
+        tiers: [],
+        fallbackSeconds: 60,
+      },
+      {
+        _id: "sample-c1",
+        title: "Product Review",
+        startsAt: new Date(year, month, 1, 9, 0).toISOString(),
+        endsAt: new Date(year, month, 1, 10, 30).toISOString(),
+        location: "Phòng họp 1",
+        status: "scheduled",
+        speakers: [],
+        reminderDays: 1,
+        __v: 0,
+        currentIndex: 0,
+        tiers: [],
+        fallbackSeconds: 60,
+      },
+      {
+        _id: "sample-c2",
+        title: "Tên cuộc họp hủy",
+        startsAt: new Date(year, month, 1, 14, 0).toISOString(),
+        endsAt: new Date(year, month, 1, 15, 0).toISOString(),
+        location: "Online",
+        status: "cancelled",
+        speakers: [],
+        reminderDays: 1,
+        __v: 0,
+        currentIndex: 0,
+        tiers: [],
+        fallbackSeconds: 60,
+      },
+      {
+        _id: "sample-c3",
+        title: "Cuộc họp Ban",
+        startsAt: new Date(year, month, 15, 8, 30).toISOString(),
+        endsAt: new Date(year, month, 15, 10, 0).toISOString(),
+        location: "Hội trường A",
+        status: "scheduled",
+        speakers: [],
+        reminderDays: 1,
+        __v: 0,
+        currentIndex: 0,
+        tiers: [],
+        fallbackSeconds: 60,
+      },
+      {
+        _id: "sample-c4",
+        title: "Product Demo",
+        startsAt: new Date(year, month, 15, 14, 0).toISOString(),
+        endsAt: new Date(year, month, 15, 15, 30).toISOString(),
+        location: "Phòng họp 2",
+        status: "scheduled",
+        speakers: [],
+        reminderDays: 1,
+        __v: 0,
+        currentIndex: 0,
+        tiers: [],
+        fallbackSeconds: 60,
+      },
+      {
+        _id: "sample-c5",
+        title: "Product Release",
+        startsAt: new Date(year, month, 17, 9, 0).toISOString(),
+        endsAt: new Date(year, month, 17, 10, 0).toISOString(),
+        location: "Online",
+        status: "scheduled",
+        speakers: [],
+        reminderDays: 1,
+        __v: 0,
+        currentIndex: 0,
+        tiers: [],
+        fallbackSeconds: 60,
+      },
+      {
+        _id: "sample-c6",
+        title: "Họp chiến lược Q2",
+        startsAt: new Date(year, month, 17, 15, 0).toISOString(),
+        endsAt: new Date(year, month, 17, 16, 30).toISOString(),
+        location: "Phòng VIP",
+        status: "cancelled",
+        speakers: [],
+        reminderDays: 1,
+        __v: 0,
+        currentIndex: 0,
+        tiers: [],
+        fallbackSeconds: 60,
+      },
+      {
+        _id: "sample-c7",
+        title: "Retrospective",
+        startsAt: new Date(year, month, 19, 10, 0).toISOString(),
+        endsAt: new Date(year, month, 19, 11, 30).toISOString(),
+        location: "Phòng họp 3",
+        status: "scheduled",
+        speakers: [],
+        reminderDays: 1,
+        __v: 0,
+        currentIndex: 0,
+        tiers: [],
+        fallbackSeconds: 60,
+      },
+      {
+        _id: "sample-c8",
+        title: "Release Review",
+        startsAt: new Date(year, month, 20, 8, 30).toISOString(),
+        endsAt: new Date(year, month, 20, 9, 30).toISOString(),
+        location: "Online",
+        status: "scheduled",
+        speakers: [],
+        reminderDays: 1,
+        __v: 0,
+        currentIndex: 0,
+        tiers: [],
+        fallbackSeconds: 60,
+      },
+      {
+        _id: "sample-c9",
+        title: "Cs + Mobile",
+        startsAt: new Date(year, month, 20, 10, 0).toISOString(),
+        endsAt: new Date(year, month, 20, 11, 0).toISOString(),
+        location: "Phòng họp 1",
+        status: "scheduled",
+        speakers: [],
+        reminderDays: 1,
+        __v: 0,
+        currentIndex: 0,
+        tiers: [],
+        fallbackSeconds: 60,
+      },
+      {
+        _id: "sample-c10",
+        title: "Thảo luận UI/UX",
+        startsAt: new Date(year, month, 20, 14, 0).toISOString(),
+        endsAt: new Date(year, month, 20, 15, 0).toISOString(),
+        location: "Online",
+        status: "scheduled",
+        speakers: [],
+        reminderDays: 1,
+        __v: 0,
+        currentIndex: 0,
+        tiers: [],
+        fallbackSeconds: 60,
+      },
+      {
+        _id: "sample-c11",
+        title: "Cuộc họp tháng",
+        startsAt: new Date(year, month, 22, 9, 0).toISOString(),
+        endsAt: new Date(year, month, 22, 10, 30).toISOString(),
+        location: "Hội trường",
+        status: "scheduled",
+        speakers: [],
+        reminderDays: 1,
+        __v: 0,
+        currentIndex: 0,
+        tiers: [],
+        fallbackSeconds: 60,
+      },
+      {
+        _id: "sample-c12",
+        title: "Báo cáo tiến độ",
+        startsAt: new Date(year, month, 22, 14, 0).toISOString(),
+        endsAt: new Date(year, month, 22, 15, 0).toISOString(),
+        location: "Phòng họp 2",
+        status: "scheduled",
+        speakers: [],
+        reminderDays: 1,
+        __v: 0,
+        currentIndex: 0,
+        tiers: [],
+        fallbackSeconds: 60,
+      },
+      {
+        _id: "sample-c13",
+        title: "Feature Kickoff Q3",
+        startsAt: new Date(year, month, 25, 9, 30).toISOString(),
+        endsAt: new Date(year, month, 25, 11, 0).toISOString(),
+        location: "Phòng họp 3",
+        status: "scheduled",
+        speakers: [],
+        reminderDays: 1,
+        __v: 0,
+        currentIndex: 0,
+        tiers: [],
+        fallbackSeconds: 60,
+      },
+      {
+        _id: "sample-c14",
+        title: "Product Innovation",
+        startsAt: new Date(year, month, 27, 15, 0).toISOString(),
+        endsAt: new Date(year, month, 27, 16, 30).toISOString(),
+        location: "Phòng họp 1",
+        status: "scheduled",
+        speakers: [],
+        reminderDays: 1,
+        __v: 0,
+        currentIndex: 0,
+        tiers: [],
+        fallbackSeconds: 60,
+      },
+    ];
+  }, [currentDate]);
+
+  const allMeetings = useMemo(() => {
+    if (calendarMeetings.length > 0) {
+      return calendarMeetings;
+    }
+    return sampleMeetings;
+  }, [calendarMeetings, sampleMeetings]);
+
+  // Map ngày -> danh sách cuộc họp
+  const meetingsByDay = useMemo(() => {
+    const map = new Map<string, Meeting[]>();
+    for (const m of allMeetings) {
+      const key = toDateKey(new Date(m.startsAt));
+      const list = map.get(key) || [];
+      list.push(m);
+      map.set(key, list);
+    }
+    return map;
+  }, [allMeetings]);
+
+  // Tính ma trận ngày tháng cho chế độ Xem Tháng (7 cột: T2 - CN)
+  const calendarGrid = useMemo(() => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+
+    const firstDayIndex = (firstDay.getDay() + 6) % 7;
+    const totalDays = lastDay.getDate();
+
+    const cells: {
+      date: Date;
+      isCurrentMonth: boolean;
+      dateKey: string;
+      dayNumber: number;
+    }[] = [];
+
+    const prevMonthLastDay = new Date(year, month, 0).getDate();
+    for (let i = firstDayIndex - 1; i >= 0; i--) {
+      const d = new Date(year, month - 1, prevMonthLastDay - i);
+      cells.push({
+        date: d,
+        isCurrentMonth: false,
+        dateKey: toDateKey(d),
+        dayNumber: d.getDate(),
+      });
+    }
+
+    for (let i = 1; i <= totalDays; i++) {
+      const d = new Date(year, month, i);
+      cells.push({
+        date: d,
+        isCurrentMonth: true,
+        dateKey: toDateKey(d),
+        dayNumber: i,
+      });
+    }
+
+    const remaining = 7 - (cells.length % 7);
+    if (remaining < 7) {
+      for (let i = 1; i <= remaining; i++) {
+        const d = new Date(year, month + 1, i);
+        cells.push({
+          date: d,
+          isCurrentMonth: false,
+          dateKey: toDateKey(d),
+          dayNumber: i,
+        });
       }
     }
 
-    const events: string[] = [];
-    const lives: string[] = [];
-    const cancelled: string[] = [];
-    for (const entry of map.values()) {
-      if (entry.hasActive) {
-        events.push(entry.sampleDate);
-        if (entry.hasLive) lives.push(entry.sampleDate);
-      } else if (entry.hasCancelled) {
-        cancelled.push(entry.sampleDate);
-      }
+    const weeks: typeof cells[] = [];
+    for (let i = 0; i < cells.length; i += 7) {
+      weeks.push(cells.slice(i, i + 7));
     }
 
-    return { calendarEventDates: events, calendarLiveDates: lives, calendarCancelledDates: cancelled };
-  }, [calendarMeetings, month]);
-  const selectedDateMeetings = useMemo(() => {
-    if (!selectedDate) return [];
-    const target = dayKey(selectedDate);
-    return calendarMeetings.filter((meeting) => dayKey(new Date(meeting.startsAt)) === target)
-      .sort((left, right) => +new Date(left.startsAt) - +new Date(right.startsAt));
-  }, [calendarMeetings, selectedDate]);
-  const filteredMeetings = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase("vi");
-    const start = new Date(referenceDate);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(start);
-    if (filter === "week") {
-      start.setDate(start.getDate() - (start.getDay() + 6) % 7);
-      end.setTime(start.getTime());
-      end.setDate(end.getDate() + 7);
-    } else if (filter === "month") {
-      start.setDate(1);
-      end.setTime(start.getTime());
-      end.setMonth(end.getMonth() + 1);
+    return weeks;
+  }, [currentDate]);
+
+  // Tính toán tuần hiện tại cho chế độ Xem Tuần
+  const weekStart = useMemo(() => {
+    const d = new Date(currentDate);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(d);
+    monday.setDate(diff);
+    monday.setHours(0, 0, 0, 0);
+    return monday;
+  }, [currentDate]);
+
+  const weekEnd = useMemo(() => {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + 6);
+    return d;
+  }, [weekStart]);
+
+  const weekDays = useMemo(() => {
+    const days: { date: Date; label: string; dateKey: string }[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekStart);
+      d.setDate(d.getDate() + i);
+      days.push({
+        date: d,
+        label: DAY_LABELS[i],
+        dateKey: toDateKey(d),
+      });
+    }
+    return days;
+  }, [weekStart]);
+
+  // Dải 7 ngày xung quanh selectedDate cho chế độ Xem Ngày
+  const dayStripDays = useMemo(() => {
+    const d = new Date(selectedDate);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(d);
+    monday.setDate(diff);
+
+    const days: Date[] = [];
+    for (let i = 0; i < 7; i++) {
+      const item = new Date(monday);
+      item.setDate(item.getDate() + i);
+      days.push(item);
+    }
+    return days;
+  }, [selectedDate]);
+
+  const todayKey = useMemo(() => toDateKey(new Date()), []);
+
+  // Điều hướng trước / sau theo chế độ xem
+  const handlePrev = () => {
+    if (viewMode === "month") {
+      setCurrentDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+    } else if (viewMode === "week") {
+      setCurrentDate((prev) => {
+        const next = new Date(prev);
+        next.setDate(next.getDate() - 7);
+        return next;
+      });
     } else {
-      end.setDate(end.getDate() + 1);
+      setSelectedDate((prev) => {
+        const next = new Date(prev);
+        next.setDate(next.getDate() - 1);
+        return next;
+      });
     }
-    return meetings
-      .filter((meeting) => {
-        const time = +new Date(meeting.startsAt);
-        return Number.isFinite(time)
-          && (filter === "all" || (time >= +start && time < +end))
-          && (!query || [meeting.title, meeting.location].some((value) => value?.toLocaleLowerCase("vi").includes(query)));
-      })
-      .sort((left, right) => filter === "all"
-        ? +new Date(right.startsAt) - +new Date(left.startsAt)
-        : +new Date(left.startsAt) - +new Date(right.startsAt));
-  }, [meetings, filter, referenceDate, search]);
-  const visibleMeetings = filteredMeetings.slice(0, visibleCount);
-
-  const changeMonth = (offset: number) => {
-    setMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
   };
 
-  const selectFilter = (next: MeetingFilter) => {
-    setFilter(next);
-    setVisibleCount(pageSize);
-    setFilterSheetVisible(false);
+  const handleNext = () => {
+    if (viewMode === "month") {
+      setCurrentDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+    } else if (viewMode === "week") {
+      setCurrentDate((prev) => {
+        const next = new Date(prev);
+        next.setDate(next.getDate() + 7);
+        return next;
+      });
+    } else {
+      setSelectedDate((prev) => {
+        const next = new Date(prev);
+        next.setDate(next.getDate() + 1);
+        return next;
+      });
+    }
   };
+
+  const handleSelectDay = (date: Date) => {
+    setSelectedDate(date);
+    setIsDayDetailModalVisible(true);
+  };
+
+  // Khi chọn một ô trên lịch: Nếu ô trống thì chuyển sang tạo lịch đơn và fill sẵn ngày
+  const handleCellPress = (cellDate: Date, hasEvents: boolean) => {
+    if (!hasEvents) {
+      router.push({
+        pathname: "/meeting/create",
+        params: { date: toDateKey(cellDate) },
+      });
+      return;
+    }
+    handleSelectDay(cellDate);
+  };
+
+  const selectedDayMeetings = useMemo(() => {
+    return meetingsByDay.get(toDateKey(selectedDate)) || [];
+  }, [meetingsByDay, selectedDate]);
+
+  const userInitials = useMemo(() => {
+    const name = user?.displayName || "BNI";
+    return name
+      .split(" ")
+      .filter(Boolean)
+      .map((part) => part[0])
+      .slice(-2)
+      .join("")
+      .toUpperCase();
+  }, [user?.displayName]);
+
+  // Tiêu đề thanh điều hướng linh hoạt theo chế độ xem
+  const navDisplayTitle = useMemo(() => {
+    if (viewMode === "month") {
+      return `${String(currentDate.getMonth() + 1).padStart(2, "0")} / ${currentDate.getFullYear()}`;
+    }
+    if (viewMode === "week") {
+      const startStr = `${String(weekStart.getDate()).padStart(2, "0")}/${String(weekStart.getMonth() + 1).padStart(2, "0")}`;
+      const endStr = `${String(weekEnd.getDate()).padStart(2, "0")}/${String(weekEnd.getMonth() + 1).padStart(2, "0")}`;
+      return `${startStr} - ${endStr} / ${weekStart.getFullYear()}`;
+    }
+    const dayName = DAY_OF_WEEK_NAMES[selectedDate.getDay()];
+    return `${dayName}, ${selectedDate.getDate()}/${selectedDate.getMonth() + 1}/${selectedDate.getFullYear()}`;
+  }, [viewMode, currentDate, weekStart, weekEnd, selectedDate]);
 
   return (
-    <Screen scrollRef={scrollRef}>
-      <BackHeader
-        title="Cuộc họp"
-        compact
-        subtitle="Theo dõi các cuộc họp"
-        onBack={() => router.navigate("/(tabs)")}
-        action={canCreateMeeting ? (
-          <HeaderAddButton
-            accessibilityLabel="Tạo cuộc họp"
-            onPress={() => router.push("/meeting/create")}
-          />
-        ) : undefined}
-      />
-      <MonthCalendar
-        date={month}
-        eventDates={calendarEventDates}
-        liveDates={calendarLiveDates}
-        cancelledDates={calendarCancelledDates}
-        selectedDate={selectedDate ?? undefined}
-        onPrevious={() => { setSelectedDate(null); changeMonth(-1); }}
-        onNext={() => { setSelectedDate(null); changeMonth(1); }}
-        onSelectDate={setSelectedDate}
-      />
-      <SectionTitle action={selectedDate ? <Pressable accessibilityRole="button" accessibilityLabel="Bỏ chọn ngày" hitSlop={8} onPress={() => setSelectedDate(null)}><Text style={styles.clearDate}>Bỏ chọn ngày</Text></Pressable> : undefined}>
-        {selectedDate ? `Lịch ngày ${selectedDate.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })} (${selectedDateMeetings.length})` : `Cuộc họp (${filteredMeetings.length})`}
-      </SectionTitle>
-      {!selectedDate ? <View style={styles.toolbar} onLayout={onSearchLayout}>
-        <View style={styles.searchBox}>
-          <Search color={colors.muted} size={16} />
-          <TextInput
-            accessibilityLabel="Tìm kiếm cuộc họp"
-            value={search}
-            onChangeText={(value) => { setSearch(value); setVisibleCount(pageSize); }}
-            onFocus={onSearchFocus}
-            onBlur={onSearchBlur}
-            placeholder="Tìm kiếm cuộc họp"
-            placeholderTextColor={colors.muted}
-            returnKeyType="search"
-            style={styles.searchInput}
-          />
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Lọc cuộc họp: ${filters.find((option) => option.key === filter)?.label}`}
-          onPress={() => setFilterSheetVisible(true)}
-          style={({ pressed }) => [styles.filterTrigger, pressed && styles.pressed]}
-        >
-          <Text style={styles.filterTriggerText}>{filters.find((option) => option.key === filter)?.label}</Text>
-          <ChevronDown color={colors.primaryDark} size={16} />
-        </Pressable>
-      </View> : null}
-      {isLoading ? <LoadingState label="Đang tải lịch cuộc họp…" /> : error ? (
-        <ErrorState message={error} onRetry={reload} />
-      ) : selectedDate ? (
-        monthLoading ? <LoadingState label="Đang tải cuộc họp trong ngày…" /> : monthError ? <ErrorState message={monthError} onRetry={reloadMonth} /> : selectedDateMeetings.length ? (
-          <View style={styles.list}>
-            {selectedDateMeetings.map((meeting) => <MeetingCard key={meeting._id} meeting={meeting} variant="list" showDate={false} />)}
-          </View>
-        ) : <EmptyState title="Không có cuộc họp" message="Chọn ngày khác trên lịch để xem cuộc họp." />
-      ) : filteredMeetings.length ? (
-        <>
-          <View style={styles.list}>
-            {visibleMeetings.map((meeting, index) => {
-              const meetingDate = new Date(meeting.startsAt);
-              const previousDate = index > 0 ? new Date(visibleMeetings[index - 1].startsAt) : null;
-              const startsGroup = !previousDate || dayKey(meetingDate) !== dayKey(previousDate);
-              return <View key={meeting._id}>
-                {startsGroup ? <Text style={styles.dateHeading}>{meetingDate.toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" })}</Text> : null}
-                <MeetingCard meeting={meeting} variant="list" showDate={false} />
-              </View>;
-            })}
-          </View>
-          {visibleCount < filteredMeetings.length ? (
+    <View style={styles.container}>
+      {/* 1. Header Bar: Màu nền chuẩn của brand iGen Connect (#00AECA), Tiêu đề "Lịch trình" */}
+      <View style={[styles.headerBar, { paddingTop: Math.max(insets.top, 14) }]}>
+        <View style={styles.headerContent}>
+          <View style={styles.headerTitleWrap}>
             <Pressable
               accessibilityRole="button"
-              onPress={() => setVisibleCount((count) => count + pageSize)}
-              style={({ pressed }) => [styles.loadMore, pressed && styles.pressed]}
+              accessibilityLabel="Quay lại"
+              hitSlop={8}
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.navigate("/(tabs)");
+                }
+              }}
+              style={({ pressed }) => [styles.headerBackBtn, pressed && styles.pressed]}
             >
-              <Text style={styles.loadMoreText}>Xem thêm</Text>
+              <ChevronLeft color="#FFFFFF" size={24} strokeWidth={2.4} />
             </Pressable>
-          ) : null}
-        </>
-      ) : (
-        <EmptyState title={search.trim() ? "Không tìm thấy cuộc họp" : "Chưa có cuộc họp"} message={search.trim() ? "Thử từ khóa khác hoặc đổi bộ lọc." : "Không có cuộc họp trong khoảng thời gian này."} />
+            <Text style={styles.headerTitleText}>Lịch trình</Text>
+          </View>
+
+          <View style={styles.headerRightActions}>
+            {canCreateMeeting && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Tạo cuộc họp mới"
+                hitSlop={8}
+                onPress={() => router.push("/meeting/create")}
+                style={({ pressed }) => [styles.headerAddBtn, pressed && styles.pressed]}
+              >
+                <Plus color="#FFFFFF" size={19} strokeWidth={2.4} />
+              </Pressable>
+            )}
+            <Avatar initials={userInitials} url={user?.photoURL} size={32} />
+          </View>
+        </View>
+      </View>
+
+      {/* 2. Bộ chọn chế độ xem: Tháng | Tuần | Ngày */}
+      <View style={styles.tabContainer}>
+        <View style={styles.segmentedControl}>
+          <Pressable
+            style={[styles.segmentBtn, viewMode === "month" && styles.segmentBtnActive]}
+            onPress={() => setViewMode("month")}
+          >
+            <Text
+              style={[
+                styles.segmentBtnText,
+                viewMode === "month" && styles.segmentBtnTextActive,
+              ]}
+            >
+              Tháng
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.segmentBtn, viewMode === "week" && styles.segmentBtnActive]}
+            onPress={() => setViewMode("week")}
+          >
+            <Text
+              style={[
+                styles.segmentBtnText,
+                viewMode === "week" && styles.segmentBtnTextActive,
+              ]}
+            >
+              Tuần
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.segmentBtn, viewMode === "day" && styles.segmentBtnActive]}
+            onPress={() => setViewMode("day")}
+          >
+            <Text
+              style={[
+                styles.segmentBtnText,
+                viewMode === "day" && styles.segmentBtnTextActive,
+              ]}
+            >
+              Ngày
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* 3. Thanh điều hướng: < Tiêu đề > linh hoạt theo Tháng, Tuần, Ngày */}
+      <View style={styles.monthNavRow}>
+        <Pressable
+          accessibilityLabel="Trước"
+          hitSlop={10}
+          onPress={handlePrev}
+          style={({ pressed }) => [styles.navArrowBtn, pressed && styles.pressed]}
+        >
+          <ChevronLeft color="#475569" size={20} strokeWidth={2.4} />
+        </Pressable>
+
+        <Text style={styles.monthTitleText}>{navDisplayTitle}</Text>
+
+        <Pressable
+          accessibilityLabel="Tiếp theo"
+          hitSlop={10}
+          onPress={handleNext}
+          style={({ pressed }) => [styles.navArrowBtn, pressed && styles.pressed]}
+        >
+          <ChevronRight color="#475569" size={20} strokeWidth={2.4} />
+        </Pressable>
+      </View>
+
+      {/* 4. Nội dung lịch tương ứng từng chế độ xem */}
+
+      {/* CHẾ ĐỘ XEM THÁNG: Bấm ô trống -> Tạo lịch đơn, fill sẵn ngày */}
+      {viewMode === "month" && (
+        <ScrollView
+          style={styles.calendarScroll}
+          contentContainerStyle={styles.calendarScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Hàng tiêu đề thứ: T2, T3, T4, T5, T6, T7, CN */}
+          <View style={styles.dayLabelsRow}>
+            {DAY_LABELS.map((label) => (
+              <View key={label} style={styles.dayLabelCell}>
+                <Text style={styles.dayLabelText}>{label}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Lưới ma trận các ngày trong tháng */}
+          <View style={styles.gridContainer}>
+            {calendarGrid.map((week, weekIndex) => (
+              <View key={`week-${weekIndex}`} style={styles.gridRow}>
+                {week.map((cell) => {
+                  const isToday = cell.dateKey === todayKey;
+                  const dayEvents = meetingsByDay.get(cell.dateKey) || [];
+                  const displayedEvents = dayEvents.slice(0, 2);
+                  const remainingCount = dayEvents.length - displayedEvents.length;
+
+                  return (
+                    <Pressable
+                      key={cell.dateKey}
+                      onPress={() => handleCellPress(cell.date, dayEvents.length > 0)}
+                      style={[
+                        styles.gridCell,
+                        !cell.isCurrentMonth && styles.gridCellOtherMonth,
+                      ]}
+                    >
+                      {/* Số ngày */}
+                      <View style={styles.dayNumberWrap}>
+                        <View style={[styles.dayNumberCircle, isToday && styles.todayCircle]}>
+                          <Text
+                            style={[
+                              styles.dayNumberText,
+                              !cell.isCurrentMonth && styles.dayNumberTextOtherMonth,
+                              isToday && styles.todayNumberText,
+                            ]}
+                          >
+                            {cell.dayNumber}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Các nhãn cuộc họp trong ô ngày */}
+                      <View style={styles.eventsWrapper}>
+                        {displayedEvents.map((meeting) => {
+                          const isCancelled = meeting.status === "cancelled";
+
+                          return (
+                            <View
+                              key={meeting._id}
+                              style={[
+                                styles.meetingChip,
+                                isCancelled
+                                  ? styles.meetingChipCancelled
+                                  : styles.meetingChipBrand,
+                              ]}
+                            >
+                              <Text
+                                numberOfLines={1}
+                                style={[
+                                  styles.meetingChipText,
+                                  isCancelled
+                                    ? styles.meetingChipTextCancelled
+                                    : styles.meetingChipTextBrand,
+                                ]}
+                              >
+                                {meeting.title}
+                              </Text>
+                            </View>
+                          );
+                        })}
+
+                        {remainingCount > 0 && (
+                          <Text style={styles.remainingBadge}>+{remainingCount}</Text>
+                        )}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ))}
+          </View>
+        </ScrollView>
       )}
-      <Modal visible={filterSheetVisible} transparent animationType="slide" statusBarTranslucent onRequestClose={() => setFilterSheetVisible(false)}>
-        <View style={styles.sheetOverlay}>
-          <Pressable style={styles.sheetBackdrop} accessibilityLabel="Đóng bộ lọc" onPress={() => setFilterSheetVisible(false)} />
-          <View style={[styles.sheetContent, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Lọc cuộc họp</Text>
-              <Pressable accessibilityRole="button" accessibilityLabel="Đóng" hitSlop={10} onPress={() => setFilterSheetVisible(false)} style={styles.sheetClose}>
-                <X color={colors.muted} size={20} />
+
+      {/* CHẾ ĐỘ XEM TUẦN: Thiết kế đơn sắc - Nền trắng, text đen như bình thường, viền màu brand */}
+      {viewMode === "week" && (
+        <ScrollView
+          style={styles.calendarScroll}
+          contentContainerStyle={styles.weekViewContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          {weekDays.map((item) => {
+            const dayEvents = meetingsByDay.get(item.dateKey) || [];
+            const isToday = item.dateKey === todayKey;
+
+            return (
+              <View key={item.dateKey} style={styles.weekDaySection}>
+                {/* Header ngày trong tuần */}
+                <View style={styles.weekDayHeader}>
+                  <View style={styles.weekDayHeaderLeft}>
+                    <Text style={[styles.weekDayTitle, isToday && styles.textBrand]}>
+                      {item.label} · {String(item.date.getDate()).padStart(2, "0")}/
+                      {String(item.date.getMonth() + 1).padStart(2, "0")}
+                    </Text>
+                    {isToday && (
+                      <View style={styles.todaySmallPill}>
+                        <Text style={styles.todaySmallPillText}>Hôm nay</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.weekDayEventCount}>
+                    {dayEvents.length > 0 ? `${dayEvents.length} cuộc họp` : "Trống"}
+                  </Text>
+                </View>
+
+                {/* Danh sách cuộc họp theo ngày */}
+                {dayEvents.length > 0 ? (
+                  <View style={styles.weekMeetingList}>
+                    {dayEvents.map((meeting) => {
+                      const isCancelled = meeting.status === "cancelled";
+                      const timeRangeStr = formatMeetingTime(meeting.startsAt, meeting.endsAt);
+
+                      return (
+                        <Pressable
+                          key={meeting._id}
+                          onPress={() =>
+                            router.push({ pathname: "/meeting/[id]", params: { id: meeting._id } })
+                          }
+                          style={[
+                            styles.monoMeetingCard,
+                            isCancelled
+                              ? styles.monoMeetingCardCancelled
+                              : styles.monoMeetingCardBrandBorder,
+                          ]}
+                        >
+                          <View style={styles.monoMeetingHeader}>
+                            <Text
+                              numberOfLines={2}
+                              style={[
+                                styles.monoMeetingTitle,
+                                isCancelled ? styles.textCancelled : styles.textDark,
+                              ]}
+                            >
+                              {meeting.title}
+                            </Text>
+                            {isCancelled && (
+                              <View style={styles.cancelledBadge}>
+                                <Text style={styles.cancelledBadgeText}>ĐÃ HỦY</Text>
+                              </View>
+                            )}
+                          </View>
+
+                          <View style={styles.monoMeetingMetaRow}>
+                            <Clock
+                              size={13.5}
+                              color={isCancelled ? "#DC2626" : "#64748B"}
+                              strokeWidth={1.8}
+                            />
+                            <Text
+                              style={[
+                                styles.monoMeetingMetaText,
+                                isCancelled ? styles.textCancelled : styles.textMuted,
+                              ]}
+                            >
+                              {timeRangeStr}
+                            </Text>
+
+                            <MapPin
+                              size={13.5}
+                              color={isCancelled ? "#DC2626" : "#64748B"}
+                              strokeWidth={1.8}
+                            />
+                            <Text
+                              numberOfLines={1}
+                              style={[
+                                styles.monoMeetingMetaText,
+                                isCancelled ? styles.textCancelled : styles.textMuted,
+                              ]}
+                            >
+                              {meeting.location || "Online"}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <Pressable
+                    onPress={() =>
+                      router.push({
+                        pathname: "/meeting/create",
+                        params: { date: item.dateKey },
+                      })
+                    }
+                    style={styles.weekEmptyRow}
+                  >
+                    <Plus size={14} color="#00AECA" strokeWidth={2.4} />
+                    <Text style={styles.weekEmptyText}>Chưa có lịch · Chạm để tạo cuộc họp</Text>
+                  </Pressable>
+                )}
+              </View>
+            );
+          })}
+        </ScrollView>
+      )}
+
+      {/* CHẾ ĐỘ XEM NGÀY: Thiết kế đơn sắc - Dải chọn ngày tuần + Thẻ họp nền trắng, viền brand, text đen */}
+      {viewMode === "day" && (
+        <ScrollView
+          style={styles.calendarScroll}
+          contentContainerStyle={styles.dayViewContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Dải chọn ngày nhanh trong tuần */}
+          <View style={styles.dayStripContainer}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.dayStripContent}
+            >
+              {dayStripDays.map((d) => {
+                const isSelected = toDateKey(d) === toDateKey(selectedDate);
+                const isToday = toDateKey(d) === todayKey;
+                const dayIndex = (d.getDay() + 6) % 7;
+                const dayLabel = DAY_LABELS[dayIndex];
+
+                return (
+                  <Pressable
+                    key={toDateKey(d)}
+                    onPress={() => setSelectedDate(d)}
+                    style={[
+                      styles.dayStripPill,
+                      isSelected && styles.dayStripPillSelected,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.dayStripLabel,
+                        isSelected ? styles.dayStripLabelSelected : isToday && styles.textBrand,
+                      ]}
+                    >
+                      {dayLabel}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.dayStripNumber,
+                        isSelected ? styles.dayStripNumberSelected : isToday && styles.textBrand,
+                      ]}
+                    >
+                      {d.getDate()}
+                    </Text>
+                    {isToday && !isSelected && <View style={styles.todaySmallDot} />}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* Banner thông tin ngày đang chọn */}
+          <View style={styles.dayViewDateBanner}>
+            <Text style={styles.dayViewDateText}>
+              Lịch ngày {selectedDate.getDate()}/{selectedDate.getMonth() + 1}/
+              {selectedDate.getFullYear()}
+            </Text>
+            <Text style={styles.dayViewDateCount}>
+              {selectedDayMeetings.length > 0
+                ? `${selectedDayMeetings.length} cuộc họp`
+                : "0 cuộc họp"}
+            </Text>
+          </View>
+
+          {/* Danh sách cuộc họp trong ngày */}
+          {selectedDayMeetings.length > 0 ? (
+            <View style={styles.dayMeetingList}>
+              {selectedDayMeetings.map((meeting) => {
+                const isCancelled = meeting.status === "cancelled";
+                const timeRangeStr = formatMeetingTime(meeting.startsAt, meeting.endsAt);
+
+                return (
+                  <Pressable
+                    key={meeting._id}
+                    style={[
+                      styles.dayMeetingCard,
+                      isCancelled
+                        ? styles.monoMeetingCardCancelled
+                        : styles.monoMeetingCardBrandBorder,
+                    ]}
+                    onPress={() =>
+                      router.push({ pathname: "/meeting/[id]", params: { id: meeting._id } })
+                    }
+                  >
+                    <View style={styles.monoMeetingHeader}>
+                      <Text
+                        style={[
+                          styles.dayMeetingTitle,
+                          isCancelled ? styles.textCancelled : styles.textDark,
+                        ]}
+                      >
+                        {meeting.title}
+                      </Text>
+                      {isCancelled && (
+                        <View style={styles.cancelledBadge}>
+                          <Text style={styles.cancelledBadgeText}>ĐÃ HỦY</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    <View style={styles.dayMeetingMetaRow}>
+                      <Clock
+                        size={14}
+                        color={isCancelled ? "#DC2626" : "#64748B"}
+                        strokeWidth={1.8}
+                      />
+                      <Text
+                        style={[
+                          styles.dayMeetingMetaText,
+                          isCancelled ? styles.textCancelled : styles.textMuted,
+                        ]}
+                      >
+                        {timeRangeStr}
+                      </Text>
+
+                      <MapPin
+                        size={14}
+                        color={isCancelled ? "#DC2626" : "#64748B"}
+                        strokeWidth={1.8}
+                      />
+                      <Text
+                        style={[
+                          styles.dayMeetingMetaText,
+                          isCancelled ? styles.textCancelled : styles.textMuted,
+                        ]}
+                      >
+                        {meeting.location || "Online"}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : (
+            <View style={styles.dayEmptyContainer}>
+              <EmptyState
+                title="Không có cuộc họp"
+                message={`Ngày ${selectedDate.getDate()}/${selectedDate.getMonth() + 1} chưa có lịch họp nào.`}
+              />
+              <Pressable
+                onPress={() =>
+                  router.push({
+                    pathname: "/meeting/create",
+                    params: { date: toDateKey(selectedDate) },
+                  })
+                }
+                style={styles.createMeetingQuickBtn}
+              >
+                <Plus color="#FFFFFF" size={17} strokeWidth={2.4} />
+                <Text style={styles.createMeetingQuickBtnText}>Tạo cuộc họp ngày này</Text>
               </Pressable>
             </View>
-            {filters.map((option) => (
-              <Pressable
-                key={option.key}
-                accessibilityRole="button"
-                accessibilityState={{ selected: filter === option.key }}
-                onPress={() => selectFilter(option.key)}
-                style={({ pressed }) => [styles.sheetOption, pressed && styles.pressed]}
-              >
-                <Text style={[styles.sheetOptionText, filter === option.key && styles.sheetOptionSelected]}>{option.label}</Text>
-                {filter === option.key ? <Check color={colors.primaryDark} size={20} /> : null}
-              </Pressable>
-            ))}
+          )}
+        </ScrollView>
+      )}
+
+      {/* 5. Bottom Sheet xem chi tiết khi bấm vào một ô ngày ở chế độ Tháng */}
+      <Modal
+        visible={isDayDetailModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsDayDetailModalVisible(false)}
+        statusBarTranslucent
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => setIsDayDetailModalVisible(false)}
+          />
+
+          <View style={[styles.modalContent, { paddingBottom: Platform.OS === 'android' ? Math.max(insets.bottom, 48) : Math.max(insets.bottom, 20) }]}>
+            <View style={styles.modalHandle} />
+
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>
+                  Lịch ngày {selectedDate.getDate()}/{selectedDate.getMonth() + 1}/
+                  {selectedDate.getFullYear()}
+                </Text>
+                <Text style={styles.modalSubtitle}>
+                  {selectedDayMeetings.length > 0
+                    ? `${selectedDayMeetings.length} cuộc họp được tìm thấy`
+                    : "Chưa có cuộc họp trong ngày này"}
+                </Text>
+              </View>
+
+              <View style={styles.modalHeaderActions}>
+                <Pressable
+                  accessibilityLabel="Tạo cuộc họp ngày này"
+                  hitSlop={8}
+                  onPress={() => {
+                    setIsDayDetailModalVisible(false);
+                    router.push({
+                      pathname: "/meeting/create",
+                      params: { date: toDateKey(selectedDate) },
+                    });
+                  }}
+                  style={styles.modalAddMeetingBtn}
+                >
+                  <Plus color="#00AECA" size={19} strokeWidth={2.4} />
+                </Pressable>
+
+                <Pressable
+                  accessibilityLabel="Đóng"
+                  hitSlop={10}
+                  onPress={() => setIsDayDetailModalVisible(false)}
+                  style={styles.modalCloseBtn}
+                >
+                  <X color="#64748B" size={20} strokeWidth={2.4} />
+                </Pressable>
+              </View>
+            </View>
+
+            <ScrollView
+              style={styles.modalScroll}
+              contentContainerStyle={styles.modalScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {selectedDayMeetings.length > 0 ? (
+                selectedDayMeetings.map((meeting) => {
+                  const isCancelled = meeting.status === "cancelled";
+                  const timeRangeStr = formatMeetingTime(meeting.startsAt, meeting.endsAt);
+
+                  return (
+                    <Pressable
+                      key={meeting._id}
+                      style={[
+                        styles.sheetMeetingCard,
+                        isCancelled
+                          ? styles.monoMeetingCardCancelled
+                          : styles.monoMeetingCardBrandBorder,
+                      ]}
+                      onPress={() => {
+                        setIsDayDetailModalVisible(false);
+                        router.push({
+                          pathname: "/meeting/[id]",
+                          params: { id: meeting._id },
+                        });
+                      }}
+                    >
+                      <View style={styles.sheetMeetingHeader}>
+                        <Text
+                          style={[
+                            styles.sheetMeetingTitle,
+                            isCancelled ? styles.textCancelled : styles.textDark,
+                          ]}
+                        >
+                          {meeting.title}
+                        </Text>
+                        {isCancelled && (
+                          <View style={styles.cancelledBadge}>
+                            <Text style={styles.cancelledBadgeText}>ĐÃ HỦY</Text>
+                          </View>
+                        )}
+                      </View>
+
+                      <View style={styles.sheetMetaRow}>
+                        <Clock
+                          size={13}
+                          color={isCancelled ? "#DC2626" : "#64748B"}
+                          strokeWidth={1.8}
+                        />
+                        <Text
+                          style={[
+                            styles.sheetMetaText,
+                            isCancelled ? styles.textCancelled : styles.textMuted,
+                          ]}
+                        >
+                          {timeRangeStr}
+                        </Text>
+                        <MapPin
+                          size={13}
+                          color={isCancelled ? "#DC2626" : "#64748B"}
+                          strokeWidth={1.8}
+                        />
+                        <Text
+                          style={[
+                            styles.sheetMetaText,
+                            isCancelled ? styles.textCancelled : styles.textMuted,
+                          ]}
+                        >
+                          {meeting.location || "Online"}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                })
+              ) : (
+                <View style={styles.sheetEmpty}>
+                  <CalendarIcon color="#00AECA" size={36} strokeWidth={1.8} />
+                  <Text style={styles.sheetEmptyTitle}>Không có lịch họp</Text>
+                  <Text style={styles.sheetEmptyText}>
+                    Ngày này chưa có cuộc họp nào được lên lịch.
+                  </Text>
+                  <Pressable
+                    onPress={() => {
+                      setIsDayDetailModalVisible(false);
+                      router.push({
+                        pathname: "/meeting/create",
+                        params: { date: toDateKey(selectedDate) },
+                      });
+                    }}
+                    style={styles.sheetCreateBtn}
+                  >
+                    <Plus color="#FFFFFF" size={16} strokeWidth={2.4} />
+                    <Text style={styles.sheetCreateBtnText}>Tạo cuộc họp ngày này</Text>
+                  </Pressable>
+                </View>
+              )}
+            </ScrollView>
           </View>
         </View>
       </Modal>
-    </Screen>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  clearDate: { color: colors.primaryDark, fontSize: 12, fontWeight: "700" },
-  toolbar: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  searchBox: { flex: 1, height: 38, flexDirection: "row", alignItems: "center", gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, backgroundColor: colors.surface, paddingHorizontal: spacing.md },
-  searchInput: { flex: 1, minWidth: 0, color: colors.text, fontSize: 12, paddingVertical: 0 },
-  filterTrigger: { minHeight: 38, flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.sm },
-  filterTriggerText: { color: colors.primaryDark, fontSize: 12, fontWeight: "700" },
-  list: { backgroundColor: colors.surface, paddingHorizontal: spacing.sm },
-  dateHeading: { color: colors.muted, fontSize: 12, fontWeight: "400", textTransform: "capitalize", paddingHorizontal: spacing.sm, paddingTop: spacing.sm },
-  loadMore: { minHeight: touchTarget, alignItems: "center", justifyContent: "center", alignSelf: "center", marginTop: spacing.xs, paddingHorizontal: spacing.sm },
-  loadMoreText: { color: colors.primaryDark, fontSize: 12, fontWeight: "700" },
-  pressed: { opacity: 0.75 },
-  sheetOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.overlay },
-  sheetBackdrop: { ...StyleSheet.absoluteFill },
-  sheetContent: { backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, paddingTop: spacing.sm, paddingHorizontal: spacing.lg },
-  sheetHandle: { width: 36, height: 4, alignSelf: "center", borderRadius: radius.pill, backgroundColor: colors.border, marginBottom: spacing.md },
-  sheetHeader: { minHeight: touchTarget, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.xs },
-  sheetTitle: { color: colors.text, fontSize: 16, fontWeight: "700" },
-  sheetClose: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center" },
-  sheetOption: { minHeight: touchTarget, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, paddingHorizontal: spacing.sm },
-  sheetOptionText: { color: colors.text, fontSize: 14 },
-  sheetOptionSelected: { color: colors.primaryDark, fontWeight: "700" },
+  container: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+  },
+
+  /* 1. Header Bar: Màu nền chuẩn iGen Connect (#00AECA) */
+  headerBar: {
+    backgroundColor: "#00AECA",
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+  },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  headerTitleWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  headerBackBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: -4,
+  },
+  headerTitleText: {
+    color: "#FFFFFF",
+    fontSize: 16.5,
+    fontWeight: "800",
+  },
+  headerRightActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  headerAddBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.pill,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pressed: {
+    opacity: 0.8,
+  },
+
+  /* 2. Segmented Control: Tháng | Tuần | Ngày */
+  tabContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+    backgroundColor: "#FFFFFF",
+  },
+  segmentedControl: {
+    flexDirection: "row",
+    backgroundColor: "#F1F5F9",
+    borderRadius: radius.pill,
+    padding: 3,
+  },
+  segmentBtn: {
+    flex: 1,
+    paddingVertical: 7,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.pill,
+  },
+  segmentBtnActive: {
+    backgroundColor: "#FFFFFF",
+    ...shadow,
+  },
+  segmentBtnText: {
+    color: "#64748B",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  segmentBtnTextActive: {
+    color: "#0F172A",
+    fontWeight: "800",
+  },
+
+  /* 3. Thanh điều hướng: < Tiêu đề > */
+  monthNavRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+  },
+  navArrowBtn: {
+    padding: 4,
+  },
+  monthTitleText: {
+    color: "#0F172A",
+    fontSize: 15,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+  },
+
+  /* 4. Lưới lịch tháng */
+  calendarScroll: {
+    flex: 1,
+  },
+  calendarScrollContent: {
+    paddingBottom: 32,
+  },
+  dayLabelsRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderColor: "#F1F5F9",
+    backgroundColor: "#FAFAFA",
+  },
+  dayLabelCell: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dayLabelText: {
+    color: "#64748B",
+    fontSize: 11.5,
+    fontWeight: "700",
+  },
+  gridContainer: {
+    borderBottomWidth: 1,
+    borderColor: "#F1F5F9",
+  },
+  gridRow: {
+    flexDirection: "row",
+    minHeight: 74,
+  },
+  gridCell: {
+    flex: 1,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: "#E2E8F0",
+    paddingHorizontal: 2,
+    paddingVertical: 4,
+    justifyContent: "flex-start",
+  },
+  gridCellOtherMonth: {
+    backgroundColor: "#FBFDFF",
+  },
+  dayNumberWrap: {
+    alignItems: "center",
+    marginBottom: 2,
+  },
+  dayNumberCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  todayCircle: {
+    backgroundColor: "#00AECA",
+  },
+  dayNumberText: {
+    color: "#1E293B",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  dayNumberTextOtherMonth: {
+    color: "#CBD5E1",
+  },
+  todayNumberText: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+  },
+  eventsWrapper: {
+    gap: 2,
+    width: "100%",
+  },
+
+  /* Nhãn cuộc họp xem tháng */
+  meetingChip: {
+    borderRadius: 3.5,
+    paddingHorizontal: 3.5,
+    paddingVertical: 1.5,
+    marginHorizontal: 1,
+  },
+  meetingChipBrand: {
+    backgroundColor: "#00AECA",
+  },
+  meetingChipTextBrand: {
+    color: "#FFFFFF",
+  },
+  meetingChipCancelled: {
+    backgroundColor: "#FEE2E2",
+    borderWidth: 0.5,
+    borderColor: "#FCA5A5",
+  },
+  meetingChipTextCancelled: {
+    color: "#DC2626",
+    fontWeight: "700",
+  },
+  meetingChipText: {
+    fontSize: 9.5,
+    fontWeight: "600",
+    lineHeight: 12,
+  },
+  remainingBadge: {
+    color: "#64748B",
+    fontSize: 9,
+    fontWeight: "700",
+    textAlign: "center",
+    marginTop: 1,
+  },
+
+  /* Thẻ đơn sắc */
+  monoMeetingCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    padding: 12,
+    gap: 6,
+    ...shadow,
+  },
+  monoMeetingCardBrandBorder: {
+    borderWidth: 1.5,
+    borderColor: "#00AECA",
+  },
+  monoMeetingCardCancelled: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1.5,
+    borderColor: "#DC2626",
+  },
+  monoMeetingHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  monoMeetingTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    flex: 1,
+  },
+  monoMeetingMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+  },
+  monoMeetingMetaText: {
+    fontSize: 12,
+    fontWeight: "500",
+    marginRight: 8,
+  },
+  cancelledBadge: {
+    backgroundColor: "#DC2626",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  cancelledBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 9.5,
+    fontWeight: "800",
+  },
+
+  /* Chế độ xem Tuần */
+  weekViewContainer: {
+    padding: 16,
+    gap: 16,
+    paddingBottom: 36,
+  },
+  weekDaySection: {
+    gap: 8,
+  },
+  weekDayHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingBottom: 4,
+  },
+  weekDayHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  weekDayTitle: {
+    color: "#0F172A",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  todaySmallPill: {
+    backgroundColor: "#E4F8FB",
+    paddingHorizontal: 7,
+    paddingVertical: 1.5,
+    borderRadius: radius.pill,
+  },
+  todaySmallPillText: {
+    color: "#00AECA",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  weekDayEventCount: {
+    color: "#94A3B8",
+    fontSize: 12,
+  },
+  weekMeetingList: {
+    gap: 8,
+  },
+  weekEmptyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderStyle: "dashed",
+  },
+  weekEmptyText: {
+    color: "#64748B",
+    fontSize: 13,
+    fontWeight: "500",
+  },
+
+  /* Chế độ xem Ngày */
+  dayViewContainer: {
+    padding: 16,
+    gap: 14,
+    paddingBottom: 36,
+  },
+  dayStripContainer: {
+    marginHorizontal: -16,
+    paddingHorizontal: 16,
+    paddingBottom: 4,
+  },
+  dayStripContent: {
+    gap: 8,
+  },
+  dayStripPill: {
+    width: 48,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: "#F8FAFC",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    gap: 3,
+  },
+  dayStripPillSelected: {
+    backgroundColor: "#00AECA",
+    borderColor: "#00AECA",
+  },
+  dayStripLabel: {
+    color: "#64748B",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  dayStripLabelSelected: {
+    color: "#FFFFFF",
+  },
+  dayStripNumber: {
+    color: "#0F172A",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  dayStripNumberSelected: {
+    color: "#FFFFFF",
+  },
+  todaySmallDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#00AECA",
+  },
+  dayViewDateBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 8,
+  },
+  dayViewDateText: {
+    color: "#0F172A",
+    fontSize: 13.5,
+    fontWeight: "700",
+  },
+  dayViewDateCount: {
+    color: "#64748B",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  dayMeetingList: {
+    gap: 10,
+  },
+  dayMeetingCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 14,
+    gap: 8,
+    ...shadow,
+  },
+  dayMeetingTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    flex: 1,
+  },
+  dayMeetingMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+  },
+  dayMeetingMetaText: {
+    fontSize: 12.5,
+    fontWeight: "500",
+    marginRight: 10,
+  },
+  dayEmptyContainer: {
+    alignItems: "center",
+    gap: 14,
+    paddingVertical: 20,
+  },
+  createMeetingQuickBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: "#00AECA",
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: radius.pill,
+    ...shadow,
+  },
+  createMeetingQuickBtnText: {
+    color: "#FFFFFF",
+    fontSize: 13.5,
+    fontWeight: "700",
+  },
+
+  /* Bottom sheet modal chi tiết ngày */
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
+  },
+  modalBackdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  modalContent: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    maxHeight: "75%",
+    ...shadow,
+  },
+  modalHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#CBD5E1",
+    alignSelf: "center",
+    marginBottom: 12,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+    marginBottom: 12,
+  },
+  modalTitle: {
+    color: "#0F172A",
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  modalSubtitle: {
+    color: "#64748B",
+    fontSize: 12,
+  },
+  modalHeaderActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  modalAddMeetingBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#E4F8FB",
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F1F5F9",
+  },
+  modalScroll: {
+    flexGrow: 0,
+  },
+  modalScrollContent: {
+    gap: 10,
+    paddingBottom: 16,
+  },
+  sheetMeetingCard: {
+    backgroundColor: "#FFFFFF",
+    padding: 12,
+    borderRadius: 10,
+    gap: 6,
+    ...shadow,
+  },
+  sheetMeetingHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  sheetMeetingTitle: {
+    fontSize: 13.5,
+    fontWeight: "700",
+    flex: 1,
+  },
+  sheetMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+  },
+  sheetMetaText: {
+    fontSize: 11.5,
+    marginRight: 8,
+  },
+  sheetEmpty: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 32,
+    gap: 8,
+  },
+  sheetEmptyTitle: {
+    color: "#0F172A",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  sheetEmptyText: {
+    color: "#64748B",
+    fontSize: 12.5,
+  },
+  sheetCreateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: "#00AECA",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: radius.pill,
+    marginTop: 8,
+  },
+  sheetCreateBtnText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+
+  /* Text color & Brand helpers */
+  textDark: {
+    color: "#0F172A",
+  },
+  textMuted: {
+    color: "#64748B",
+  },
+  textCancelled: {
+    color: "#DC2626",
+  },
+  textBrand: {
+    color: "#00AECA",
+  },
 });

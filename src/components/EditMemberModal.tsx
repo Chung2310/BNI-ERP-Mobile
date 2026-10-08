@@ -1,19 +1,15 @@
-import { Alert } from "@/components/AppAlert";
 import { useState } from "react";
 import * as ImagePicker from "expo-image-picker";
-import { RoundedDateTimePicker } from "@/components/RoundedDateTimePicker";
 import {
   CalendarDays,
   Camera,
-  Eye,
-  EyeOff,
   Image as ImageIcon,
   Plus,
+  Trash2,
   X,
 } from "lucide-react-native";
 import {
   ActivityIndicator,
-
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -26,6 +22,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Alert } from "@/components/AppAlert";
+import { RoundedDateTimePicker } from "@/components/RoundedDateTimePicker";
 import { apiRequest } from "@/services/api";
 import { userService } from "@/services/users";
 import { colors, radius, spacing } from "@/theme/tokens";
@@ -33,8 +31,9 @@ import type { UserProfile } from "@/types";
 
 type Props = {
   visible: boolean;
+  member: UserProfile;
   onClose: () => void;
-  onCreated: (newUser: UserProfile) => void;
+  onUpdated: (updatedUser: UserProfile) => void;
 };
 
 const GENDER_OPTIONS = [
@@ -47,58 +46,57 @@ const GENDER_OPTIONS = [
 type ImageSource = "camera" | "library";
 const MAX_GALLERY_IMAGES = 5;
 
-export function AddMemberModal({ visible, onClose, onCreated }: Props) {
-  // Ảnh bìa & avatar
-  const [coverUrl, setCoverUrl] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
-  const [galleryImages, setGalleryImages] = useState<string[]>([]);
+export function EditMemberModal({ visible, member, onClose, onUpdated }: Props) {
+  if (!visible) return null;
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <EditMemberContent
+        key={`${member.uid || "member"}-${visible ? "1" : "0"}`}
+        member={member}
+        onClose={onClose}
+        onUpdated={onUpdated}
+      />
+    </Modal>
+  );
+}
+
+function EditMemberContent({ member, onClose, onUpdated }: Omit<Props, "visible">) {
+  const raw = member as Record<string, unknown>;
+  const initialCompany =
+    (typeof raw.company === "string" ? raw.company : "") ||
+    member.companyName ||
+    (typeof raw.businessName === "string" ? raw.businessName : "") ||
+    (typeof raw.tenDoanhNghiep === "string" ? raw.tenDoanhNghiep : "") ||
+    "";
+  const initialPhone =
+    member.phone ||
+    (typeof raw.phoneNumber === "string" ? raw.phoneNumber : "") ||
+    (typeof raw.mobile === "string" ? raw.mobile : "") ||
+    "";
+
+  const [coverUrl, setCoverUrl] = useState(member.coverImage || member.coverUrl || "");
+  const [avatarUrl, setAvatarUrl] = useState(member.photoURL || "");
+  const [galleryImages, setGalleryImages] = useState<string[]>(() =>
+    (member.galleryImages || []).filter((u) => typeof u === "string" && u.trim())
+  );
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingGallery, setUploadingGallery] = useState(false);
   const [imageSourceTarget, setImageSourceTarget] = useState<"avatar" | "gallery" | null>(null);
 
-  // Thông tin văn bản
-  const [name, setName] = useState("");
-  const [company, setCompany] = useState("");
-  const [industry, setIndustry] = useState("");
-  const [gender, setGender] = useState<"male" | "female" | "other" | "">("");
-  const [targetMarket, setTargetMarket] = useState("");
-  const [address, setAddress] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-
-  // Ngày sinh
-  const [birthDate, setBirthDate] = useState<Date | null>(null);
+  const [name, setName] = useState(member.displayName || "");
+  const [company, setCompany] = useState(initialCompany);
+  const [industry, setIndustry] = useState(member.industry || "");
+  const [gender, setGender] = useState<"male" | "female" | "other" | "">((member.gender as any) || "");
+  const [targetMarket, setTargetMarket] = useState(member.targetMarket || "");
+  const [address, setAddress] = useState(member.address || "");
+  const [email, setEmail] = useState(member.email || "");
+  const [phone, setPhone] = useState(initialPhone);
+  const [birthDate, setBirthDate] = useState<Date | null>(() => (member.birthDate ? new Date(member.birthDate) : null));
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const [loading, setLoading] = useState(false);
 
-  const resetForm = () => {
-    setCoverUrl("");
-    setAvatarUrl("");
-    setGalleryImages([]);
-    setName("");
-    setCompany("");
-    setIndustry("");
-    setGender("");
-    setTargetMarket("");
-    setAddress("");
-    setEmail("");
-    setPhone("");
-    setPassword("");
-    setBirthDate(null);
-    setShowPassword(false);
-    setImageSourceTarget(null);
-  };
-
-  const handleClose = () => {
-    resetForm();
-    onClose();
-  };
-
-  // Upload helper
   const uploadImage = async (base64: string, folder: string): Promise<string> => {
     try {
       const res = await apiRequest<{ url: string }>("/api/v1/media/upload", {
@@ -111,7 +109,6 @@ export function AddMemberModal({ visible, onClose, onCreated }: Props) {
     }
   };
 
-  // Chọn ảnh bìa
   const pickCover = async () => {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -138,7 +135,6 @@ export function AddMemberModal({ visible, onClose, onCreated }: Props) {
     }
   };
 
-  // Chụp hoặc chọn ảnh đại diện
   const pickAvatar = async (source: ImageSource) => {
     setUploadingAvatar(true);
     try {
@@ -170,7 +166,6 @@ export function AddMemberModal({ visible, onClose, onCreated }: Props) {
     }
   };
 
-  // Chụp hoặc chọn nhiều ảnh sản phẩm / hoạt động
   const pickGallery = async (source: ImageSource) => {
     const remaining = MAX_GALLERY_IMAGES - galleryImages.length;
     if (remaining <= 0) {
@@ -228,62 +223,38 @@ export function AddMemberModal({ visible, onClose, onCreated }: Props) {
     setGalleryImages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Submit form
   const handleSubmit = async () => {
     const trimmedName = name.trim();
-    const trimmedCompany = company.trim();
-    const trimmedIndustry = industry.trim();
-    const trimmedEmail = email.trim();
-    const trimmedPhone = phone.trim();
-
     if (!trimmedName) {
       Alert.alert("Thiếu thông tin", "Vui lòng nhập họ tên thành viên.");
-      return;
-    }
-    if (!trimmedCompany) {
-      Alert.alert("Thiếu thông tin", "Vui lòng nhập tên công ty / doanh nghiệp.");
-      return;
-    }
-    if (!trimmedIndustry) {
-      Alert.alert("Thiếu thông tin", "Vui lòng nhập lĩnh vực hoạt động.");
-      return;
-    }
-    if (!trimmedEmail) {
-      Alert.alert("Thiếu thông tin", "Vui lòng nhập email đăng nhập.");
-      return;
-    }
-    if (!trimmedPhone) {
-      Alert.alert("Thiếu thông tin", "Vui lòng nhập số điện thoại.");
       return;
     }
 
     setLoading(true);
     try {
-      const formattedBirthDate = birthDate ? birthDate.toISOString().split("T")[0] : undefined;
-
-      const newUser = await userService.create({
+      const memberId = member.uid || (member as any)._id;
+      const updated = await userService.update(memberId, {
         displayName: trimmedName,
-        email: trimmedEmail,
-        companyName: trimmedCompany,
-        company: trimmedCompany,
-        industry: trimmedIndustry,
-        phone: trimmedPhone,
-        password: password.trim() || undefined,
-        gender: gender || "",
+        companyName: company.trim() || undefined,
+        company: company.trim() || undefined,
+        industry: industry.trim() || undefined,
+        gender: gender || undefined,
         targetMarket: targetMarket.trim() || undefined,
         address: address.trim() || undefined,
-        birthDate: formattedBirthDate,
+        email: email.trim() || undefined,
+        phone: phone.trim() || undefined,
+        birthDate: birthDate ? birthDate.toISOString() : undefined,
         photoURL: avatarUrl || undefined,
         coverUrl: coverUrl || undefined,
         coverImage: coverUrl || undefined,
-        galleryImages: galleryImages.length > 0 ? galleryImages : undefined,
+        galleryImages,
       });
 
-      Alert.alert("Thành công", `Đã lưu thành viên "${trimmedName}".`);
-      resetForm();
-      onCreated(newUser);
+      Alert.alert("Thành công", "Đã cập nhật hồ sơ thành viên.");
+      onUpdated(updated);
+      onClose();
     } catch (err) {
-      Alert.alert("Lỗi", err instanceof Error ? err.message : "Không thể lưu thành viên. Vui lòng thử lại.");
+      Alert.alert("Lỗi lưu thông tin", err instanceof Error ? err.message : "Không thể cập nhật thành viên.");
     } finally {
       setLoading(false);
     }
@@ -292,19 +263,18 @@ export function AddMemberModal({ visible, onClose, onCreated }: Props) {
   const initialLetter = (name.trim() || "T")[0].toUpperCase();
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
-      <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe}>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardView}
         >
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Thêm thành viên mới</Text>
+            <Text style={styles.title}>Chỉnh sửa hồ sơ thành viên</Text>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Đóng"
-              onPress={handleClose}
+              onPress={onClose}
               hitSlop={8}
               style={styles.closeBtn}
             >
@@ -339,7 +309,7 @@ export function AddMemberModal({ visible, onClose, onCreated }: Props) {
                 ) : (
                   <>
                     <Camera size={14} color="#FFFFFF" />
-                    <Text style={styles.uploadCoverText}>Tải ảnh bìa</Text>
+                    <Text style={styles.uploadCoverText}>Đổi ảnh bìa</Text>
                   </>
                 )}
               </Pressable>
@@ -387,11 +357,9 @@ export function AddMemberModal({ visible, onClose, onCreated }: Props) {
               />
             </View>
 
-            {/* Công ty / Doanh nghiệp * */}
+            {/* Công ty / Doanh nghiệp */}
             <View style={styles.field}>
-              <Text style={styles.label}>
-                Công ty / Doanh nghiệp <Text style={styles.required}>*</Text>
-              </Text>
+              <Text style={styles.label}>Công ty / Doanh nghiệp</Text>
               <TextInput
                 value={company}
                 onChangeText={setCompany}
@@ -401,11 +369,9 @@ export function AddMemberModal({ visible, onClose, onCreated }: Props) {
               />
             </View>
 
-            {/* Lĩnh vực hoạt động * */}
+            {/* Lĩnh vực hoạt động */}
             <View style={styles.field}>
-              <Text style={styles.label}>
-                Lĩnh vực hoạt động <Text style={styles.required}>*</Text>
-              </Text>
+              <Text style={styles.label}>Lĩnh vực hoạt động</Text>
               <TextInput
                 value={industry}
                 onChangeText={setIndustry}
@@ -418,45 +384,46 @@ export function AddMemberModal({ visible, onClose, onCreated }: Props) {
             {/* Ảnh sản phẩm hoặc hoạt động (Tối đa 5 ảnh) */}
             <View style={styles.field}>
               <View style={styles.galleryHeader}>
-                <View>
-                  <Text style={styles.label}>Ảnh sản phẩm hoặc hoạt động</Text>
-                  <Text style={styles.sublabel}>Tối đa {MAX_GALLERY_IMAGES} ảnh ({galleryImages.length}/{MAX_GALLERY_IMAGES})</Text>
-                </View>
+                <Text style={styles.label}>Ảnh sản phẩm hoặc hoạt động</Text>
+                <Text style={styles.galleryCounter}>
+                  {galleryImages.length}/{MAX_GALLERY_IMAGES}
+                </Text>
+              </View>
+
+              <View style={styles.galleryGrid}>
+                {galleryImages.map((img, index) => (
+                  <View key={`${img}-${index}`} style={styles.galleryItem}>
+                    <Image source={{ uri: img }} style={styles.galleryThumb} />
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Xóa ảnh"
+                      onPress={() => removeGalleryImage(index)}
+                      style={styles.removeImageBtn}
+                    >
+                      <Trash2 size={12} color="#FFFFFF" />
+                    </Pressable>
+                  </View>
+                ))}
+
                 {galleryImages.length < MAX_GALLERY_IMAGES ? (
                   <Pressable
                     accessibilityRole="button"
+                    accessibilityLabel="Thêm ảnh hoạt động"
                     onPress={() => chooseImageSource("gallery")}
                     disabled={uploadingGallery}
-                    style={styles.addPhotoBtn}
+                    style={styles.addGalleryBtn}
                   >
                     {uploadingGallery ? (
-                      <ActivityIndicator size="small" color={colors.primary} />
+                      <ActivityIndicator size="small" color={colors.primaryDark} />
                     ) : (
                       <>
-                        <Plus size={14} color={colors.primary} />
-                        <Text style={styles.addPhotoText}>Thêm ảnh</Text>
+                        <Plus size={20} color={colors.primaryDark} />
+                        <Text style={styles.addGalleryText}>Thêm ảnh</Text>
                       </>
                     )}
                   </Pressable>
                 ) : null}
               </View>
-
-              {galleryImages.length > 0 ? (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.galleryList}>
-                  {galleryImages.map((uri, index) => (
-                    <View key={uri + index} style={styles.galleryItem}>
-                      <Image source={{ uri }} style={styles.galleryImg} />
-                      <Pressable
-                        onPress={() => removeGalleryImage(index)}
-                        style={styles.removeImgBtn}
-                        hitSlop={6}
-                      >
-                        <X size={12} color="#FFFFFF" strokeWidth={2.5} />
-                      </Pressable>
-                    </View>
-                  ))}
-                </ScrollView>
-              ) : null}
             </View>
 
             {/* Giới tính */}
@@ -464,14 +431,24 @@ export function AddMemberModal({ visible, onClose, onCreated }: Props) {
               <Text style={styles.label}>Giới tính</Text>
               <View style={styles.genderRow}>
                 {GENDER_OPTIONS.map((opt) => {
-                  const active = gender === opt.key;
+                  const isSelected = gender === opt.key;
                   return (
                     <Pressable
-                      key={opt.key}
-                      onPress={() => setGender(opt.key as any)}
-                      style={[styles.genderBtn, active && styles.genderBtnActive]}
+                      key={opt.key || "default"}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: isSelected }}
+                      onPress={() => setGender(opt.key)}
+                      style={[
+                        styles.genderOption,
+                        isSelected && styles.genderOptionSelected,
+                      ]}
                     >
-                      <Text style={[styles.genderBtnText, active && styles.genderBtnTextActive]}>
+                      <Text
+                        style={[
+                          styles.genderOptionText,
+                          isSelected && styles.genderOptionTextSelected,
+                        ]}
+                      >
                         {opt.label}
                       </Text>
                     </Pressable>
@@ -486,7 +463,7 @@ export function AddMemberModal({ visible, onClose, onCreated }: Props) {
               <TextInput
                 value={targetMarket}
                 onChangeText={setTargetMarket}
-                placeholder="Ví dụ: Doanh nghiệp vừa và nhỏ"
+                placeholder="Ví dụ: Doanh nghiệp B2B, Khách hàng cá nhân"
                 placeholderTextColor={colors.muted}
                 style={styles.input}
               />
@@ -506,11 +483,9 @@ export function AddMemberModal({ visible, onClose, onCreated }: Props) {
               />
             </View>
 
-            {/* Email đăng nhập * */}
+            {/* Email */}
             <View style={styles.field}>
-              <Text style={styles.label}>
-                Email đăng nhập <Text style={styles.required}>*</Text>
-              </Text>
+              <Text style={styles.label}>Email</Text>
               <TextInput
                 value={email}
                 onChangeText={setEmail}
@@ -522,11 +497,9 @@ export function AddMemberModal({ visible, onClose, onCreated }: Props) {
               />
             </View>
 
-            {/* Số điện thoại * */}
+            {/* Số điện thoại */}
             <View style={styles.field}>
-              <Text style={styles.label}>
-                Số điện thoại <Text style={styles.required}>*</Text>
-              </Text>
+              <Text style={styles.label}>Số điện thoại</Text>
               <TextInput
                 value={phone}
                 onChangeText={setPhone}
@@ -561,44 +534,19 @@ export function AddMemberModal({ visible, onClose, onCreated }: Props) {
                   mode="date"
                   maximumDate={new Date()}
                   onCancel={() => setShowDatePicker(false)}
-                  onConfirm={(selectedDate) => { setBirthDate(selectedDate); setShowDatePicker(false); }}
+                  onConfirm={(selectedDate) => {
+                    setBirthDate(selectedDate);
+                    setShowDatePicker(false);
+                  }}
                 />
               ) : null}
-            </View>
-
-            {/* Mật khẩu khởi tạo * */}
-            <View style={styles.field}>
-              <Text style={styles.label}>
-                Mật khẩu khởi tạo <Text style={styles.required}>*</Text>
-              </Text>
-              <View style={styles.passwordContainer}>
-                <TextInput
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="••••••••"
-                  placeholderTextColor={colors.muted}
-                  secureTextEntry={!showPassword}
-                  style={styles.passwordInput}
-                />
-                <Pressable
-                  onPress={() => setShowPassword((prev) => !prev)}
-                  hitSlop={8}
-                  style={styles.eyeBtn}
-                >
-                  {showPassword ? (
-                    <EyeOff size={18} color={colors.muted} />
-                  ) : (
-                    <Eye size={18} color={colors.muted} />
-                  )}
-                </Pressable>
-              </View>
             </View>
 
             {/* Nút hành động */}
             <View style={styles.actionRow}>
               <Pressable
                 accessibilityRole="button"
-                onPress={handleClose}
+                onPress={onClose}
                 disabled={loading || uploadingAvatar || uploadingGallery || uploadingCover}
                 style={[styles.btn, styles.cancelBtn]}
               >
@@ -609,29 +557,61 @@ export function AddMemberModal({ visible, onClose, onCreated }: Props) {
                 accessibilityRole="button"
                 onPress={handleSubmit}
                 disabled={loading || uploadingAvatar || uploadingGallery || uploadingCover}
-                style={[styles.btn, styles.submitBtn, (loading || uploadingAvatar || uploadingGallery || uploadingCover) && styles.disabled]}
+                style={[
+                  styles.btn,
+                  styles.submitBtn,
+                  (loading || uploadingAvatar || uploadingGallery || uploadingCover) && styles.disabled,
+                ]}
               >
                 {loading ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                  <Text style={styles.submitBtnText}>Lưu thành viên</Text>
+                  <Text style={styles.submitBtnText}>Lưu thay đổi</Text>
                 )}
               </Pressable>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
-        {imageSourceTarget ? <View style={styles.imageSourceOverlay}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Đóng chọn nguồn ảnh" onPress={() => setImageSourceTarget(null)} style={StyleSheet.absoluteFill} />
-          <View style={styles.imageSourcePopup}>
-            <Text style={styles.imageSourceTitle}>Thêm ảnh</Text>
-            <Text style={styles.imageSourceDescription}>Chọn nguồn ảnh</Text>
-            <Pressable accessibilityRole="button" onPress={() => selectImageSource("camera")} style={styles.imageSourceOption}><Camera color={colors.primaryDark} size={20} /><Text style={styles.imageSourceOptionText}>Chụp ảnh</Text></Pressable>
-            <Pressable accessibilityRole="button" onPress={() => selectImageSource("library")} style={styles.imageSourceOption}><ImageIcon color={colors.primaryDark} size={20} /><Text style={styles.imageSourceOptionText}>Chọn từ thư viện</Text></Pressable>
-            <Pressable accessibilityRole="button" onPress={() => setImageSourceTarget(null)} style={styles.imageSourceCancel}><Text style={styles.imageSourceCancelText}>Hủy</Text></Pressable>
+
+        {/* Modal nguồn ảnh */}
+        {imageSourceTarget ? (
+          <View style={styles.imageSourceOverlay}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Đóng chọn nguồn ảnh"
+              onPress={() => setImageSourceTarget(null)}
+              style={StyleSheet.absoluteFill}
+            />
+            <View style={styles.imageSourcePopup}>
+              <Text style={styles.imageSourceTitle}>Thêm ảnh</Text>
+              <Text style={styles.imageSourceDescription}>Chọn nguồn ảnh</Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => selectImageSource("camera")}
+                style={styles.imageSourceOption}
+              >
+                <Camera color={colors.primaryDark} size={20} />
+                <Text style={styles.imageSourceOptionText}>Chụp ảnh</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => selectImageSource("library")}
+                style={styles.imageSourceOption}
+              >
+                <ImageIcon color={colors.primaryDark} size={20} />
+                <Text style={styles.imageSourceOptionText}>Chọn từ thư viện</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setImageSourceTarget(null)}
+                style={styles.imageSourceCancel}
+              >
+                <Text style={styles.imageSourceCancelText}>Hủy</Text>
+              </Pressable>
+            </View>
           </View>
-        </View> : null}
+        ) : null}
       </SafeAreaView>
-    </Modal>
   );
 }
 
@@ -663,9 +643,22 @@ const styles = StyleSheet.create({
   },
   imageSourceTitle: { color: colors.text, fontSize: 16, fontWeight: "700" },
   imageSourceDescription: { color: colors.muted, fontSize: 12, marginBottom: spacing.xs },
-  imageSourceOption: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: spacing.md, borderRadius: radius.md, backgroundColor: colors.background, paddingHorizontal: spacing.md },
+  imageSourceOption: {
+    minHeight: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.md,
+  },
   imageSourceOptionText: { color: colors.text, fontSize: 14, fontWeight: "600" },
-  imageSourceCancel: { minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: radius.md },
+  imageSourceCancel: {
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.md,
+  },
   imageSourceCancelText: { color: colors.muted, fontSize: 13, fontWeight: "600" },
   header: {
     minHeight: 48,
@@ -707,6 +700,7 @@ const styles = StyleSheet.create({
   },
   bannerPlaceholder: {
     alignItems: "center",
+    justifyContent: "center",
     gap: 4,
   },
   bannerPlaceholderText: {
@@ -794,170 +788,150 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "700",
     color: colors.text,
-  },
-  sublabel: {
-    fontSize: 11.5,
-    color: colors.muted,
   },
   required: {
     color: colors.danger,
   },
   input: {
-    minHeight: 42,
     borderWidth: 1,
     borderColor: "#E2E8F0",
     borderRadius: radius.md,
-    backgroundColor: "#FFFFFF",
     paddingHorizontal: spacing.md,
-    fontSize: 13.5,
+    paddingVertical: 10,
+    fontSize: 14,
     color: colors.text,
+    backgroundColor: "#F8FAFC",
   },
   textArea: {
     minHeight: 70,
-    paddingTop: 10,
     textAlignVertical: "top",
-  },
-  dateInput: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  datePlaceholder: {
-    color: colors.muted,
-    fontSize: 13.5,
-  },
-  dateText: {
-    color: colors.text,
-    fontSize: 13.5,
-    fontWeight: "500",
-  },
-  passwordContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: radius.md,
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: spacing.md,
-    minHeight: 42,
-  },
-  passwordInput: {
-    flex: 1,
-    fontSize: 13.5,
-    color: colors.text,
-    paddingVertical: 0,
-  },
-  eyeBtn: {
-    padding: 6,
   },
   galleryHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  addPhotoBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-  },
-  addPhotoText: {
-    color: colors.primaryDark,
+  galleryCounter: {
     fontSize: 12,
+    color: colors.muted,
     fontWeight: "600",
   },
-  galleryList: {
+  galleryGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
-    paddingTop: 6,
+    marginTop: 4,
   },
   galleryItem: {
-    width: 60,
-    height: 60,
-    borderRadius: radius.sm,
+    width: 72,
+    height: 72,
+    borderRadius: radius.md,
     overflow: "hidden",
     position: "relative",
     borderWidth: 1,
     borderColor: "#E2E8F0",
   },
-  galleryImg: {
+  galleryThumb: {
     width: "100%",
     height: "100%",
   },
-  removeImgBtn: {
+  removeImageBtn: {
     position: "absolute",
-    top: 2,
-    right: 2,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: "rgba(0, 0, 0, 0.65)",
+    top: 3,
+    right: 3,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
+  addGalleryBtn: {
+    width: 72,
+    height: 72,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+  },
+  addGalleryText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: colors.primaryDark,
+  },
   genderRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: 8,
   },
-  genderBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: radius.pill,
-    backgroundColor: "#F2F5F8",
+  genderOption: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: "#E2E8F0",
+    backgroundColor: "#F8FAFC",
+    alignItems: "center",
   },
-  genderBtnActive: {
-    backgroundColor: colors.primarySoft,
+  genderOptionSelected: {
     borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
   },
-  genderBtnText: {
-    fontSize: 12.5,
-    color: colors.muted,
+  genderOptionText: {
+    fontSize: 13,
     fontWeight: "500",
+    color: colors.muted,
   },
-  genderBtnTextActive: {
-    color: colors.primaryDark,
+  genderOptionTextSelected: {
     fontWeight: "700",
+    color: colors.primaryDark,
+  },
+  dateInput: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  dateText: {
+    fontSize: 14,
+    color: colors.text,
+  },
+  datePlaceholder: {
+    fontSize: 14,
+    color: colors.muted,
   },
   actionRow: {
     flexDirection: "row",
-    gap: 12,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    marginTop: spacing.sm,
+    gap: spacing.sm,
+    marginTop: spacing.md,
   },
   btn: {
     flex: 1,
-    height: 44,
+    paddingVertical: 12,
     borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
   },
   cancelBtn: {
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#D0D9DF",
+    backgroundColor: "#F1F5F9",
   },
   cancelBtnText: {
-    color: colors.text,
     fontSize: 14,
     fontWeight: "600",
+    color: colors.muted,
   },
   submitBtn: {
     backgroundColor: colors.primary,
   },
   submitBtnText: {
-    color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "700",
+    color: "#FFFFFF",
   },
   disabled: {
     opacity: 0.6,

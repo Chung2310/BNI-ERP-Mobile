@@ -1,11 +1,15 @@
 import { useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { X } from "lucide-react-native";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 
 type Props = {
   visible: boolean;
   mode: "date" | "time";
   value: Date;
+  title?: string;
+  variant?: "dialog" | "bottomSheet";
   minimumDate?: Date;
   maximumDate?: Date;
   onCancel: () => void;
@@ -13,36 +17,89 @@ type Props = {
 };
 
 const rowHeight = 42;
-const range = (start: number, end: number) => Array.from({ length: Math.max(0, end - start + 1) }, (_, index) => start + index);
+const range = (start: number, end: number) =>
+  Array.from({ length: Math.max(0, end - start + 1) }, (_, index) => start + index);
 const pad = (value: number) => String(value).padStart(2, "0");
 
-function PickerColumn({ label, values, selected, onSelect }: { label: string; values: number[]; selected: number; onSelect: (value: number) => void }) {
+function PickerColumn({
+  label,
+  values,
+  selected,
+  onSelect,
+}: {
+  label: string;
+  values: number[];
+  selected: number;
+  onSelect: (value: number) => void;
+}) {
   const scroll = useRef<ScrollView>(null);
   const positioned = useRef(false);
-  return <View style={styles.column}>
-    <Text style={styles.columnLabel}>{label}</Text>
-    <ScrollView ref={scroll} style={styles.columnScroll} showsVerticalScrollIndicator={false} onContentSizeChange={() => {
-      if (positioned.current) return;
-      positioned.current = true;
-      scroll.current?.scrollTo({ y: Math.max(0, values.indexOf(selected)) * rowHeight, animated: false });
-    }}>
-      {values.map((item) => <Pressable key={item} accessibilityRole="button" accessibilityState={{ selected: item === selected }} onPress={() => onSelect(item)} style={[styles.choice, item === selected && styles.choiceSelected]}>
-        <Text style={[styles.choiceText, item === selected && styles.choiceTextSelected]}>{pad(item)}</Text>
-      </Pressable>)}
-    </ScrollView>
-  </View>;
+  return (
+    <View style={styles.column}>
+      <Text style={styles.columnLabel}>{label}</Text>
+      <ScrollView
+        ref={scroll}
+        style={styles.columnScroll}
+        showsVerticalScrollIndicator={false}
+        onContentSizeChange={() => {
+          if (positioned.current) return;
+          positioned.current = true;
+          scroll.current?.scrollTo({
+            y: Math.max(0, values.indexOf(selected)) * rowHeight,
+            animated: false,
+          });
+        }}
+      >
+        {values.map((item) => (
+          <Pressable
+            key={item}
+            accessibilityRole="button"
+            accessibilityState={{ selected: item === selected }}
+            onPress={() => onSelect(item)}
+            style={[styles.choice, item === selected && styles.choiceSelected]}
+          >
+            <Text style={[styles.choiceText, item === selected && styles.choiceTextSelected]}>
+              {pad(item)}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+    </View>
+  );
 }
 
-export function RoundedDateTimePicker({ visible, mode, value, minimumDate, maximumDate, onCancel, onConfirm }: Props) {
+export function RoundedDateTimePicker({
+  visible,
+  mode,
+  value,
+  title,
+  variant = "dialog",
+  minimumDate,
+  maximumDate,
+  onCancel,
+  onConfirm,
+}: Props) {
+  const insets = useSafeAreaInsets();
   const [draft, setDraft] = useState(() => new Date(value));
   const yearValues = range(1900, 2100);
   const days = new Date(draft.getFullYear(), draft.getMonth() + 1, 0).getDate();
+
   const updateDate = (year: number, month: number, day: number) => {
-    setDraft(new Date(year, month, Math.min(day, new Date(year, month + 1, 0).getDate()), draft.getHours(), draft.getMinutes()));
+    setDraft(
+      new Date(
+        year,
+        month,
+        Math.min(day, new Date(year, month + 1, 0).getDate()),
+        draft.getHours(),
+        draft.getMinutes()
+      )
+    );
   };
+
   const updateTime = (hour: number, minute: number) => {
     setDraft(new Date(draft.getFullYear(), draft.getMonth(), draft.getDate(), hour, minute));
   };
+
   const confirm = () => {
     let next = draft;
     if (minimumDate && next < minimumDate) next = minimumDate;
@@ -50,34 +107,132 @@ export function RoundedDateTimePicker({ visible, mode, value, minimumDate, maxim
     onConfirm(next);
   };
 
-  return <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onCancel}>
-    <View style={styles.overlay}>
-      <Pressable accessibilityLabel="Đóng bộ chọn" onPress={onCancel} style={styles.backdrop} />
-      <View accessibilityViewIsModal style={styles.dialog}>
-        <Text style={styles.title}>{mode === "date" ? "Chọn ngày" : "Chọn giờ"}</Text>
-        <View style={styles.columns}>
-          {mode === "date" ? <>
-            <PickerColumn label="Ngày" values={range(1, days)} selected={draft.getDate()} onSelect={(day) => updateDate(draft.getFullYear(), draft.getMonth(), day)} />
-            <PickerColumn label="Tháng" values={range(1, 12)} selected={draft.getMonth() + 1} onSelect={(month) => updateDate(draft.getFullYear(), month - 1, draft.getDate())} />
-            <PickerColumn label="Năm" values={yearValues} selected={draft.getFullYear()} onSelect={(year) => updateDate(year, draft.getMonth(), draft.getDate())} />
-          </> : <>
-            <PickerColumn label="Giờ" values={range(0, 23)} selected={draft.getHours()} onSelect={(hour) => updateTime(hour, draft.getMinutes())} />
-            <PickerColumn label="Phút" values={range(0, 59)} selected={draft.getMinutes()} onSelect={(minute) => updateTime(draft.getHours(), minute)} />
-          </>}
+  const pickerColumns = (
+    <View style={styles.columns}>
+      {mode === "date" ? (
+        <>
+          <PickerColumn
+            label="Ngày"
+            values={range(1, days)}
+            selected={draft.getDate()}
+            onSelect={(day) => updateDate(draft.getFullYear(), draft.getMonth(), day)}
+          />
+          <PickerColumn
+            label="Tháng"
+            values={range(1, 12)}
+            selected={draft.getMonth() + 1}
+            onSelect={(month) => updateDate(draft.getFullYear(), month - 1, draft.getDate())}
+          />
+          <PickerColumn
+            label="Năm"
+            values={yearValues}
+            selected={draft.getFullYear()}
+            onSelect={(year) => updateDate(year, draft.getMonth(), draft.getDate())}
+          />
+        </>
+      ) : (
+        <>
+          <PickerColumn
+            label="Giờ"
+            values={range(0, 23)}
+            selected={draft.getHours()}
+            onSelect={(hour) => updateTime(hour, draft.getMinutes())}
+          />
+          <PickerColumn
+            label="Phút"
+            values={range(0, 59)}
+            selected={draft.getMinutes()}
+            onSelect={(minute) => updateTime(draft.getHours(), minute)}
+          />
+        </>
+      )}
+    </View>
+  );
+
+  if (variant === "bottomSheet") {
+    return (
+      <Modal
+        visible={visible}
+        transparent
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={onCancel}
+      >
+        <View style={styles.sheetOverlay}>
+          <Pressable accessibilityLabel="Đóng bộ chọn" onPress={onCancel} style={styles.backdrop} />
+          <View
+            accessibilityViewIsModal
+            style={[styles.sheetContainer, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}
+          >
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>
+                {title || (mode === "date" ? "Chọn ngày" : "Chọn giờ")}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Đóng"
+                hitSlop={8}
+                onPress={onCancel}
+                style={styles.sheetCloseBtn}
+              >
+                <X size={18} color={colors.muted} />
+              </Pressable>
+            </View>
+            {pickerColumns}
+            <View style={styles.sheetActions}>
+              <Pressable accessibilityRole="button" onPress={onCancel} style={styles.sheetCancelBtn}>
+                <Text style={styles.cancelText}>Hủy</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={confirm} style={styles.sheetConfirmBtn}>
+                <Text style={styles.confirmText}>Xác nhận</Text>
+              </Pressable>
+            </View>
+          </View>
         </View>
-        <View style={styles.actions}>
-          <Pressable accessibilityRole="button" onPress={onCancel} style={styles.action}><Text style={styles.cancelText}>Hủy</Text></Pressable>
-          <Pressable accessibilityRole="button" onPress={confirm} style={[styles.action, styles.confirm]}><Text style={styles.confirmText}>Xong</Text></Pressable>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onCancel}>
+      <View style={styles.overlay}>
+        <Pressable accessibilityLabel="Đóng bộ chọn" onPress={onCancel} style={styles.backdrop} />
+        <View accessibilityViewIsModal style={styles.dialog}>
+          <Text style={styles.title}>{title || (mode === "date" ? "Chọn ngày" : "Chọn giờ")}</Text>
+          {pickerColumns}
+          <View style={styles.actions}>
+            <Pressable accessibilityRole="button" onPress={onCancel} style={styles.action}>
+              <Text style={styles.cancelText}>Hủy</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={confirm} style={[styles.action, styles.confirm]}>
+              <Text style={styles.confirmText}>Xong</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
-    </View>
-  </Modal>;
+    </Modal>
+  );
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.overlay, paddingHorizontal: spacing.lg },
+  overlay: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.overlay,
+    paddingHorizontal: spacing.lg,
+  },
   backdrop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
-  dialog: { width: "100%", maxWidth: 380, borderRadius: radius.xl, backgroundColor: colors.surface, padding: spacing.lg, gap: spacing.md, overflow: "hidden" },
+  dialog: {
+    width: "100%",
+    maxWidth: 380,
+    borderRadius: radius.xl,
+    backgroundColor: colors.surface,
+    padding: spacing.lg,
+    gap: spacing.md,
+    overflow: "hidden",
+  },
   title: { color: colors.text, fontSize: 17, fontWeight: "700" },
   columns: { flexDirection: "row", gap: spacing.sm },
   column: { flex: 1, minWidth: 0 },
@@ -88,8 +243,77 @@ const styles = StyleSheet.create({
   choiceText: { color: colors.muted, fontSize: 15 },
   choiceTextSelected: { color: colors.primaryDark, fontWeight: "700" },
   actions: { flexDirection: "row", gap: spacing.sm },
-  action: { flex: 1, minHeight: touchTarget, alignItems: "center", justifyContent: "center", borderRadius: radius.md, backgroundColor: colors.background },
+  action: {
+    flex: 1,
+    minHeight: touchTarget,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.md,
+    backgroundColor: colors.background,
+  },
   confirm: { backgroundColor: colors.primary },
   cancelText: { color: colors.muted, fontSize: 14, fontWeight: "600" },
   confirmText: { color: "#FFFFFF", fontSize: 14, fontWeight: "700" },
+
+  // BottomSheet styles
+  sheetOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: colors.overlay,
+  },
+  sheetContainer: {
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    gap: spacing.md,
+  },
+  sheetHandle: {
+    width: 38,
+    height: 4,
+    alignSelf: "center",
+    borderRadius: radius.pill,
+    backgroundColor: colors.border,
+    marginBottom: spacing.xs,
+  },
+  sheetHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  sheetTitle: {
+    color: colors.text,
+    fontSize: 16.5,
+    fontWeight: "800",
+  },
+  sheetCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F3F6F8",
+  },
+  sheetActions: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  sheetCancelBtn: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: radius.md,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sheetConfirmBtn: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });

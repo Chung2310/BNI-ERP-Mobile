@@ -229,7 +229,10 @@ export default function ChatRoomScreen() {
         setEditingMessage(null);
       } else {
         const sent = await chatService.send(id, content, replyingTo?._id, attachments);
-        setData((current) => [sent, ...(current || [])]);
+        setData((current) => {
+          const existing = current || [];
+          return existing.some((item) => item._id === sent._id) ? existing : [sent, ...existing];
+        });
         setAttachments([]);
       }
       setMessage('');

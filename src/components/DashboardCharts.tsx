@@ -1,6 +1,18 @@
-import { useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Animated,
+  Easing,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { Check, ChevronDown, Filter, Search, X } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Meeting } from "@/services/meeting";
 import { colors, radius } from "@/theme/tokens";
 
@@ -33,60 +45,283 @@ function Legend({ color, label, value }: { color: string; label: string; value?:
 type Totals = { present: number; guest: number; absent: number };
 type Bar = Totals & { id: string; title: string; checkedIn: number; date: string };
 
-function AttendanceChart({ bars, selectedId, onSelect }: { bars: Bar[]; selectedId?: string; onSelect: (id?: string) => void }) {
-  const max = Math.max(5, ...bars.map((item) => item.present + item.guest + item.absent));
-  return <Card style={s.card}>
-    <Text style={s.title}>Thống kê tham dự và vắng mặt theo cuộc họp</Text>
-    <View style={s.legendRow}>
-      <Legend color={palette.present} label='Có mặt' />
-      <Legend color={palette.guest} label='Khách mời' />
-      <Legend color={palette.absent} label='Vắng mặt' />
-    </View>
-    {!bars.length ? <View style={s.empty}><Text style={s.hint}>Chưa có dữ liệu cuộc họp.</Text></View> : <View style={s.plot}>
-      {bars.map((item) => {
-        const height = Math.max(14, (item.present + item.guest + item.absent) / max * 150);
-        const active = item.id === selectedId;
-        return <Pressable key={item.id} onPress={() => onSelect(active ? undefined : item.id)} style={[s.slot, active && s.active]}>
-          <Text style={s.count}>{item.checkedIn}{item.absent ? ' (-' + item.absent + ')' : ''}</Text>
-          <View style={[s.bar, { height }]}>
-            <View style={{ flex: item.present || 0.001, backgroundColor: palette.present }} />
-            <View style={{ flex: item.guest || 0.001, backgroundColor: palette.guest }} />
-            <View style={{ flex: item.absent || 0.001, backgroundColor: palette.absent }} />
-          </View>
-          <Text style={s.date}>{item.date}</Text>
-        </Pressable>;
-      })}
-    </View>}
-    <Text style={s.footer}>{bars.length ? `Hiển thị ${bars.length} cuộc họp gần nhất` : 'Chưa có cuộc họp đã diễn ra'}</Text>
-  </Card>;
+function AnimatedCard({
+  children,
+  delay = 0,
+}: {
+  children: React.ReactNode;
+  delay?: number;
+}) {
+  const [fadeAnim] = useState(() => new Animated.Value(0));
+  const [slideAnim] = useState(() => new Animated.Value(20));
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        delay,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 500,
+        delay,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [delay, fadeAnim, slideAnim]);
+
+  return (
+    <Animated.View
+      style={{
+        opacity: fadeAnim,
+        transform: [{ translateY: slideAnim }],
+      }}
+    >
+      {children}
+    </Animated.View>
+  );
 }
 
-function DonutChart({ totals, meetings, selectedId, onSelect }: { totals: Totals; meetings: Meeting[]; selectedId?: string; onSelect: (id: string) => void }) {
+function AnimatedBarItem({
+  item,
+  height,
+  active,
+  index,
+  onPress,
+}: {
+  item: Bar;
+  height: number;
+  active: boolean;
+  index: number;
+  onPress: () => void;
+}) {
+  const [anim] = useState(() => new Animated.Value(0));
+
+  useEffect(() => {
+    anim.setValue(0);
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 550,
+      delay: index * 40,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [anim, index, height]);
+
+  const translateY = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [height / 2, 0],
+  });
+
+  const opacity = anim.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: [0, 0.7, 1],
+  });
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Cuộc họp ${item.title}: ${item.checkedIn} có mặt`}
+      onPress={onPress}
+      style={[s.slot, active && s.active]}
+    >
+      <Animated.Text style={[s.count, { opacity }]}>
+        {item.checkedIn}
+        {item.absent ? " (-" + item.absent + ")" : ""}
+      </Animated.Text>
+      <View style={{ height, width: "100%", alignItems: "center", justifyContent: "flex-end" }}>
+        <Animated.View
+          style={[
+            s.bar,
+            {
+              height: "100%",
+              transform: [{ translateY }, { scaleY: anim }],
+            },
+          ]}
+        >
+          <View style={{ flex: item.present || 0.001, backgroundColor: palette.present }} />
+          <View style={{ flex: item.guest || 0.001, backgroundColor: palette.guest }} />
+          <View style={{ flex: item.absent || 0.001, backgroundColor: palette.absent }} />
+        </Animated.View>
+      </View>
+      <Text style={s.date}>{item.date}</Text>
+    </Pressable>
+  );
+}
+
+function AttendanceChart({
+  bars,
+  selectedId,
+  onSelect,
+}: {
+  bars: Bar[];
+  selectedId?: string;
+  onSelect: (id?: string) => void;
+}) {
+  const max = Math.max(5, ...bars.map((item) => item.present + item.guest + item.absent));
+  return (
+    <Card style={s.card}>
+      <Text style={s.title}>Thống kê tham dự và vắng mặt theo cuộc họp</Text>
+      <View style={s.legendRow}>
+        <Legend color={palette.present} label="Có mặt" />
+        <Legend color={palette.guest} label="Khách mời" />
+        <Legend color={palette.absent} label="Vắng mặt" />
+      </View>
+      {!bars.length ? (
+        <View style={s.empty}>
+          <Text style={s.hint}>Chưa có dữ liệu cuộc họp.</Text>
+        </View>
+      ) : (
+        <View style={s.plot}>
+          {bars.map((item, index) => {
+            const height = Math.max(14, ((item.present + item.guest + item.absent) / max) * 150);
+            const active = item.id === selectedId;
+            return (
+              <AnimatedBarItem
+                key={item.id}
+                item={item}
+                height={height}
+                active={active}
+                index={index}
+                onPress={() => onSelect(active ? undefined : item.id)}
+              />
+            );
+          })}
+        </View>
+      )}
+      <Text style={s.footer}>
+        {bars.length ? `Hiển thị ${bars.length} cuộc họp gần nhất` : "Chưa có cuộc họp đã diễn ra"}
+      </Text>
+    </Card>
+  );
+}
+
+function DonutChart({
+  totals,
+  meetings,
+  selectedId,
+  onSelect,
+}: {
+  totals: Totals;
+  meetings: Meeting[];
+  selectedId?: string;
+  onSelect: (id: string) => void;
+}) {
   const total = totals.present + totals.guest + totals.absent;
   const circumference = Math.PI * 116;
   let used = 0;
-  return <Card style={s.card}>
-    <Text style={s.title}>Cơ cấu cuộc họp được chọn</Text>
-    <MeetingSelector meetings={meetings} selectedId={selectedId} onSelect={onSelect} />
-    <View style={s.donut}>
-      <Svg width={174} height={174} viewBox='0 0 150 150' accessibilityLabel='Cơ cấu tham dự và vắng mặt'>
-        <Circle cx='75' cy='75' r='58' fill='none' stroke='#EEF3F5' strokeWidth='18' />
-        {total ? Object.entries(palette).map(([key, color]) => {
-          const value = totals[key as keyof Totals];
-          const length = value / total * circumference;
-          const offset = -used;
-          used += length;
-          return <Circle key={key} cx='75' cy='75' r='58' fill='none' rotation='-90' origin='75,75' stroke={color} strokeDasharray={length + ' ' + (circumference - length)} strokeDashoffset={offset} strokeWidth='18' />;
-        }) : null}
-      </Svg>
-      <View pointerEvents='none' style={s.center}><Text style={s.total}>{total}</Text><Text style={s.hint}>tổng lượt</Text></View>
-    </View>
-    <View style={s.donutLegend}>
-      <Legend color={palette.present} label='Thành viên có mặt' value={totals.present} />
-      <Legend color={palette.guest} label='Khách mời' value={totals.guest} />
-      <Legend color={palette.absent} label='Thành viên vắng' value={totals.absent} />
-    </View>
-  </Card>;
+
+  const [anim] = useState(() => new Animated.Value(0));
+
+  useEffect(() => {
+    anim.setValue(0);
+    Animated.spring(anim, {
+      toValue: 1,
+      tension: 45,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  }, [anim, selectedId, total]);
+
+  const scale = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.4, 1],
+  });
+
+  const rotate = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["-90deg", "0deg"],
+  });
+
+  const opacity = anim.interpolate({
+    inputRange: [0, 0.3, 1],
+    outputRange: [0, 0.7, 1],
+  });
+
+  const centerScale = anim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0.2, 1.1, 1],
+  });
+
+  const legendTranslateY = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [16, 0],
+  });
+
+  return (
+    <Card style={s.card}>
+      <Text style={s.title}>Cơ cấu cuộc họp được chọn</Text>
+      <MeetingSelector meetings={meetings} selectedId={selectedId} onSelect={onSelect} />
+      <View style={s.donut}>
+        <Animated.View
+          style={[
+            s.donutSvgWrap,
+            {
+              transform: [{ scale }, { rotate }],
+              opacity,
+            },
+          ]}
+        >
+          <Svg width={174} height={174} viewBox="0 0 150 150" accessibilityLabel="Cơ cấu tham dự và vắng mặt">
+            <Circle cx="75" cy="75" r="58" fill="none" stroke="#EEF3F5" strokeWidth="18" />
+            {total
+              ? Object.entries(palette).map(([key, color]) => {
+                  const value = totals[key as keyof Totals];
+                  const length = (value / total) * circumference;
+                  const offset = -used;
+                  used += length;
+                  return (
+                    <Circle
+                      key={key}
+                      cx="75"
+                      cy="75"
+                      r="58"
+                      fill="none"
+                      rotation="-90"
+                      origin="75,75"
+                      stroke={color}
+                      strokeDasharray={`${length} ${circumference - length}`}
+                      strokeDashoffset={offset}
+                      strokeWidth="18"
+                    />
+                  );
+                })
+              : null}
+          </Svg>
+        </Animated.View>
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            s.center,
+            {
+              transform: [{ scale: centerScale }],
+              opacity,
+            },
+          ]}
+        >
+          <Text style={s.total}>{total}</Text>
+          <Text style={s.hint}>tổng lượt</Text>
+        </Animated.View>
+      </View>
+      <Animated.View
+        style={[
+          s.donutLegend,
+          {
+            transform: [{ translateY: legendTranslateY }],
+            opacity,
+          },
+        ]}
+      >
+        <Legend color={palette.present} label="Thành viên có mặt" value={totals.present} />
+        <Legend color={palette.guest} label="Khách mời" value={totals.guest} />
+        <Legend color={palette.absent} label="Thành viên vắng" value={totals.absent} />
+      </Animated.View>
+    </Card>
+  );
 }
 
 function MeetingSelector({
@@ -98,6 +333,11 @@ function MeetingSelector({
   selectedId?: string;
   onSelect: (id: string) => void;
 }) {
+  const insets = useSafeAreaInsets();
+  const bottomInset =
+    Platform.OS === "android"
+      ? Math.max(insets.bottom, 48)
+      : Math.max(insets.bottom, 24);
   const [isSheetVisible, setIsSheetVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -180,7 +420,7 @@ function MeetingSelector({
               setSearchQuery("");
             }}
           />
-          <View style={s.sheetContent}>
+          <View style={[s.sheetContent, { paddingBottom: bottomInset + 16 }]}>
             <View style={s.sheetHandle} />
 
             {/* Header */}
@@ -326,14 +566,27 @@ export function DashboardCharts({ meetings, memberCount }: { meetings: Meeting[]
   }, [activeMeeting, availableMeetings, memberCount]);
 
   const selected = data.bars.find((item) => item.id === selectedBarId);
-  return <View style={s.wrap}>
-    <AttendanceChart bars={data.bars} selectedId={selectedBarId} onSelect={setSelectedBarId} />
-    {selected ? <View style={s.detail}><Text numberOfLines={1} style={s.detailTitle}>{selected.title}</Text><Text style={s.detailText}>Có mặt {selected.present} · Khách {selected.guest} · Vắng {selected.absent}</Text></View> : null}
-    <DonutChart totals={data.totals} meetings={availableMeetings} selectedId={activeMeeting?._id} onSelect={setDonutMeetingId} />
-  </View>;
+  return (
+    <View style={s.wrap}>
+      <AnimatedCard delay={40}>
+        <AttendanceChart bars={data.bars} selectedId={selectedBarId} onSelect={setSelectedBarId} />
+      </AnimatedCard>
+      {selected ? (
+        <AnimatedCard delay={0}>
+          <View style={s.detail}>
+            <Text numberOfLines={1} style={s.detailTitle}>{selected.title}</Text>
+            <Text style={s.detailText}>Có mặt {selected.present} · Khách {selected.guest} · Vắng {selected.absent}</Text>
+          </View>
+        </AnimatedCard>
+      ) : null}
+      <AnimatedCard delay={180}>
+        <DonutChart totals={data.totals} meetings={availableMeetings} selectedId={activeMeeting?._id} onSelect={setDonutMeetingId} />
+      </AnimatedCard>
+    </View>
+  );
 }
 
-const s = StyleSheet.create({
+const s: any = StyleSheet.create({
   selectorContainer: { marginTop: 6, marginBottom: 2 },
   selectorTrigger: {
     flexDirection: 'row',
@@ -428,7 +681,7 @@ const s = StyleSheet.create({
     paddingVertical: 0,
   },
   sheetList: { flexGrow: 0, maxHeight: 380 },
-  sheetListContent: { gap: 6, paddingVertical: 4 },
+  sheetListContent: { gap: 6, paddingTop: 4, paddingBottom: 28 },
   sheetItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -487,6 +740,7 @@ const s = StyleSheet.create({
   detailTitle: { color: colors.primaryDark, fontSize: 12, fontWeight: '800' },
   detailText: { color: colors.primaryDark, fontSize: 11, marginTop: 3 },
   donut: { height: 184, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  donutSvgWrap: { width: 174, height: 174, alignItems: 'center', justifyContent: 'center' },
   center: { position: 'absolute', alignItems: 'center' },
   total: { color: colors.text, fontSize: 28, fontWeight: '900' },
   donutLegend: { gap: 8, alignSelf: 'center', minWidth: 190 },

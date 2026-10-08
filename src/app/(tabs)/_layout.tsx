@@ -22,6 +22,7 @@ export default function TabsLayout() {
   return (
     <Tabs
       initialRouteName="index"
+      backBehavior="initialRoute"
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: colors.primaryDark,
@@ -73,6 +74,13 @@ export default function TabsLayout() {
       />
       <Tabs.Screen name="chat" options={{ title: "Trò chuyện" }} />
       <Tabs.Screen name="more" options={{ title: "Hệ thống" }} />
+      <Tabs.Screen
+        name="statistics"
+        options={{
+          href: null,
+          title: "Thống kê",
+        }}
+      />
     </Tabs>
   );
 }

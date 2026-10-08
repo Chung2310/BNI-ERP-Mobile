@@ -1,5 +1,5 @@
 import { Alert } from "@/components/AppAlert";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { router, useFocusEffect } from "expo-router";
 import { io } from "socket.io-client";
 import {  Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View, useWindowDimensions } from "react-native";
@@ -10,12 +10,15 @@ import {
   SkipForward, Sparkles, Settings2, Trophy, Users, X, type LucideIcon,
 } from "lucide-react-native";
 import { BackHeader } from "@/components/BackHeader";
+import { buildActiveMemberRankings } from "@/components/ActiveMemberRanking";
 import { ProfileSlideCanvas } from "@/components/meetings/ProfileSlideCanvas";
 import { MeetingWheelPreview } from "@/components/meetings/MeetingWheelPreview";
-import { Card, ErrorState, LoadingState, Screen } from "@/components/ui";
+import { Avatar, Card, ErrorState, LoadingState, Screen } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
+import { useAsyncData } from "@/hooks/useAsyncData";
 import { meetingService, meetingVersion, type Meeting, type MeetingLiveSnapshot, type PresentationView } from "@/services/meeting";
 import { apiConfig } from "@/services/api";
+import { userService } from "@/services/users";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 import { hasPermission } from "@/utils/permissions";
 
@@ -260,8 +263,36 @@ function StagePreview({ snapshot, now }: { snapshot: MeetingLiveSnapshot; now: n
   </View> : <View style={styles.stage}><Presentation color="#FFFFFF" size={32} /><Text style={styles.stageTitle}>Chờ slide thuyết trình</Text></View>;
   if (view === "checkin") return <View style={[styles.stage, styles.checkinStage]}><View style={styles.qrBox}><QrCode color={colors.primaryDark} size={56} /></View><View style={styles.grow}><Text style={styles.stageEyebrow}>QR CHECK-IN</Text><Text numberOfLines={2} style={styles.stageName}>{meeting.title}</Text><Text style={styles.stageCompany}>{meeting.speakers.length} người đã điểm danh</Text></View></View>;
   if (view === "luckyDraw") return <MeetingWheelPreview meeting={meeting} now={now} />;
-  if (view === "activeMembers") return <View style={styles.stage}><Trophy color="#FBBF24" size={34} /><Text style={styles.stageTitle}>Xếp hạng thành viên tích cực</Text><Text style={styles.stageSub}>Đang chiếu trên laptop</Text></View>;
+  if (view === "activeMembers") return <StageRankingPreview meeting={meeting} />;
   return <View style={styles.stage}><Monitor color="#7DD3FC" size={34} /><Text style={styles.stageTitle}>{meeting.title}</Text><Text style={styles.stageSub}>Vui lòng chờ</Text></View>;
+}
+
+function StageRankingPreview({ meeting }: { meeting: Meeting }) {
+  const { data, error, isLoading } = useAsyncData(async () => {
+    const [history, members] = await Promise.all([
+      meetingService.history(),
+      userService.directory().catch(() => []),
+    ]);
+    return { history, members };
+  }, meeting._id);
+  const rankings = useMemo(() => data ? buildActiveMemberRankings(
+    [...data.history.filter((item) => item._id !== meeting._id), meeting],
+    data.members,
+    meeting,
+  ).rankings.filter((member) => member.attendedCount > 0).slice(0, 5) : [], [data, meeting]);
+
+  return <View style={styles.rankingStage}>
+    <View style={styles.rankingHeader}><Trophy color={colors.warning} size={17} /><Text numberOfLines={1} style={styles.rankingTitle}>Bảng xếp hạng thành viên tích cực</Text></View>
+    {isLoading && !data ? <Text style={styles.rankingEmpty}>Đang tải bảng xếp hạng…</Text>
+      : error ? <Text style={styles.rankingEmpty}>Không tải được bảng xếp hạng.</Text>
+      : !rankings.length ? <Text style={styles.rankingEmpty}>Chưa có dữ liệu điểm danh.</Text>
+      : <View style={styles.rankingList}>{rankings.map((member, index) => <View key={member.id} style={styles.rankingRow}>
+        <Text style={styles.rankingPosition}>#{index + 1}</Text>
+        <Avatar initials={member.name.split(' ').filter(Boolean).slice(-2).map((part) => part[0]).join('').toUpperCase()} url={member.photoURL} size={22} />
+        <Text numberOfLines={1} style={styles.rankingName}>{member.name}</Text>
+        <Text style={styles.rankingCount}>{member.attendedCount} buổi · {member.attendanceRate}%</Text>
+      </View>)}</View>}
+  </View>;
 }
 
 function PanelTab({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
@@ -289,6 +320,15 @@ const styles = StyleSheet.create({
   refreshButton: { position: "absolute", top: spacing.xs, right: spacing.xs, width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: "#FFFFFFE6" },
   syncError: { padding: spacing.sm, color: colors.danger, fontSize: 11 },
   stage: { width: "100%", aspectRatio: 16 / 9, backgroundColor: "#102533", alignItems: "center", justifyContent: "center", gap: 5, padding: spacing.lg },
+  rankingStage: { width: "100%", aspectRatio: 16 / 9, backgroundColor: colors.surface, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.xs },
+  rankingHeader: { minHeight: 24, flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingRight: touchTarget },
+  rankingTitle: { flex: 1, color: colors.text, fontSize: 12, fontWeight: "800" },
+  rankingEmpty: { flex: 1, color: colors.muted, fontSize: 11, textAlign: "center", textAlignVertical: "center" },
+  rankingList: { flex: 1, justifyContent: "space-around" },
+  rankingRow: { minHeight: 25, flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  rankingPosition: { width: 24, color: colors.primaryDark, fontSize: 11, fontWeight: "800" },
+  rankingName: { flex: 1, color: colors.text, fontSize: 10, fontWeight: "700" },
+  rankingCount: { color: colors.muted, fontSize: 9, fontWeight: "700" },
   stageSlide: { width: "100%", aspectRatio: 16 / 9, backgroundColor: colors.surface, overflow: "hidden" },
   checkinStage: { backgroundColor: colors.surface, flexDirection: "row", gap: spacing.lg },
   stageName: { color: colors.text, fontSize: 15, fontWeight: "600" },

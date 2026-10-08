@@ -73,6 +73,40 @@ export const userService = {
       method: "POST",
       body: JSON.stringify(data),
     });
+    fallbackDirectory = null;
     return normalize(res?.data || res);
+  },
+  update: async (
+    id: string,
+    data: {
+      displayName?: string;
+      email?: string;
+      role?: UserRole;
+      phone?: string;
+      companyName?: string;
+      company?: string;
+      industry?: string;
+      photoURL?: string;
+      coverUrl?: string;
+      coverImage?: string;
+      galleryImages?: string[];
+      gender?: "male" | "female" | "other" | "";
+      targetMarket?: string;
+      address?: string;
+      birthDate?: string;
+    }
+  ): Promise<UserProfile> => {
+    const res = await apiRequest<any>(`/api/v1/crud/users/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+    fallbackDirectory = null;
+    return normalize(res?.data || res);
+  },
+  delete: async (id: string): Promise<void> => {
+    await apiRequest<any>(`/api/v1/crud/users/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+    fallbackDirectory = null;
   },
 };
