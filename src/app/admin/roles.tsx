@@ -1,3 +1,4 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useState } from "react";
 import { Redirect } from "expo-router";
 import { Check, ChevronRight, Plus, Search } from "lucide-react-native";
@@ -19,7 +20,7 @@ const toDraft = (role: RolePermission): Draft => ({
   level: String(role.level),
   permissions: role.permissions.filter((code) => code !== "*"),
 });
-const errorMessage = (error: unknown) => error instanceof Error ? error.message : "Có lỗi xảy ra. Vui lòng thử lại.";
+const errorMessage = (error: unknown) => friendlyErrorMessage(error, "Có lỗi xảy ra. Vui lòng thử lại.");
 
 export default function AdminRolesScreen() {
   const { user, isLoading: isAuthLoading } = useAuth();

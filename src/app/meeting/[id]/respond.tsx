@@ -1,3 +1,4 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useEffect, useRef, useState } from "react";
 import { Redirect, useLocalSearchParams } from "expo-router";
 import { Check, CheckCircle2, Clock3, Send } from "lucide-react-native";
@@ -65,7 +66,7 @@ export default function MeetingResponseScreen() {
       setAnswers({});
       void reload();
     } catch (cause) {
-      setSubmitError(cause instanceof Error ? cause.message : "Không thể gửi câu trả lời. Vui lòng thử lại.");
+      setSubmitError(friendlyErrorMessage(cause, "Không thể gửi câu trả lời. Vui lòng thử lại."));
     } finally {
       sendingRef.current = false;
       setSending(false);

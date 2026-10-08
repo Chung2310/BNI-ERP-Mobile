@@ -1,3 +1,4 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { Alert } from "@/components/AppAlert";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { router, useFocusEffect } from "expo-router";
@@ -13,10 +14,12 @@ import { BackHeader } from "@/components/BackHeader";
 import { buildActiveMemberRankings } from "@/components/ActiveMemberRanking";
 import { ProfileSlideCanvas } from "@/components/meetings/ProfileSlideCanvas";
 import { MeetingWheelPreview } from "@/components/meetings/MeetingWheelPreview";
+import { InteractionManager } from "@/components/meetings/InteractionManager";
+import { ResponseWordCloud } from "@/components/meetings/ResponseWordCloud";
 import { Avatar, Card, ErrorState, LoadingState, Screen } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
-import { meetingService, meetingVersion, type Meeting, type MeetingLiveSnapshot, type PresentationView } from "@/services/meeting";
+import { meetingService, meetingVersion, type Meeting, type MeetingInteraction, type MeetingLiveSnapshot, type PresentationView } from "@/services/meeting";
 import { apiConfig } from "@/services/api";
 import { userService } from "@/services/users";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
@@ -25,18 +28,20 @@ import { hasPermission } from "@/utils/permissions";
 const views: { value: PresentationView; label: string; icon: LucideIcon }[] = [
   { value: "checkin", label: "QR check-in", icon: QrCode },
   { value: "speaker", label: "Phát biểu", icon: Users },
+  { value: "audienceResponses", label: "Câu trả lời", icon: MessageCircle },
   { value: "activeMembers", label: "Xếp hạng", icon: Trophy },
   { value: "waiting", label: "Màn chờ", icon: Monitor },
 ];
 const brandBlue = "#01BAF9";
 const brandSoft = "#E7F9FF";
-type Panel = "speaker" | "draw" | "tools";
+type Panel = "speaker" | "draw" | "responses" | "tools";
 
-export function MeetingRemoteControl({ id }: { id: string }) {
+export function MeetingRemoteControl({ id, initialPanel }: { id: string; initialPanel?: Panel }) {
   const { user, token } = useAuth();
   const insets = useSafeAreaInsets();
   const canManage = hasPermission(user, "meetings:manage", "access:manage");
   const [snapshot, setSnapshot] = useState<MeetingLiveSnapshot | null>(null);
+  const [interactionPreview, setInteractionPreview] = useState<MeetingInteraction | null>(null);
   const snapshotRef = useRef<MeetingLiveSnapshot | null>(null);
   const activeRef = useRef(false);
   const pollingRef = useRef(false);
@@ -55,14 +60,16 @@ export function MeetingRemoteControl({ id }: { id: string }) {
     if (next.meeting._id !== id) return;
     if (snapshotRef.current && meetingVersion(next.meeting) < meetingVersion(snapshotRef.current.meeting)) return;
     const previousView = snapshotRef.current?.meeting.presentation?.view || "checkin";
-    if (previousView !== (next.meeting.presentation?.view || "checkin")) setSelectedPanel(null);
+    const nextView = next.meeting.presentation?.view || "checkin";
+    if (!snapshotRef.current && initialPanel) setSelectedPanel({ view: nextView, panel: initialPanel });
+    else if (previousView !== nextView) setSelectedPanel(null);
     clockOffsetRef.current = next.serverNow - Date.now();
     snapshotRef.current = next;
     setSnapshot(next);
     setNow(next.serverNow);
     setSyncError("");
     setLoading(false);
-  }, [id]);
+  }, [id, initialPanel]);
 
   const refresh = useCallback(async (full = false) => {
     if (pollingRef.current) {
@@ -79,11 +86,15 @@ export function MeetingRemoteControl({ id }: { id: string }) {
           ? await meetingService.live(id)
           : { ...current, meeting: state.meeting, serverNow: state.serverNow };
         applySnapshot(next);
+        if (next.meeting.presentation?.view === "audienceResponses") {
+          try { setInteractionPreview(await meetingService.interaction(id)); }
+          catch { setInteractionPreview(null); }
+        }
         full = queuedRefreshRef.current;
       } while (full && activeRef.current);
     } catch (cause) {
       if (activeRef.current) {
-        setSyncError(cause instanceof Error ? cause.message : "Không thể đồng bộ màn trình chiếu.");
+        setSyncError(friendlyErrorMessage(cause, "Không thể đồng bộ màn trình chiếu."));
         setLoading(false);
       }
     } finally {
@@ -126,7 +137,7 @@ export function MeetingRemoteControl({ id }: { id: string }) {
       }
       return true;
     } catch (cause) {
-      Alert.alert("Không thể điều khiển", cause instanceof Error ? cause.message : "Vui lòng thử lại.");
+      Alert.alert("Không thể điều khiển", friendlyErrorMessage(cause, "Vui lòng thử lại."));
       void refresh(true);
       return false;
     } finally {
@@ -146,7 +157,7 @@ export function MeetingRemoteControl({ id }: { id: string }) {
   const meeting = snapshot?.meeting;
   const currentSpeaker = meeting?.speakers[meeting.currentIndex];
   const view = meeting?.presentation?.view || "checkin";
-  const panel = selectedPanel?.view === view ? selectedPanel.panel : view === "speaker" ? "speaker" : view === "luckyDraw" ? "draw" : "tools";
+  const panel = selectedPanel?.view === view ? selectedPanel.panel : view === "speaker" ? "speaker" : view === "luckyDraw" ? "draw" : view === "audienceResponses" ? "responses" : "tools";
   const closed = meeting?.status === "ended" || meeting?.status === "cancelled";
   const disabled = !canManage || !meeting || Boolean(syncError) || busy || closed;
 
@@ -159,7 +170,7 @@ export function MeetingRemoteControl({ id }: { id: string }) {
     <View style={styles.header}><BackHeader title="Bảng điều khiển trình chiếu" compact action={<Pressable accessibilityRole="button" accessibilityLabel="Cài đặt tự chuyển lượt" onPress={() => setSettingsOpen(true)} style={styles.settingsButton}><Settings2 color={colors.text} size={21} /></Pressable>} /></View>
       <>
         <View style={styles.previewCard}>
-          <StagePreview snapshot={snapshot} now={now} />
+          <StagePreview snapshot={snapshot} now={now} interaction={interactionPreview} />
           <Pressable accessibilityRole="button" accessibilityLabel="Đồng bộ màn chiếu" onPress={() => void refresh(true)} style={styles.refreshButton}>
             <RefreshCw color={colors.primaryDark} size={18} />
           </Pressable>
@@ -172,6 +183,7 @@ export function MeetingRemoteControl({ id }: { id: string }) {
           <View style={styles.panelTabs}>
             <PanelTab label="Phát biểu" active={panel === "speaker"} onPress={() => setSelectedPanel({ view, panel: "speaker" })} />
             <PanelTab label="Quay thưởng" active={panel === "draw"} onPress={() => setSelectedPanel({ view, panel: "draw" })} />
+            <PanelTab label="Câu trả lời" active={panel === "responses"} onPress={() => setSelectedPanel({ view, panel: "responses" })} />
             <PanelTab label="Khác" active={panel === "tools"} onPress={() => setSelectedPanel({ view, panel: "tools" })} />
           </View>
 
@@ -214,11 +226,12 @@ export function MeetingRemoteControl({ id }: { id: string }) {
             </View>
           </Card> : null}
 
+          {panel === "responses" ? <RemoteInteractionPanel id={id} canManage={canManage && !closed} onUpdate={setInteractionPreview} /> : null}
+
           {panel === "tools" ? <Card style={styles.section}>
             <Text style={styles.sectionHeading}>Tra cứu và quản lý</Text>
             <View style={styles.compactGrid}>
               <CompactAction icon={CalendarCheck} label="Check-in" accessibilityLabel="Danh sách check-in" onPress={() => router.push({ pathname: "/meeting/[id]/attendees", params: { id } })} />
-              <CompactAction icon={MessageCircle} label="Ý kiến" accessibilityLabel="Thu ý kiến" onPress={() => router.push({ pathname: "/meeting/[id]/interaction", params: { id, section: "interaction" } })} />
               <CompactAction icon={Trophy} label="KQ quay" accessibilityLabel="Kết quả vòng quay may mắn" onPress={() => router.push({ pathname: "/meeting/[id]/game-results", params: { id, source: "wheel" } })} />
               <CompactAction icon={Trophy} label="KQ Bingo" accessibilityLabel="Kết quả lồng cầu Bingo" onPress={() => router.push({ pathname: "/meeting/[id]/game-results", params: { id, source: "bingo" } })} />
               <CompactAction icon={ListOrdered} label="Quản lý" accessibilityLabel="Quản lý cuộc họp" onPress={() => router.push({ pathname: "/meeting/[id]/control", params: { id } })} />
@@ -246,7 +259,15 @@ export function MeetingRemoteControl({ id }: { id: string }) {
   </Screen>;
 }
 
-function StagePreview({ snapshot, now }: { snapshot: MeetingLiveSnapshot; now: number }) {
+function RemoteInteractionPanel({ id, canManage, onUpdate }: { id: string; canManage: boolean; onUpdate: (next: MeetingInteraction) => void }) {
+  const { data, error, isLoading, reload } = useAsyncData(() => meetingService.interaction(id), id);
+  if (isLoading && !data) return <Card style={styles.section}><LoadingState /></Card>;
+  if (error && !data) return <Card style={styles.section}><ErrorState message={error} onRetry={reload} /></Card>;
+  if (!data) return null;
+  return <InteractionManager key={data.session?.id || id} meetingId={id} initial={data} canManage={canManage} embedded onStateChange={onUpdate} />;
+}
+
+function StagePreview({ snapshot, now, interaction }: { snapshot: MeetingLiveSnapshot; now: number; interaction: MeetingInteraction | null }) {
   const { width: screenWidth } = useWindowDimensions();
   const meeting = snapshot.meeting;
   const view = meeting.presentation?.view || "checkin";
@@ -261,6 +282,14 @@ function StagePreview({ snapshot, now }: { snapshot: MeetingLiveSnapshot; now: n
     {speaker ? <View style={styles.stageTimerOverlay}><Clock3 color={colors.primaryDark} size={13} /><Text style={styles.stageTime}>{time}</Text></View> : null}
   </View> : <View style={styles.stage}><Presentation color="#FFFFFF" size={32} /><Text style={styles.stageTitle}>Chờ slide thuyết trình</Text></View>;
   if (view === "checkin") return <View style={[styles.stage, styles.checkinStage]}><View style={styles.qrBox}><QrCode color={colors.primaryDark} size={56} /></View><View style={styles.grow}><Text style={styles.stageEyebrow}>QR CHECK-IN</Text><Text numberOfLines={2} style={styles.stageName}>{meeting.title}</Text><Text style={styles.stageCompany}>{meeting.speakers.length} người đã điểm danh</Text></View></View>;
+  if (view === "audienceResponses") {
+    const session = interaction?.session;
+    const question = session?.questions.find((item) => item.id === session.activeQuestionId) || session?.questions[0];
+    return <View style={styles.responseStage}>{question
+      ? <ResponseWordCloud questions={[question]} responses={interaction?.allResponses || interaction?.responses || []} compact />
+      : <Text style={styles.stageCompany}>Tạo câu hỏi trong bảng điều khiển bên dưới</Text>}
+    </View>;
+  }
   if (view === "luckyDraw") return <MeetingWheelPreview meeting={meeting} now={now} />;
   if (view === "activeMembers") return <StageRankingPreview meeting={meeting} />;
   return <View style={styles.stage}><Monitor color="#7DD3FC" size={34} /><Text style={styles.stageTitle}>{meeting.title}</Text><Text style={styles.stageSub}>Vui lòng chờ</Text></View>;
@@ -330,6 +359,7 @@ const styles = StyleSheet.create({
   rankingCount: { color: colors.muted, fontSize: 9, fontWeight: "700" },
   stageSlide: { width: "100%", aspectRatio: 16 / 9, backgroundColor: colors.surface, overflow: "hidden" },
   checkinStage: { backgroundColor: colors.surface, flexDirection: "row", gap: spacing.lg },
+  responseStage: { width: "100%", aspectRatio: 16 / 9, backgroundColor: colors.surface, justifyContent: "center", overflow: "hidden", padding: spacing.xs },
   stageName: { color: colors.text, fontSize: 15, fontWeight: "600" },
   stageCompany: { color: colors.muted, fontSize: 12 },
   stageTimerOverlay: { position: "absolute", right: spacing.sm, bottom: spacing.sm, flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.sm, backgroundColor: colors.surface },

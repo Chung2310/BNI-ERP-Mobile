@@ -1,3 +1,4 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useCallback, useMemo, useRef, useState } from "react";
 import * as Location from "expo-location";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -101,7 +102,7 @@ export default function MeetingDetailScreen() {
       const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       setData(await meetingService.checkIn(id, { latitude: position.coords.latitude, longitude: position.coords.longitude }));
     } catch (cause) {
-      setCheckInError(cause instanceof Error ? cause.message : "Check-in thất bại. Vui lòng thử lại.");
+      setCheckInError(friendlyErrorMessage(cause, "Check-in thất bại. Vui lòng thử lại."));
     } finally {
       checkInPending.current = false;
       setCheckInBusy(false);
@@ -134,7 +135,7 @@ export default function MeetingDetailScreen() {
         router.replace("/meetings");
       }
     } catch (cause) {
-      setActionError(cause instanceof Error ? cause.message : "Không thể cập nhật lịch họp. Vui lòng thử lại.");
+      setActionError(friendlyErrorMessage(cause, "Không thể cập nhật lịch họp. Vui lòng thử lại."));
     } finally {
       actionPending.current = false;
       setBusy(false);
@@ -171,8 +172,8 @@ export default function MeetingDetailScreen() {
       <Card style={styles.processCard}>
         {!manage ? <ProcessRow icon={Eye} label="Theo dõi cuộc họp" detail="Xem nội dung đang trình chiếu trực tiếp" onPress={() => router.push({ pathname: "/meeting/[id]/watch", params: { id } })} /> : null}
         <ProcessRow icon={MapPin} label="Check-in" detail={`${meeting.speakers.length} người đã điểm danh`} onPress={() => router.push({ pathname: "/meeting/[id]/attendees", params: { id } })} />
-        <ProcessRow icon={Gift} label="Vòng quay & Bingo" detail={manage ? "Mở trò chơi và quay nhiều lượt" : "Kết quả Vòng quay và Bingo"} onPress={() => router.push(manage ? { pathname: "/meeting/[id]/games", params: { id } } : { pathname: "/meeting/[id]/game-results", params: { id } })} />
-        <ProcessRow icon={MessageCircle} label="Thu ý kiến" detail={manage ? "Câu hỏi và phản hồi của người tham dự" : "Trả lời câu hỏi ngay trong ứng dụng"} onPress={() => router.push(manage ? { pathname: "/meeting/[id]/interaction", params: { id, section: "interaction", readOnly: "1" } } : { pathname: "/meeting/[id]/respond", params: { id } })} />
+        <ProcessRow icon={Gift} label="Vòng quay & Bingo" detail="Kết quả Vòng quay và Bingo" onPress={() => router.push({ pathname: "/meeting/[id]/game-results", params: { id } })} />
+        <ProcessRow icon={MessageCircle} label="Thu ý kiến" detail={manage ? "Xem phản hồi và cấu hình câu hỏi" : "Trả lời câu hỏi ngay trong ứng dụng"} onPress={() => router.push(manage ? { pathname: "/meeting/[id]/interaction", params: { id } } : { pathname: "/meeting/[id]/respond", params: { id } })} />
         <ProcessRow icon={Presentation} label="Thuyết trình" detail="Danh sách slide của người trình bày" onPress={() => router.push({ pathname: "/meeting/[id]/slides", params: { id } })} />
       </Card>
 

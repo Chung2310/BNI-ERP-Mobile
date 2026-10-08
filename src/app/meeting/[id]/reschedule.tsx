@@ -1,3 +1,4 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { Alert } from "@/components/AppAlert";
 import { useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
@@ -54,7 +55,7 @@ function RescheduleForm({ meeting }: { meeting: Meeting }) {
       await meetingService.update(meeting._id, { version: meetingVersion(meeting), startsAt: start.toISOString(), endsAt: end.toISOString() });
       Alert.alert("Đã dời lịch họp", "Thời gian mới đã được lưu.", [{ text: "Xong", onPress: () => router.back() }]);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Không thể dời lịch họp.");
+      setError(friendlyErrorMessage(cause, "Không thể dời lịch họp."));
     } finally {
       setSaving(false);
     }

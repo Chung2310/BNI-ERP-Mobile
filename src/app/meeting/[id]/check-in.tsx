@@ -1,3 +1,4 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useState } from "react";
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
 import * as Location from "expo-location";
@@ -31,7 +32,7 @@ export default function CheckInScreen() {
       const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       await meetingService.checkIn(id, { latitude: position.coords.latitude, longitude: position.coords.longitude });
       setSuccess("Check-in thành công. Chúc bạn có một buổi họp hiệu quả!");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Check-in thất bại. Vui lòng thử lại."); }
+    } catch (cause) { setError(friendlyErrorMessage(cause, "Check-in thất bại. Vui lòng thử lại.")); }
     finally { setProcessing(false); }
   };
 

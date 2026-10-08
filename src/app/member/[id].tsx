@@ -1,3 +1,4 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -65,7 +66,7 @@ export default function MemberDetailScreen() {
       if (!room?._id) throw new Error("Không thể mở cuộc trò chuyện.");
       router.push({ pathname: "/chat/[id]", params: { id: room._id, name: member.displayName } });
     } catch (cause) {
-      Alert.alert("Không thể mở tin nhắn", cause instanceof Error ? cause.message : "Vui lòng thử lại.");
+      Alert.alert("Không thể mở tin nhắn", friendlyErrorMessage(cause, "Vui lòng thử lại."));
     } finally {
       setIsStartingChat(false);
     }
@@ -81,7 +82,7 @@ export default function MemberDetailScreen() {
       Alert.alert("Thành công", "Đã xóa thành viên khỏi hệ thống.");
       router.back();
     } catch (err) {
-      Alert.alert("Lỗi", err instanceof Error ? err.message : "Không thể xóa thành viên.");
+      Alert.alert("Lỗi", friendlyErrorMessage(err, "Không thể xóa thành viên."));
     } finally {
       setIsDeleting(false);
     }

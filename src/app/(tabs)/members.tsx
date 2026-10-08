@@ -1,3 +1,4 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
@@ -130,7 +131,7 @@ export default function MembersScreen() {
       setPage(result.page);
       setHasMore(result.hasMore);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Không thể tải danh sách thành viên.");
+      setError(friendlyErrorMessage(cause, "Không thể tải danh sách thành viên."));
     } finally {
       loadingRef.current = false;
       setIsLoading(false);

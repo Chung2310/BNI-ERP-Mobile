@@ -1,3 +1,5 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
+
 const API_URL = (process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, "");
 
 let accessToken: string | null = null;
@@ -6,7 +8,10 @@ let persistAccessToken: ((token: string) => Promise<void>) | null = null;
 
 export class ApiError extends Error {
   constructor(message: string, readonly status: number, readonly code?: string) {
-    super(message);
+    super(friendlyErrorMessage(message, status === 0 || status === 408
+      ? "Không thể kết nối. Hãy kiểm tra mạng rồi thử lại."
+      : status >= 500 ? "Hệ thống đang bận. Vui lòng thử lại sau."
+      : "Không thể thực hiện yêu cầu. Vui lòng thử lại."));
     this.name = "ApiError";
   }
 }
@@ -25,7 +30,7 @@ async function parsePayload(response: Response) {
   try {
     return JSON.parse(text) as Record<string, unknown>;
   } catch {
-    throw new ApiError("Máy chủ trả về dữ liệu không hợp lệ.", response.status);
+    throw new ApiError("Hệ thống đang bận. Vui lòng thử lại sau.", response.status);
   }
 }
 
@@ -69,9 +74,9 @@ export async function apiRequest<T>(path: string, options: RequestInit & { timeo
         ...options.headers,
       },
     });
-  } catch (cause) {
+  } catch {
     if (controller.signal.aborted) throw new ApiError("Kết nối quá thời gian. Vui lòng kiểm tra mạng và thử lại.", 408);
-    throw new ApiError(cause instanceof Error ? cause.message : "Không thể kết nối máy chủ.", 0);
+    throw new ApiError("Không thể kết nối. Hãy kiểm tra mạng rồi thử lại.", 0);
   } finally {
     clearTimeout(timeout);
     options.signal?.removeEventListener("abort", abort);

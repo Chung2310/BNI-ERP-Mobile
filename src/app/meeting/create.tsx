@@ -1,3 +1,4 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { Alert } from "@/components/AppAlert";
 import { useMemo, useState, type ReactNode } from "react";
 import * as ImagePicker from "expo-image-picker";
@@ -100,7 +101,7 @@ function CreateMeetingForm() {
       setLatitude(position.coords.latitude.toFixed(6));
       setLongitude(position.coords.longitude.toFixed(6));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Không thể lấy vị trí hiện tại.");
+      setError(friendlyErrorMessage(cause, "Không thể lấy vị trí hiện tại."));
     } finally {
       setLocating(false);
     }
@@ -124,7 +125,7 @@ function CreateMeetingForm() {
       setUploading(true);
       setCoverImage(await meetingService.uploadCover(asset.base64));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Không thể tải ảnh bìa.");
+      setError(friendlyErrorMessage(cause, "Không thể tải ảnh bìa."));
     } finally {
       setUploading(false);
     }
@@ -185,7 +186,7 @@ function CreateMeetingForm() {
         ]);
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Không thể tạo cuộc họp.");
+      setError(friendlyErrorMessage(cause, "Không thể tạo cuộc họp."));
     } finally {
       setSaving(false);
     }

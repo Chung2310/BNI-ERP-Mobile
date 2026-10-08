@@ -1,3 +1,4 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { Alert } from "@/components/AppAlert";
 import { useCallback, useMemo, useState } from 'react';
 import { router, useFocusEffect } from 'expo-router';
@@ -65,7 +66,7 @@ export default function ChatScreen() {
     const pinned = Boolean(room.members.find((member) => member.userId._id === user?.uid)?.isPinned);
     Alert.alert(roomName(room), pinned ? 'Bỏ ghim cuộc trò chuyện này?' : 'Ghim cuộc trò chuyện này?', [
       { text: 'Đóng', style: 'cancel' },
-      { text: pinned ? 'Bỏ ghim' : 'Ghim', onPress: () => void chatService.togglePinRoom(room._id).then((updated) => setData((current) => (current || []).map((item) => item._id === room._id ? updated : item))).catch((cause) => Alert.alert('Không thể cập nhật', cause instanceof Error ? cause.message : 'Vui lòng thử lại.')) },
+      { text: pinned ? 'Bỏ ghim' : 'Ghim', onPress: () => void chatService.togglePinRoom(room._id).then((updated) => setData((current) => (current || []).map((item) => item._id === room._id ? updated : item))).catch((cause) => Alert.alert('Không thể cập nhật', friendlyErrorMessage(cause, 'Vui lòng thử lại.'))) },
     ]);
   };
 

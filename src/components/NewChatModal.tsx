@@ -1,3 +1,4 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useEffect, useMemo, useState } from 'react';
 import { Check, Search, X } from 'lucide-react-native';
 import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -30,7 +31,7 @@ export function NewChatModal({ currentUserId, onClose, onCreated }: Props) {
   useEffect(() => {
     void userService.directory()
       .then((items) => setMembers(items.filter((item) => item.uid && item.uid !== currentUserId)))
-      .catch((cause) => setError(cause instanceof Error ? cause.message : 'Không thể tải danh sách thành viên.'))
+      .catch((cause) => setError(friendlyErrorMessage(cause, 'Không thể tải danh sách thành viên.')))
       .finally(() => setLoading(false));
   }, [currentUserId]);
 
@@ -60,7 +61,7 @@ export function NewChatModal({ currentUserId, onClose, onCreated }: Props) {
       });
       onCreated(room);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Không thể tạo cuộc trò chuyện.');
+      setError(friendlyErrorMessage(cause, 'Không thể tạo cuộc trò chuyện.'));
     } finally {
       setCreating(false);
     }

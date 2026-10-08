@@ -1,3 +1,4 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useEffect, useRef, useState } from "react";
 import { router } from "expo-router";
 import { Eye, EyeOff, Fingerprint, X } from "lucide-react-native";
@@ -82,7 +83,7 @@ export default function LoginScreen() {
       setIsSheetVisible(false);
       router.replace("/(tabs)");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Đăng nhập thất bại. Vui lòng thử lại.");
+      setError(friendlyErrorMessage(cause, "Đăng nhập thất bại. Vui lòng thử lại."));
     } finally {
       setSubmitting(false);
     }
@@ -96,7 +97,7 @@ export default function LoginScreen() {
       setIsSheetVisible(false);
       router.replace("/(tabs)");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Không thể xác thực sinh trắc học.");
+      setError(friendlyErrorMessage(cause, "Không thể xác thực sinh trắc học."));
     } finally {
       setSubmitting(false);
     }

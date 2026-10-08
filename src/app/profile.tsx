@@ -1,8 +1,9 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useEffect, useState } from "react";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import { Camera, LogOut, Pencil } from "lucide-react-native";
-import { ImageBackground, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Camera, LogOut, Pencil, Trash2, X } from "lucide-react-native";
+import { ImageBackground, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Alert } from "@/components/AppAlert";
 import { BackHeader } from "@/components/BackHeader";
 import { BirthDateField } from "@/components/BirthDateField";
@@ -41,12 +42,15 @@ function Info({ label, value }: { label: string; value?: string }) {
 }
 
 export default function ProfileScreen() {
-  const { user, refreshProfile, applyProfile, signOut } = useAuth();
+  const { user, refreshProfile, applyProfile, signOut, deleteAccount } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(user);
   const [form, setForm] = useState<Form | null>(null);
   const [avatarBase64, setAvatarBase64] = useState<string | null>(null);
   const [coverBase64, setCoverBase64] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deletePhrase, setDeletePhrase] = useState("");
 
   useEffect(() => {
     void refreshProfile().then(setProfile).catch(() => undefined);
@@ -76,7 +80,7 @@ export default function ProfileScreen() {
         else setCoverBase64(result.assets[0].base64);
       }
     } catch (cause) {
-      Alert.alert("Không thể chọn ảnh", cause instanceof Error ? cause.message : "Vui lòng thử lại.");
+      Alert.alert("Không thể chọn ảnh", friendlyErrorMessage(cause, "Vui lòng thử lại."));
     }
   };
 
@@ -117,7 +121,7 @@ export default function ProfileScreen() {
       cancelEdit();
       Alert.alert("Đã lưu", "Hồ sơ cá nhân đã được cập nhật.");
     } catch (cause) {
-      Alert.alert("Không thể lưu hồ sơ", cause instanceof Error ? cause.message : "Vui lòng thử lại.");
+      Alert.alert("Không thể lưu hồ sơ", friendlyErrorMessage(cause, "Vui lòng thử lại."));
     } finally {
       setBusy(false);
     }
@@ -132,6 +136,33 @@ export default function ProfileScreen() {
         void signOut().catch(() => undefined).finally(() => router.replace("/login"));
       } },
     ]);
+  };
+
+  const closeDelete = () => {
+    if (busy) return;
+    setDeleteOpen(false);
+    setDeletePassword("");
+    setDeletePhrase("");
+  };
+
+  const confirmDelete = async () => {
+    if (busy || profile?.role === "admin" || user?.role === "admin") return;
+    if (deletePhrase.trim() !== "XÓA TÀI KHOẢN" || !deletePassword) {
+      Alert.alert("Chưa đủ xác nhận", "Nhập mật khẩu hiện tại và cụm XÓA TÀI KHOẢN để tiếp tục.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await deleteAccount(deletePassword);
+      setDeleteOpen(false);
+      setDeletePassword("");
+      setDeletePhrase("");
+      router.replace("/login");
+    } catch (cause) {
+      Alert.alert("Không thể xóa tài khoản", friendlyErrorMessage(cause, "Vui lòng thử lại."));
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (!profile) return <Screen><BackHeader title="Hồ sơ cá nhân" compact /><Text style={styles.empty}>Không tìm thấy hồ sơ cá nhân.</Text></Screen>;
@@ -181,6 +212,21 @@ export default function ProfileScreen() {
     {!form ? <Button icon={LogOut} tone="danger" fullWidth disabled={busy} onPress={confirmSignOut}>
       {busy ? "Đang đăng xuất..." : "Đăng xuất"}
     </Button> : null}
+    {!form && profile.role !== "admin" && user?.role !== "admin" ? <Button icon={Trash2} tone="danger" fullWidth disabled={busy} onPress={() => setDeleteOpen(true)}>Xóa tài khoản</Button> : null}
+    <Modal visible={deleteOpen && profile.role !== "admin" && user?.role !== "admin"} transparent animationType="fade" onRequestClose={closeDelete}>
+      <View style={styles.deleteOverlay}>
+        <Pressable accessibilityLabel="Đóng xác nhận xóa tài khoản" disabled={busy} onPress={closeDelete} style={styles.deleteBackdrop} />
+        <View accessibilityViewIsModal style={styles.deleteDialog}>
+          <View style={styles.deleteHeader}><Text style={styles.deleteTitle}>Xóa tài khoản?</Text><Pressable accessibilityRole="button" accessibilityLabel="Đóng" disabled={busy} onPress={closeDelete} style={styles.deleteClose}><X color={colors.muted} size={21} /></Pressable></View>
+          <Text style={styles.deleteDescription}>Tài khoản của bạn sẽ bị xóa vĩnh viễn và bạn sẽ đăng xuất khỏi ứng dụng. Hành động này không thể hoàn tác.</Text>
+          <Text style={styles.label}>Mật khẩu hiện tại</Text>
+          <TextInput accessibilityLabel="Mật khẩu hiện tại" value={deletePassword} onChangeText={setDeletePassword} secureTextEntry autoCapitalize="none" autoCorrect={false} editable={!busy} placeholder="Nhập mật khẩu" style={styles.input} />
+          <Text style={styles.label}>Nhập XÓA TÀI KHOẢN để xác nhận</Text>
+          <TextInput accessibilityLabel="Nhập XÓA TÀI KHOẢN để xác nhận" value={deletePhrase} onChangeText={setDeletePhrase} autoCapitalize="characters" autoCorrect={false} editable={!busy} placeholder="XÓA TÀI KHOẢN" style={styles.input} />
+          <View style={styles.actions}><Button tone="secondary" style={styles.flex} disabled={busy} onPress={closeDelete}>Hủy</Button><Button tone="danger" style={styles.flex} disabled={busy || !deletePassword || deletePhrase.trim() !== "XÓA TÀI KHOẢN"} onPress={() => void confirmDelete()}>{busy ? "Đang xóa..." : "Xóa tài khoản"}</Button></View>
+        </View>
+      </View>
+    </Modal>
   </Screen>;
 }
 
@@ -205,4 +251,11 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", gap: spacing.sm },
   infoRow: { flexDirection: "row", justifyContent: "space-between", gap: spacing.md, paddingVertical: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   infoLabel: { flex: 1, color: colors.muted, fontSize: 12 }, infoValue: { flex: 1.5, color: colors.text, fontSize: 12, textAlign: "right" },
+  deleteOverlay: { flex: 1, justifyContent: "center", paddingHorizontal: spacing.lg, backgroundColor: colors.overlay },
+  deleteBackdrop: { ...StyleSheet.absoluteFill },
+  deleteDialog: { borderRadius: radius.xl, padding: spacing.lg, gap: spacing.sm, backgroundColor: colors.surface },
+  deleteHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  deleteTitle: { color: colors.text, fontSize: 19, fontWeight: "800" },
+  deleteClose: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center" },
+  deleteDescription: { color: colors.muted, fontSize: 13, lineHeight: 19, marginBottom: spacing.sm },
 });

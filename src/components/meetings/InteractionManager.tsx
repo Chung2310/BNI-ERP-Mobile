@@ -1,7 +1,8 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { Alert } from "@/components/AppAlert";
 import { useCallback, useEffect, useState } from "react";
 import { Check, ChevronRight, Clock3, Eye, EyeOff, MessageCircle, Play, Plus, Save, Settings2, Share2, Square, Trash2, X, type LucideIcon } from "lucide-react-native";
-import {  Pressable, Share, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import {  Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { HeaderRefreshAction } from "@/components/HeaderRefreshAction";
 import { ResponseWordCloud } from "@/components/meetings/ResponseWordCloud";
@@ -11,12 +12,12 @@ import { apiConfig } from "@/services/api";
 import { meetingService, type MeetingInteraction, type MeetingInteractionInput, type MeetingInteractionResponseStatus } from "@/services/meeting";
 import { colors, radius, spacing } from "@/theme/tokens";
 
-type Props = { meetingId: string; initial: MeetingInteraction; canManage: boolean };
-const message = (error: unknown) => error instanceof Error ? error.message : "Vui lòng thử lại.";
+type Props = { meetingId: string; initial: MeetingInteraction; canManage: boolean; canControl?: boolean; embedded?: boolean; onStateChange?: (next: MeetingInteraction) => void };
+const message = (error: unknown) => friendlyErrorMessage(error, "Vui lòng thử lại.");
 
-export function InteractionManager({ meetingId, initial, canManage }: Props) {
+export function InteractionManager({ meetingId, initial, canManage, canControl = true, embedded = false, onStateChange }: Props) {
   const [state, setState] = useState(initial);
-  const onLiveUpdate = useCallback((next: MeetingInteraction) => setState(next), []);
+  const onLiveUpdate = useCallback((next: MeetingInteraction) => { setState(next); onStateChange?.(next); }, [onStateChange]);
   useLiveMeetingInteraction(meetingId, onLiveUpdate);
   const [question, setQuestion] = useState(initial.session?.question || "");
   const [duration, setDuration] = useState(String(initial.session?.durationSeconds || 60));
@@ -25,6 +26,7 @@ export function InteractionManager({ meetingId, initial, canManage }: Props) {
   const [moderation, setModeration] = useState(initial.session?.moderationEnabled ?? true);
   const [multiple, setMultiple] = useState(initial.session?.allowMultipleResponses ?? false);
   const [showSettings, setShowSettings] = useState(false);
+  const [previewQuestionId, setPreviewQuestionId] = useState(initial.session?.activeQuestionId || initial.session?.questions[0]?.id || "");
   const [adding, setAdding] = useState(false);
   const [newQuestion, setNewQuestion] = useState("");
   const [busy, setBusy] = useState("");
@@ -38,6 +40,7 @@ export function InteractionManager({ meetingId, initial, canManage }: Props) {
 
   const apply = (next: MeetingInteraction) => {
     setState(next);
+    onStateChange?.(next);
     if (!next.session) return;
     setQuestion(next.session.question);
     setDuration(String(next.session.durationSeconds));
@@ -82,10 +85,17 @@ export function InteractionManager({ meetingId, initial, canManage }: Props) {
       ? state.session.participationUrl
       : `${apiConfig.baseUrl}${state.session.participationUrl.startsWith("/") ? "" : "/"}${state.session.participationUrl}`
     : "";
+  const previewQuestion = state.session?.questions.find((item) => item.id === previewQuestionId) || state.session?.questions[0];
 
-  return <Screen>
-    <BackHeader title="Thu ý kiến" subtitle="Câu hỏi và phản hồi trực tiếp" compact action={<HeaderRefreshAction label="Làm mới ý kiến" disabled={Boolean(busy)} onPress={() => void meetingService.interaction(meetingId).then(setState).catch((error) => Alert.alert("Không thể làm mới", message(error)))} />} />
-    {state.session ? <ResponseWordCloud questions={state.session.questions} responses={state.allResponses || state.responses} /> : null}
+  const Container = embedded ? View : Screen;
+  return <Container style={embedded ? s.embedded : undefined}>
+    {!embedded ? <BackHeader title="Thu ý kiến" subtitle="Câu hỏi và phản hồi trực tiếp" compact action={<HeaderRefreshAction label="Làm mới ý kiến" disabled={Boolean(busy)} onPress={() => void meetingService.interaction(meetingId).then(setState).catch((error) => Alert.alert("Không thể làm mới", message(error)))} />} /> : null}
+    {!embedded && state.session ? <>
+      {state.session.questions.length > 1 ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.previewTabs}>
+        {state.session.questions.map((item) => <Pressable key={item.id} accessibilityRole="tab" accessibilityState={{ selected: item.id === previewQuestion?.id }} onPress={() => setPreviewQuestionId(item.id)} style={[s.previewTab, item.id === previewQuestion?.id && s.previewTabActive]}><Text style={[s.previewTabText, item.id === previewQuestion?.id && s.previewTabTextActive]}>Câu {item.order}</Text></Pressable>)}
+      </ScrollView> : null}
+      {previewQuestion ? <ResponseWordCloud questions={[previewQuestion]} responses={state.allResponses || state.responses} /> : null}
+    </> : null}
     <Card>
       <View style={s.between}><View style={s.row}><MessageCircle color={colors.primaryDark} size={22} /><Text style={s.heading}>Câu hỏi tương tác</Text></View>{state.session ? <Badge tone={state.session.status === "open" ? "primary" : "default"}>{state.session.status === "open" ? "ĐANG MỞ" : state.session.status === "closed" ? "ĐÃ ĐÓNG" : "BẢN NHÁP"}</Badge> : null}</View>
       {state.session ? <View style={s.list}>
@@ -93,7 +103,7 @@ export function InteractionManager({ meetingId, initial, canManage }: Props) {
         {state.session.questions.map((item) => {
           const active = item.id === state.session?.activeQuestionId;
           return <View key={item.id} style={[s.questionRow, active && s.active]}>
-            <Pressable disabled={!canManage || Boolean(busy)} onPress={() => !active && void run("select", () => meetingService.selectInteractionQuestion(meetingId, item.id))} style={s.questionPress}>
+            <Pressable disabled={!canManage || !canControl || Boolean(busy)} onPress={() => !active && void run("select", () => meetingService.selectInteractionQuestion(meetingId, item.id))} style={s.questionPress}>
               <View style={[s.order, active && s.orderActive]}><Text style={[s.orderText, active && s.orderTextActive]}>{item.order}</Text></View>
               <View style={s.grow}><Text style={s.question}>{item.text}</Text><Text style={s.meta}>{item.responseCount} phản hồi{active ? " · Đang chọn" : ""}</Text></View>
               {!active ? <ChevronRight color={colors.muted} size={18} /> : null}
@@ -116,8 +126,8 @@ export function InteractionManager({ meetingId, initial, canManage }: Props) {
       {state.session?.status === "open" ? <View style={[s.timer, remaining <= 10 && s.timerDanger]}><Clock3 color={remaining <= 10 ? colors.danger : colors.primaryDark} size={18} /><Text style={[s.timerText, remaining <= 10 && { color: colors.danger }]}>Tự động đóng sau {remaining} giây</Text></View> : null}
       {canManage ? <View style={s.actions}>
         {!state.session ? <Button icon={Save} disabled={Boolean(busy)} onPress={save}>Tạo phiên tương tác</Button> : null}
-        {state.session && state.session.status !== "open" ? <><Button icon={Play} disabled={Boolean(busy)} onPress={() => void run("open", () => meetingService.setInteractionStatus(meetingId, "open"))}>Mở nhận câu trả lời</Button><Button tone="secondary" icon={Save} disabled={Boolean(busy)} onPress={save}>Lưu thay đổi</Button></> : null}
-        {state.session?.status === "open" ? <Button tone="danger" icon={Square} disabled={Boolean(busy)} onPress={() => void run("close", () => meetingService.setInteractionStatus(meetingId, "closed"))}>Đóng nhận</Button> : null}
+        {state.session && state.session.status !== "open" ? <>{canControl ? <Button icon={Play} disabled={Boolean(busy)} onPress={() => void run("open", () => meetingService.setInteractionStatus(meetingId, "open"))}>Mở nhận câu trả lời</Button> : null}<Button tone="secondary" icon={Save} disabled={Boolean(busy)} onPress={save}>Lưu thay đổi</Button></> : null}
+        {canControl && state.session?.status === "open" ? <Button tone="danger" icon={Square} disabled={Boolean(busy)} onPress={() => void run("close", () => meetingService.setInteractionStatus(meetingId, "closed"))}>Đóng nhận</Button> : null}
         {state.session && state.session.status !== "open" && state.session.questions.length < 20 ? <Button tone="secondary" icon={Plus} disabled={Boolean(busy)} onPress={() => setAdding(!adding)}>Thêm câu hỏi</Button> : null}
       </View> : null}
       {adding ? <View style={s.inline}><Text style={s.label}>Nội dung câu hỏi mới</Text><TextInput value={newQuestion} onChangeText={setNewQuestion} maxLength={300} multiline style={[s.input, s.textarea]} autoFocus /><View style={s.actions}><Button tone="secondary" icon={X} onPress={() => setAdding(false)}>Hủy</Button><Button icon={Plus} disabled={!newQuestion.trim() || Boolean(busy)} onPress={addQuestion}>Thêm</Button></View></View> : null}
@@ -137,7 +147,7 @@ export function InteractionManager({ meetingId, initial, canManage }: Props) {
         </View> : null}
       </View>)}
     </Card>
-  </Screen>;
+  </Container>;
 }
 
 function Toggle({ label, value, onChange, disabled }: { label: string; value: boolean; onChange: (value: boolean) => void; disabled?: boolean }) {
@@ -148,6 +158,12 @@ function Mini({ label, icon: Icon, onPress, danger }: { label: string; icon: Luc
 }
 
 const s = StyleSheet.create({
+  embedded: { gap: spacing.sm },
+  previewTabs: { gap: spacing.sm, paddingRight: spacing.md },
+  previewTab: { minHeight: 42, justifyContent: "center", borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, paddingHorizontal: spacing.md },
+  previewTabActive: { borderColor: colors.primaryDark, backgroundColor: colors.primaryDark },
+  previewTabText: { color: colors.text, fontSize: 13, fontWeight: "700" },
+  previewTabTextActive: { color: "#FFFFFF" },
   grow: { flex: 1 }, row: { flexDirection: "row", alignItems: "center", gap: spacing.sm }, between: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm }, heading: { color: colors.text, fontSize: 16, fontWeight: "900" }, label: { color: colors.text, fontSize: 12, fontWeight: "800" }, fieldLabel: { color: colors.text, fontSize: 12, fontWeight: "800", marginTop: spacing.md, marginBottom: spacing.xs }, meta: { color: colors.muted, fontSize: 11, lineHeight: 16 },
   input: { minHeight: 46, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, color: colors.text, backgroundColor: colors.surface, fontSize: 14 }, textarea: { minHeight: 90, paddingTop: spacing.md, textAlignVertical: "top" }, disabled: { backgroundColor: colors.background, color: colors.muted }, counter: { color: colors.muted, fontSize: 10, textAlign: "right", marginTop: spacing.xs },
   list: { backgroundColor: colors.background, borderRadius: radius.md, padding: spacing.sm, marginTop: spacing.md }, questionRow: { flexDirection: "row", borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface, marginTop: spacing.sm, overflow: "hidden" }, active: { borderColor: colors.primary, backgroundColor: colors.primarySoft }, questionPress: { flex: 1, flexDirection: "row", alignItems: "center", gap: spacing.sm, padding: spacing.sm }, order: { width: 30, height: 30, borderRadius: radius.sm, alignItems: "center", justifyContent: "center", backgroundColor: colors.primarySoft }, orderActive: { backgroundColor: colors.primary }, orderText: { color: colors.primaryDark, fontSize: 12, fontWeight: "900" }, orderTextActive: { color: "#FFFFFF" }, question: { color: colors.text, fontSize: 13, fontWeight: "800", lineHeight: 18 }, icon: { minWidth: 42, minHeight: 42, alignItems: "center", justifyContent: "center" },

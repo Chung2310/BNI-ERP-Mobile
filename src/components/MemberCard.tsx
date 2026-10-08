@@ -1,3 +1,4 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { Alert } from "@/components/AppAlert";
 import { useState } from "react";
 import { router } from "expo-router";
@@ -57,7 +58,7 @@ export function MemberCard({ member }: { member: MemberSummary }) {
         params: { id: roomId, name: member.name },
       });
     } catch (err) {
-      Alert.alert("Lỗi", err instanceof Error ? err.message : "Không thể mở tin nhắn với thành viên này.");
+      Alert.alert("Lỗi", friendlyErrorMessage(err, "Không thể mở tin nhắn với thành viên này."));
     } finally {
       setIsStartingChat(false);
     }

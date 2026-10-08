@@ -24,6 +24,15 @@ function normalizeUser(user: LoginResponse["user"]): UserProfile {
   return { ...user, uid: user.uid || user._id || "" };
 }
 
+async function clearLocalSession() {
+  setApiAccessToken(null);
+  await Promise.allSettled([
+    SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
+    SecureStore.deleteItemAsync(PROFILE_KEY),
+    SecureStore.deleteItemAsync(BIOMETRIC_KEY),
+  ]);
+}
+
 export const authService = {
   async getProfile(): Promise<UserProfile> {
     const response = await apiRequest<{ user: LoginResponse["user"] }>("/api/v1/auth/me");
@@ -99,13 +108,16 @@ export const authService = {
     try {
       await apiRequest("/api/v1/auth/logout", { method: "POST" });
     } finally {
-      setApiAccessToken(null);
-      await Promise.all([
-        SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
-        SecureStore.deleteItemAsync(PROFILE_KEY),
-        SecureStore.deleteItemAsync(BIOMETRIC_KEY),
-      ]);
+      await clearLocalSession();
     }
+  },
+
+  async deleteOwnAccount(password: string) {
+    await apiRequest("/api/v1/auth/me", {
+      method: "DELETE",
+      body: JSON.stringify({ password, confirmation: "XÓA TÀI KHOẢN" }),
+    });
+    await clearLocalSession();
   },
 
   async isBiometricEnabled() {

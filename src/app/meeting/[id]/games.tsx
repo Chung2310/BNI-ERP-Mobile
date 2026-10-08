@@ -1,3 +1,4 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Animated, Easing, Modal, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
@@ -78,7 +79,7 @@ export default function MeetingGamesScreen() {
       setPrizeName((current) => current || "Giải thưởng");
       setError("");
     } catch (cause) {
-      if (mounted.current) setError(cause instanceof Error ? cause.message : "Không tải được cuộc họp.");
+      if (mounted.current) setError(friendlyErrorMessage(cause, "Không tải được cuộc họp."));
     } finally {
       if (mounted.current) setLoading(false);
     }
@@ -132,7 +133,7 @@ export default function MeetingGamesScreen() {
       busyRef.current = false;
       if (mounted.current) {
         setBusy(false);
-        setError(cause instanceof Error ? cause.message : "Không lưu được kết quả. Hãy thử lại.");
+        setError(friendlyErrorMessage(cause, "Không lưu được kết quả. Hãy thử lại."));
       }
     }
   };

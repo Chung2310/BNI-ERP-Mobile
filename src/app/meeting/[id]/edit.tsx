@@ -1,3 +1,4 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { Alert } from "@/components/AppAlert";
 import { useMemo, useState, type ReactNode } from "react";
 import * as ImagePicker from "expo-image-picker";
@@ -57,7 +58,7 @@ function EditForm({ meeting }: { meeting: Meeting }) {
       setLatitude(position.coords.latitude.toFixed(6));
       setLongitude(position.coords.longitude.toFixed(6));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Không thể lấy vị trí.");
+      setError(friendlyErrorMessage(cause, "Không thể lấy vị trí."));
     } finally {
       setLocating(false);
     }
@@ -76,7 +77,7 @@ function EditForm({ meeting }: { meeting: Meeting }) {
       setUploading(true);
       setCoverImage(await meetingService.uploadCover(asset.base64));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Không thể tải ảnh bìa.");
+      setError(friendlyErrorMessage(cause, "Không thể tải ảnh bìa."));
     } finally {
       setUploading(false);
     }
@@ -134,7 +135,7 @@ function EditForm({ meeting }: { meeting: Meeting }) {
       }
       Alert.alert("Cập nhật thành công", bulk ? `Đã cập nhật cuộc họp và ${seriesMeetings.length} buổi sắp tới.` : "Thông tin cuộc họp đã được lưu.", [{ text: "Xong", onPress: () => router.back() }]);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Không thể cập nhật cuộc họp.");
+      setError(friendlyErrorMessage(cause, "Không thể cập nhật cuộc họp."));
     } finally {
       setSaving(false);
     }

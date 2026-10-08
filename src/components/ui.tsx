@@ -18,6 +18,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardResponsiveView } from "@/components/KeyboardResponsiveView";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 
 export function Screen({
   children,
@@ -189,7 +190,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry: () 
       <Card style={styles.state}>
         <CircleAlert color={colors.danger} size={30} strokeWidth={1.8} />
         <Text style={styles.stateTitle}>Không thể tải dữ liệu</Text>
-        <Text style={styles.stateMessage}>{message}</Text>
+        <Text style={styles.stateMessage}>{friendlyErrorMessage(message, "Chưa tải được dữ liệu. Hãy kiểm tra mạng rồi thử lại.")}</Text>
         <Button tone="secondary" style={styles.retryButton} textStyle={styles.retryText} onPress={onRetry}>Thử lại</Button>
       </Card>
     </View>

@@ -1,3 +1,4 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { Alert } from "@/components/AppAlert";
 import { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
@@ -40,7 +41,7 @@ export function ChatRoomSettingsModal({ room, currentUserId, onClose, onUpdated,
       onUpdated(await operation());
       success?.();
     } catch (cause) {
-      Alert.alert('Không thể cập nhật', cause instanceof Error ? cause.message : 'Vui lòng thử lại.');
+      Alert.alert('Không thể cập nhật', friendlyErrorMessage(cause, 'Vui lòng thử lại.'));
     } finally {
       setBusy(false);
     }
@@ -51,7 +52,7 @@ export function ChatRoomSettingsModal({ room, currentUserId, onClose, onUpdated,
     try {
       setDirectory((await userService.directory()).filter((person) => !room.members.some((member) => member.userId._id === person.uid)));
     } catch (cause) {
-      Alert.alert('Không thể tải thành viên', cause instanceof Error ? cause.message : 'Vui lòng thử lại.');
+      Alert.alert('Không thể tải thành viên', friendlyErrorMessage(cause, 'Vui lòng thử lại.'));
     }
   };
 
@@ -65,18 +66,18 @@ export function ChatRoomSettingsModal({ room, currentUserId, onClose, onUpdated,
         return chatService.updateRoom(room._id, { avatarURL: uploaded.url });
       });
     } catch (cause) {
-      Alert.alert('Không thể đổi ảnh nhóm', cause instanceof Error ? cause.message : 'Vui lòng thử lại.');
+      Alert.alert('Không thể đổi ảnh nhóm', friendlyErrorMessage(cause, 'Vui lòng thử lại.'));
     }
   };
 
   const leave = () => Alert.alert('Rời nhóm?', 'Bạn sẽ không còn xem được cuộc trò chuyện này.', [
     { text: 'Ở lại', style: 'cancel' },
-    { text: 'Rời nhóm', style: 'destructive', onPress: () => void chatService.leaveRoom(room._id).then(onExit).catch((cause) => Alert.alert('Không thể rời nhóm', cause instanceof Error ? cause.message : 'Vui lòng thử lại.')) },
+    { text: 'Rời nhóm', style: 'destructive', onPress: () => void chatService.leaveRoom(room._id).then(onExit).catch((cause) => Alert.alert('Không thể rời nhóm', friendlyErrorMessage(cause, 'Vui lòng thử lại.'))) },
   ]);
 
   const deleteGroup = () => Alert.alert('Giải tán nhóm?', 'Cuộc trò chuyện sẽ bị xóa cho tất cả thành viên.', [
     { text: 'Đóng', style: 'cancel' },
-    { text: 'Giải tán', style: 'destructive', onPress: () => void chatService.deleteRoom(room._id).then(onExit).catch((cause) => Alert.alert('Không thể giải tán', cause instanceof Error ? cause.message : 'Vui lòng thử lại.')) },
+    { text: 'Giải tán', style: 'destructive', onPress: () => void chatService.deleteRoom(room._id).then(onExit).catch((cause) => Alert.alert('Không thể giải tán', friendlyErrorMessage(cause, 'Vui lòng thử lại.'))) },
   ]);
 
   const manageMember = (targetId: string, targetName: string, role?: string) => {

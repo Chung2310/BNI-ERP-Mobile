@@ -37,7 +37,8 @@ export function AudienceStage({ data, fullscreen = false, stageWidth }: { data: 
   if (view === "luckyDraw") return <MeetingWheelPreview meeting={meeting} now={now} width={fullscreen ? contentWidth : undefined} />;
   if (view === "audienceResponses") {
     const session = data.interaction?.session;
-    const questions = session?.questions || [];
+    const question = session?.questions.find((item) => item.id === session.activeQuestionId) || session?.questions[0];
+    const questions = question ? [question] : [];
     return questions.length ? fullscreen ? <ScrollView style={{ width: contentWidth, height: contentHeight }} contentContainerStyle={styles.fullscreenCloud} nestedScrollEnabled><ResponseWordCloud questions={questions} responses={data.interaction?.allResponses || data.interaction?.responses || []} /></ScrollView> : <ResponseWordCloud questions={questions} responses={data.interaction?.allResponses || data.interaction?.responses || []} /> : <Card style={fullscreen && { width: contentWidth, height: contentHeight }}><Text style={styles.body}>Chờ câu hỏi từ quản trị viên</Text></Card>;
   }
   if (view === "activeMembers") {

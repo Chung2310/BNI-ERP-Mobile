@@ -1,3 +1,4 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useCallback, useRef, useState } from "react";
 import { AppState } from "react-native";
 import { useFocusEffect } from "expo-router";
@@ -77,7 +78,7 @@ export function useMeetingDisplay(id: string, enabled: boolean, onClosed: () => 
           }
           if (active) { setData(next); setError(""); }
         } catch (cause) {
-          if (active) setError(cause instanceof Error ? cause.message : "Không thể tải trình chiếu.");
+          if (active) setError(friendlyErrorMessage(cause, "Không thể tải trình chiếu."));
         }
       } while (active && !closed && queued);
       busy = false;

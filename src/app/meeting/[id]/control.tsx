@@ -1,3 +1,4 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { Alert } from "@/components/AppAlert";
 import { useCallback, useRef, useState } from "react";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -72,7 +73,7 @@ export default function MeetingControlScreen() {
     try {
       setData(await task());
     } catch (cause) {
-      Alert.alert(failure, cause instanceof Error ? cause.message : "Vui lòng thử lại.");
+      Alert.alert(failure, friendlyErrorMessage(cause, "Vui lòng thử lại."));
     } finally {
       setBusy(false);
     }
@@ -100,7 +101,7 @@ export default function MeetingControlScreen() {
             await meetingService.remove(id);
             router.replace("/meetings");
           } catch (cause) {
-            Alert.alert("Không thể xóa", cause instanceof Error ? cause.message : "Vui lòng thử lại.");
+            Alert.alert("Không thể xóa", friendlyErrorMessage(cause, "Vui lòng thử lại."));
           } finally {
             setBusy(false);
           }
@@ -120,7 +121,7 @@ export default function MeetingControlScreen() {
     void run(() => meetingService.reorderSpeakers(id, order.map((item) => item.id), version), "Không thể đổi thứ tự");
   };
 
-  const openInteraction = () => router.push({ pathname: "/meeting/[id]/interaction", params: { id, section: "interaction" } });
+  const openInteraction = () => router.push({ pathname: "/meeting/[id]/interaction", params: { id } });
 
   return (
     <Screen style={styles.screen}>

@@ -1,3 +1,4 @@
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useState } from "react";
 import * as DocumentPicker from "expo-document-picker";
 import { ChevronRight, File, FileText, Folder, FolderOpen, MoreVertical, Plus, Trash2, Upload, X } from "lucide-react-native";
@@ -43,7 +44,7 @@ export function ResourceManager() {
   const currentFolderMutable = !folder || (!folder.isFixed && folder.managedType !== "system" && !folder.isShared);
   const canEdit = (item: ResourceItem) => canManage && !item.isFixed && item.managedType !== "system" && !item.isShared && (user?.role === "admin" || item.creatorUid === user?.uid);
   const showMessage = (text: string) => { setMessage(text); setDialog("message"); };
-  const fail = (cause: unknown) => showMessage(cause instanceof Error ? cause.message : "Vui lòng thử lại.");
+  const fail = (cause: unknown) => showMessage(friendlyErrorMessage(cause, "Vui lòng thử lại."));
   const close = () => { if (!busy) setDialog(null); };
   const run = async (action: () => Promise<unknown>, success: string) => {
     if (busy) return;
