@@ -18,7 +18,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Avatar, Card, EmptyState, ErrorState, LoadingState } from "@/components/ui";
+import { Avatar, Card, EmptyState } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import {
@@ -27,7 +27,7 @@ import {
   subscribeMeetingChanges,
   type Meeting,
 } from "@/services/meeting";
-import { colors, radius, shadow, spacing } from "@/theme/tokens";
+import { radius, shadow } from "@/theme/tokens";
 import { hasPermission } from "@/utils/permissions";
 
 type ViewMode = "month" | "week" | "day";
@@ -56,8 +56,6 @@ export default function MeetingsScreen() {
   const {
     data,
     setData,
-    isLoading,
-    error,
     reload,
   } = useAsyncData(async () => {
     const results = await Promise.allSettled([meetingService.list(), meetingService.history()]);
@@ -598,6 +596,7 @@ export default function MeetingsScreen() {
         </ScrollView>
       )}
 
+      {/* Chế độ xem Tuần: Đơn sắc hơn - Nền trắng, text đen, viền màu brand cho cuộc họp bình thường */}
       {viewMode === "week" && (
         <ScrollView
           style={styles.calendarScroll}
@@ -652,9 +651,7 @@ export default function MeetingsScreen() {
                           <Text
                             style={[
                               styles.weekMeetingTitle,
-                              isCancelled
-                                ? styles.meetingChipTextCancelled
-                                : styles.meetingChipTextBrand,
+                              isCancelled ? styles.textCancelled : styles.textDark,
                             ]}
                           >
                             {meeting.title}
@@ -662,9 +659,7 @@ export default function MeetingsScreen() {
                           <Text
                             style={[
                               styles.weekMeetingTime,
-                              isCancelled
-                                ? styles.meetingChipTextCancelled
-                                : styles.meetingChipTextBrand,
+                              isCancelled ? styles.textCancelled : styles.textMuted,
                             ]}
                           >
                             {startTime} · {meeting.location || "Trực tiếp"}
@@ -687,6 +682,7 @@ export default function MeetingsScreen() {
         </ScrollView>
       )}
 
+      {/* Chế độ xem Ngày: Đơn sắc hơn - Nền trắng, text đen, viền màu brand cho cuộc họp bình thường */}
       {viewMode === "day" && (
         <ScrollView
           style={styles.calendarScroll}
@@ -723,7 +719,7 @@ export default function MeetingsScreen() {
                   <Text
                     style={[
                       styles.dayDetailTitle,
-                      isCancelled ? styles.textCancelled : styles.textBrand,
+                      isCancelled ? styles.textCancelled : styles.textDark,
                     ]}
                   >
                     {meeting.title}
@@ -731,26 +727,26 @@ export default function MeetingsScreen() {
                   <View style={styles.dayDetailMetaRow}>
                     <Clock
                       size={14}
-                      color={isCancelled ? "#DC2626" : "#E0F7FA"}
+                      color={isCancelled ? "#DC2626" : "#64748B"}
                       strokeWidth={1.8}
                     />
                     <Text
                       style={[
                         styles.dayDetailMetaText,
-                        isCancelled ? styles.textCancelled : styles.textBrand,
+                        isCancelled ? styles.textCancelled : styles.textMuted,
                       ]}
                     >
                       {timeStr}
                     </Text>
                     <MapPin
                       size={14}
-                      color={isCancelled ? "#DC2626" : "#E0F7FA"}
+                      color={isCancelled ? "#DC2626" : "#64748B"}
                       strokeWidth={1.8}
                     />
                     <Text
                       style={[
                         styles.dayDetailMetaText,
-                        isCancelled ? styles.textCancelled : styles.textBrand,
+                        isCancelled ? styles.textCancelled : styles.textMuted,
                       ]}
                     >
                       {meeting.location || "---"}
@@ -841,7 +837,7 @@ export default function MeetingsScreen() {
                         <Text
                           style={[
                             styles.sheetMeetingTitle,
-                            isCancelled ? styles.textCancelled : styles.textBrand,
+                            isCancelled ? styles.textCancelled : styles.textDark,
                           ]}
                         >
                           {meeting.title}
@@ -856,26 +852,26 @@ export default function MeetingsScreen() {
                       <View style={styles.sheetMetaRow}>
                         <Clock
                           size={13}
-                          color={isCancelled ? "#DC2626" : "#E0F7FA"}
+                          color={isCancelled ? "#DC2626" : "#64748B"}
                           strokeWidth={1.8}
                         />
                         <Text
                           style={[
                             styles.sheetMetaText,
-                            isCancelled ? styles.textCancelled : styles.textBrand,
+                            isCancelled ? styles.textCancelled : styles.textMuted,
                           ]}
                         >
                           {startTime}
                         </Text>
                         <MapPin
                           size={13}
-                          color={isCancelled ? "#DC2626" : "#E0F7FA"}
+                          color={isCancelled ? "#DC2626" : "#64748B"}
                           strokeWidth={1.8}
                         />
                         <Text
                           style={[
                             styles.sheetMetaText,
-                            isCancelled ? styles.textCancelled : styles.textBrand,
+                            isCancelled ? styles.textCancelled : styles.textMuted,
                           ]}
                         >
                           {meeting.location || "---"}
@@ -1069,7 +1065,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
 
-  /* Nhãn cuộc họp: Nền Brand (#00AECA) và chữ trắng khi bình thường */
+  /* Nhãn cuộc họp xem tháng: Nền Brand (#00AECA) và chữ trắng khi bình thường */
   meetingChip: {
     borderRadius: 3.5,
     paddingHorizontal: 3.5,
@@ -1083,7 +1079,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF", // Chữ trắng khi dùng nền màu brand
   },
 
-  /* Cuộc họp bị hủy: Đánh dấu màu đỏ tươi (#DC2626) */
+  /* Cuộc họp bị hủy xem tháng: Đánh dấu màu đỏ tươi (#DC2626) */
   meetingChipCancelled: {
     backgroundColor: "#FEE2E2",
     borderWidth: 0.5,
@@ -1106,7 +1102,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
 
-  /* Chế độ xem Tuần */
+  /* Chế độ xem Tuần: Đơn sắc hơn - Nền trắng, text đen, viền màu brand */
   weekViewContainer: {
     padding: 14,
     gap: 10,
@@ -1147,11 +1143,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   weekMeetingItemBrand: {
-    backgroundColor: "#00AECA",
+    backgroundColor: "#FFFFFF", // Nền trắng đơn sắc
+    borderWidth: 1.5,
+    borderColor: "#00AECA", // Viền màu brand
   },
   weekMeetingItemCancelled: {
-    backgroundColor: "#FEE2E2",
-    borderWidth: 1,
+    backgroundColor: "#FFF5F5",
+    borderWidth: 1.5,
     borderColor: "#FCA5A5",
   },
   weekMeetingInfo: {
@@ -1183,7 +1181,7 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
   },
 
-  /* Chế độ xem Ngày */
+  /* Chế độ xem Ngày: Đơn sắc hơn - Nền trắng, text đen, viền màu brand */
   dayViewContainer: {
     padding: 14,
     gap: 10,
@@ -1205,12 +1203,16 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   dayDetailCardBrand: {
-    backgroundColor: "#00AECA",
+    backgroundColor: "#FFFFFF", // Nền trắng đơn sắc
+    borderWidth: 1.5,
+    borderColor: "#00AECA", // Viền màu brand
+    ...shadow,
   },
   dayDetailCardCancelled: {
-    backgroundColor: "#FEE2E2",
-    borderWidth: 1,
+    backgroundColor: "#FFF5F5",
+    borderWidth: 1.5,
     borderColor: "#FCA5A5",
+    ...shadow,
   },
   dayDetailTitle: {
     fontSize: 14,
@@ -1226,7 +1228,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
-  /* Bottom sheet modal */
+  /* Bottom sheet modal: Đơn sắc hơn - Nền trắng, text đen, viền màu brand */
   modalOverlay: {
     flex: 1,
     justifyContent: "flex-end",
@@ -1295,11 +1297,13 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   sheetCardBrand: {
-    backgroundColor: "#00AECA",
+    backgroundColor: "#FFFFFF", // Nền trắng đơn sắc
+    borderWidth: 1.5,
+    borderColor: "#00AECA", // Viền màu brand
   },
   sheetCardCancelled: {
-    backgroundColor: "#FEE2E2",
-    borderWidth: 1,
+    backgroundColor: "#FFF5F5",
+    borderWidth: 1.5,
     borderColor: "#FCA5A5",
   },
   sheetMeetingHeader: {
@@ -1348,10 +1352,13 @@ const styles = StyleSheet.create({
   },
 
   /* Text color helpers */
-  textBrand: {
-    color: "#FFFFFF",
+  textDark: {
+    color: "#0F172A", // Text đen / đậm như bình thường
+  },
+  textMuted: {
+    color: "#64748B",
   },
   textCancelled: {
-    color: "#DC2626",
+    color: "#DC2626", // Text đỏ tươi cho cuộc họp bị hủy
   },
 });

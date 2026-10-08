@@ -22,6 +22,7 @@ export default function TabsLayout() {
   return (
     <Tabs
       initialRouteName="index"
+      backBehavior="initialRoute"
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: colors.primaryDark,

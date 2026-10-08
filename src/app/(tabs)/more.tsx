@@ -16,7 +16,11 @@ export default function MoreScreen() {
     <Screen style={styles.screen}>
       {/* Header Quản trị hệ thống có nút Back quay về */}
       <View style={styles.headerContainer}>
-        <BackHeader title="Quản trị hệ thống" compact />
+        <BackHeader
+          title="Quản trị hệ thống"
+          compact
+          onBack={() => router.navigate("/(tabs)")}
+        />
       </View>
 
       {/* Thẻ hồ sơ người dùng thu gọn, gọn gàng */}

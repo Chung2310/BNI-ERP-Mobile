@@ -23,7 +23,7 @@ export function BackHeader({
     } else if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace("/(tabs)");
+      router.navigate("/(tabs)");
     }
   };
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { router } from "expo-router";
 import { Search, X } from "lucide-react-native";
 import { EmptyState, ErrorState, LoadingState, Screen } from "@/components/ui";
 import { BackHeader } from "@/components/BackHeader";
@@ -194,6 +195,7 @@ export default function MembersScreen() {
         <BackHeader
           title="Thành viên"
           compact
+          onBack={() => router.navigate("/(tabs)")}
           subtitle={
             isLoading || error
               ? undefined
