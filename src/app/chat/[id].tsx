@@ -72,6 +72,31 @@ const searchTypes = [
   { id: 'all', label: 'Tất cả' }, { id: 'text', label: 'Tin nhắn' }, { id: 'link', label: 'Liên kết' }, { id: 'file', label: 'Tệp' }, { id: 'media', label: 'Ảnh/video' },
 ] as const;
 
+const chatUrlPattern = /(?:https?:\/\/|www\.)[^\s<>"']+|(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:[/?#][^\s<>"']*)?/gi;
+const chatLinkParts = (content: string) => {
+  const parts: { text: string; url?: string }[] = [];
+  let end = 0;
+  for (const match of content.matchAll(chatUrlPattern)) {
+    const start = match.index;
+    if (start > 0 && /[@\w.-]/.test(content[start - 1])) continue;
+    const link = match[0].replace(/[.,!?;:)}\]]+$/, '');
+    if (!link) continue;
+    if (start > end) parts.push({ text: content.slice(end, start) });
+    parts.push({ text: link, url: /^https?:\/\//i.test(link) ? link : `https://${link}` });
+    end = start + link.length;
+  }
+  if (end < content.length) parts.push({ text: content.slice(end) });
+  return parts;
+};
+
+const openChatLink = async (url: string) => {
+  try {
+    await Linking.openURL(url);
+  } catch {
+    Alert.alert('Không mở được liên kết', 'Vui lòng kiểm tra liên kết rồi thử lại.');
+  }
+};
+
 type UploadAsset = { uri: string; name: string; mimeType?: string; size?: number };
 type PendingAttachment = {
   id: string;
@@ -534,6 +559,8 @@ export default function ChatRoomScreen() {
   const renderMessage = ({ item, index }: { item: DisplayMessage; index: number }) => {
     const mine = senderId(item) === user?.uid;
     const quoted = replyMessage(item.replyTo);
+    const linkParts = item.isDeleted ? [] : chatLinkParts(item.content);
+    const previewUrl = linkParts.find((part) => part.url)?.url;
     const mediaOnly = !item.isDeleted && !item.content.trim() && !quoted && item.attachments?.length === 1 && /^(image|video)\//.test(item.attachments[0].type || '');
     const showDay = index === 0 || !sameDay(item.createdAt, messages[index - 1]?.createdAt);
     const reactionCounts = Object.entries((item.reactions || []).reduce<Record<string, number>>((counts, reaction) => {
@@ -561,9 +588,11 @@ export default function ChatRoomScreen() {
               </View>
             ) : null}
             {item.isDeleted || item.content ? <Text style={[styles.content, mine && styles.mineText, item.isDeleted && styles.deletedText]}>
-              {item.isDeleted ? 'Tin nhắn đã được thu hồi' : item.content}
+              {item.isDeleted ? 'Tin nhắn đã được thu hồi' : linkParts.map((part, partIndex) => part.url ? (
+                <Text key={partIndex} accessibilityRole='link' onPress={() => void openChatLink(part.url!)} style={[styles.contentLink, mine && styles.myContentLink]}>{part.text}</Text>
+              ) : part.text)}
             </Text> : null}
-            {!item.isDeleted && item.content.match(/https?:\/\/[^\s]+/i)?.[0] ? <ChatLinkPreviewCard url={item.content.match(/https?:\/\/[^\s]+/i)![0].replace(/[.,!?)]$/, '')} mine={mine} /> : null}
+            {previewUrl ? <ChatLinkPreviewCard url={previewUrl} mine={mine} /> : null}
             {!item.isDeleted ? item.attachments?.map((attachment, attachmentIndex) =>
               attachment.type?.startsWith('image/') ? (
                 <ChatImageAttachment
@@ -839,7 +868,7 @@ function ChatLinkPreviewCard({ url, mine }: { url: string; mine: boolean }) {
     return () => { active = false; };
   }, [url]);
   if (!preview || (!preview.title && !preview.description && !preview.image)) return null;
-  return <Pressable accessibilityLabel={`Mở liên kết ${preview.title || url}`} onPress={() => void Linking.openURL(url)} style={[styles.linkPreview, mine && styles.myLinkPreview]}>
+  return <Pressable accessibilityLabel={`Mở liên kết ${preview.title || url}`} onPress={() => void openChatLink(url)} style={[styles.linkPreview, mine && styles.myLinkPreview]}>
     {preview.image ? <Image source={{ uri: preview.image }} style={styles.linkImage} /> : null}
     <View style={styles.linkCopy}><Text numberOfLines={1} style={[styles.linkTitle, mine && styles.mineText]}>{preview.title || preview.siteName}</Text><Text numberOfLines={2} style={[styles.sheetHint, mine && styles.mySecondaryText]}>{preview.description || url}</Text></View>
   </Pressable>;
@@ -955,6 +984,8 @@ const styles = StyleSheet.create({
   deletedBubble: { backgroundColor: '#F2F5F6', borderColor: colors.border },
   sender: { marginBottom: 3, color: colors.primaryDark, fontSize: 10, fontWeight: '900' },
   content: { color: colors.text, fontSize: 14, lineHeight: 20 },
+  contentLink: { color: colors.primaryDark, textDecorationLine: 'underline' },
+  myContentLink: { color: '#FFFFFF' },
   mineText: { color: '#FFFFFF' },
   deletedText: { color: colors.muted, fontStyle: 'italic' },
   quote: {
