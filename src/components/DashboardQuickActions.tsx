@@ -1,13 +1,12 @@
 import { router, type Href } from 'expo-router';
 import {
-  Bell,
+  Calendar,
   CalendarPlus,
   FolderOpen,
   ReceiptText,
   Settings,
   ShieldCheck,
   Trophy,
-  UserCog,
   type LucideIcon,
 } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -47,14 +46,19 @@ export function DashboardQuickActions({
   liveMeetingId?: string;
 }) {
   const isManager = user?.role === 'manager' || user?.role === 'branch_owner' || user?.role === 'admin';
-  const isOwner = user?.role === 'branch_owner' || user?.role === 'admin';
   const canCreateMeeting = isManager && hasPermission(user, 'meetings:manage', 'access:manage');
-  const canViewUsers = isOwner && hasPermission(user, 'access:read', 'access:manage');
   const canManageRoles = user?.role === 'admin' && hasPermission(user, 'access:manage');
 
   const actions: QuickActionDef[] = [];
 
-  // Bỏ Check-in và Sơ đồ Chapter theo yêu cầu
+  // Thêm Lịch trình lên đầu tiện ích (dẫn đến tab cuộc họp/lịch trình)
+  actions.push({
+    icon: Calendar,
+    title: 'Lịch trình',
+    href: '/(tabs)/meetings',
+    color: '#00AECA',
+  });
+
   if (canCreateMeeting) {
     actions.push({
       icon: CalendarPlus,
@@ -84,27 +88,12 @@ export function DashboardQuickActions({
       color: '#2563EB',
     },
     {
-      icon: Bell,
-      title: 'Thông báo',
-      href: '/notifications',
-      color: '#DB2777',
-    },
-    {
       icon: Settings,
       title: 'Cài đặt',
       href: '/settings',
       color: '#475569',
     }
   );
-
-  if (canViewUsers) {
-    actions.push({
-      icon: UserCog,
-      title: 'Quản trị user',
-      href: '/admin/users',
-      color: '#0284C7',
-    });
-  }
 
   if (canManageRoles) {
     actions.push({

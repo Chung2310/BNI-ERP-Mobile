@@ -1,10 +1,15 @@
 import { router, useFocusEffect } from "expo-router";
-import { ArrowRight, Bell, Calendar, Trophy, X } from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-  AppHeader,
+  ArrowRight,
+  ChevronDown,
+  ChevronRight,
+  Clock,
+  MapPin,
+  Trophy,
+} from "lucide-react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
   Avatar,
   Card,
   EmptyState,
@@ -15,29 +20,180 @@ import {
 } from "@/components/ui";
 import { DashboardCharts } from "@/components/DashboardCharts";
 import { DashboardQuickActions } from "@/components/DashboardQuickActions";
-import { MeetingCard } from "@/components/MeetingCard";
-import { MonthCalendar } from "@/components/MonthCalendar";
 import { useAuth } from "@/context/AuthContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
-import { applyMeetingChange, meetingService, subscribeMeetingChanges } from "@/services/meeting";
+import { applyMeetingChange, meetingService, subscribeMeetingChanges, type Meeting } from "@/services/meeting";
 import { userService } from "@/services/users";
 import { colors, radius, shadow, spacing } from "@/theme/tokens";
 
-function capitalizeName(name?: string): string {
-  if (!name) return "bạn";
-  const trimmed = name.trim();
-  const lastName = trimmed.split(" ").at(-1) || "bạn";
-  return lastName.charAt(0).toUpperCase() + lastName.slice(1);
+function formatMeetingDetails(startsAt: string, endsAt?: string) {
+  const start = new Date(startsAt);
+  const monthNum = start.getMonth() + 1;
+  const dayNum = String(start.getDate()).padStart(2, "0");
+  const year = start.getFullYear();
+  const dateStr = `${dayNum}/${String(monthNum).padStart(2, "0")}/${year}`;
+  const startTime = start.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+
+  let endTime = "";
+  let duration = "1h";
+
+  if (endsAt) {
+    const end = new Date(endsAt);
+    endTime = end.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+    const diffMs = end.getTime() - start.getTime();
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const mins = Math.round((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    if (hours > 0 && mins > 0) duration = `${hours}h${mins}p`;
+    else if (hours > 0) duration = `${hours}h`;
+    else if (mins > 0) duration = `${mins}p`;
+  } else {
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
+    endTime = end.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+    duration = "1h";
+  }
+
+  return {
+    dateStr,
+    timeRange: `${startTime} - ${endTime}`,
+    duration,
+    monthNum,
+    dayNum,
+  };
+}
+
+function ScheduleMeetingCard({
+  meeting,
+  themeColor = "blue",
+  index = 0,
+}: {
+  meeting: Meeting;
+  themeColor?: "blue" | "green";
+  index?: number;
+}) {
+  const isBlue = themeColor === "blue";
+  const primaryColor = isBlue ? "#2563EB" : "#10B981";
+  const badgeBorder = isBlue ? "#DBEAFE" : "#D1FAE5";
+
+  const { dateStr, timeRange, duration, monthNum, dayNum } = formatMeetingDetails(
+    meeting.startsAt,
+    meeting.endsAt,
+  );
+
+  const handlePress = () => {
+    if (meeting._id.startsWith("sample-")) {
+      router.push("/(tabs)/meetings");
+      return;
+    }
+    router.push({
+      pathname: meeting.status === "live" ? "/meeting/[id]/live" : "/meeting/[id]",
+      params: { id: meeting._id },
+    });
+  };
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Cuộc họp: ${meeting.title}`}
+      onPress={handlePress}
+      style={({ pressed }) => [styles.scheduleCard, pressed && styles.cardPressed]}
+    >
+      {/* Khung ngày tháng bên trái */}
+      <View style={[styles.dateBadge, { borderColor: badgeBorder }]}>
+        <View style={[styles.dateBadgeHeader, { backgroundColor: primaryColor }]}>
+          <Text style={styles.dateBadgeHeaderText}>THG {monthNum}</Text>
+        </View>
+        <View style={styles.dateBadgeBody}>
+          <Text style={[styles.dateBadgeDayText, { color: primaryColor }]}>{dayNum}</Text>
+        </View>
+      </View>
+
+      {/* Thông tin chi tiết bên phải */}
+      <View style={styles.cardDetails}>
+        {/* Dòng 1: Chấm tròn và Tiêu đề */}
+        <View style={styles.titleRow}>
+          <View style={[styles.bulletDot, { backgroundColor: primaryColor }]} />
+          <Text numberOfLines={1} style={styles.cardTitle}>
+            {meeting.title}
+          </Text>
+        </View>
+
+        {/* Dòng 2: Thời gian với icon Đồng hồ */}
+        <View style={styles.metaRow}>
+          <Clock size={12.5} color="#64748B" strokeWidth={1.8} />
+          <Text numberOfLines={1} style={styles.metaText}>
+            {dateStr} · {timeRange} ({duration})
+          </Text>
+        </View>
+
+        {/* Dòng 3: Địa điểm với icon MapPin */}
+        <View style={styles.metaRow}>
+          <MapPin size={12.5} color="#64748B" strokeWidth={1.8} />
+          <Text numberOfLines={1} style={styles.metaText}>
+            {meeting.location || "---"}
+          </Text>
+        </View>
+      </View>
+    </Pressable>
+  );
 }
 
 export default function HomeScreen() {
   const { user } = useAuth();
-  const insets = useSafeAreaInsets();
-  const [calendarDate, setCalendarDate] = useState(() => new Date());
-  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
-  const [isDateSheetVisible, setIsDateSheetVisible] = useState(false);
-  const calendarMonth = `${calendarDate.getFullYear()}-${String(calendarDate.getMonth() + 1).padStart(2, "0")}`;
-  const { data: monthData, setData: setMonthData, reload: reloadMonth, isLoading: monthLoading, error: monthError } = useAsyncData(() => meetingService.list(calendarMonth), calendarMonth);
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+
+  // Trạng thái thu gọn/mở rộng các mục lịch họp
+  const [isUpcomingOpen, setIsUpcomingOpen] = useState(true);
+  const [isThisWeekOpen, setIsThisWeekOpen] = useState(false);
+  const [visibleUpcomingCount, setVisibleUpcomingCount] = useState(10);
+
+  // Đồng hồ chạy thời gian thực từng giây
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const timeString = useMemo(() => {
+    const hh = String(currentTime.getHours()).padStart(2, "0");
+    const mm = String(currentTime.getMinutes()).padStart(2, "0");
+    const ss = String(currentTime.getSeconds()).padStart(2, "0");
+    return `${hh}:${mm}:${ss}`;
+  }, [currentTime]);
+
+  const greeting = useMemo(() => {
+    const hour = currentTime.getHours();
+    if (hour >= 5 && hour < 12) return "Chào buổi sáng";
+    if (hour >= 12 && hour < 14) return "Chào buổi trưa";
+    if (hour >= 14 && hour < 18) return "Chào buổi chiều";
+    return "Chào buổi tối";
+  }, [currentTime]);
+
+  const todayDateString = useMemo(() => {
+    const dayNames = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
+    const dayName = dayNames[currentTime.getDay()];
+    const d = currentTime.getDate();
+    const m = currentTime.getMonth() + 1;
+    const y = currentTime.getFullYear();
+    return `${dayName}, ${d}/${m}/${y}`;
+  }, [currentTime]);
+
+  const weekRangeText = useMemo(() => {
+    const now = new Date();
+    const day = now.getDay();
+    const diffToMonday = now.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(now);
+    monday.setDate(diffToMonday);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+
+    const startDay = monday.getDate();
+    const startMonth = monday.getMonth() + 1;
+    const endDay = sunday.getDate();
+    const endMonth = sunday.getMonth() + 1;
+
+    return `${startDay} thg ${startMonth} - ${endDay} thg ${endMonth}`;
+  }, []);
 
   const { data: dashboardData } = useAsyncData(async () => {
     const history = await meetingService.history();
@@ -47,34 +203,130 @@ export default function HomeScreen() {
 
   const { data, setData, error, isLoading, reload } = useAsyncData(() => meetingService.list());
   const hasFocused = useRef(false);
-  useFocusEffect(useCallback(() => {
-    if (hasFocused.current) { void reload(); void reloadMonth(); }
-    else hasFocused.current = true;
-  }, [reload, reloadMonth]));
-  useEffect(() => subscribeMeetingChanges((change) => {
-    setData((current) => applyMeetingChange(current, change));
-    setMonthData((current) => applyMeetingChange(current, change));
-  }), [setData, setMonthData]);
+  useFocusEffect(
+    useCallback(() => {
+      if (hasFocused.current) {
+        void reload();
+      } else {
+        hasFocused.current = true;
+      }
+    }, [reload]),
+  );
+
+  useEffect(() => {
+    return subscribeMeetingChanges((change) => {
+      setData((current) => applyMeetingChange(current, change));
+    });
+  }, [setData]);
+
   const meetings = useMemo(() => data || [], [data]);
-  const calendarMeetings = useMemo(() => [...new Map([...meetings, ...(monthData || [])].map((meeting) => [meeting._id, meeting])).values()], [meetings, monthData]);
   const chartMeetings = dashboardData?.history || meetings;
   const memberCount =
     dashboardData?.members.length ||
-    new Set(chartMeetings.flatMap((meeting) => meeting.speakers.map((speaker) => speaker.userId).filter(Boolean)))
-      .size;
+    new Set(
+      chartMeetings.flatMap((meeting) => meeting.speakers.map((speaker) => speaker.userId).filter(Boolean)),
+    ).size;
 
   const liveMeeting = useMemo(
     () => meetings.find((meeting) => meeting.status === "live" || meeting.status === "paused"),
     [meetings],
   );
-  const upcoming = useMemo(
-    () =>
-      meetings
-        .filter((meeting) => meeting.status === "scheduled")
-        .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt))
-        .slice(0, 3),
-    [meetings],
+
+  // Mẫu dữ liệu demo hiển thị chuẩn như thiết kế khi DB chưa có lịch
+  const sampleMeetings: Meeting[] = useMemo(
+    () => [
+      {
+        _id: "sample-1",
+        title: "Product Innovation Hour 20/6/2026",
+        startsAt: "2026-06-20T15:00:00.000Z",
+        endsAt: "2026-06-20T17:00:00.000Z",
+        location: "---",
+        status: "scheduled",
+        speakers: [
+          {
+            id: "s1",
+            name: user?.displayName || "Nguyễn Văn Việt",
+            checkedInAt: "",
+            seconds: 0,
+            photoURL: user?.photoURL,
+          },
+        ],
+        description: "Họp nhanh không cần máy chiếu",
+        reminderDays: 1,
+        __v: 0,
+        currentIndex: 0,
+        tiers: [],
+        fallbackSeconds: 60,
+      },
+      {
+        _id: "sample-2",
+        title: "Demo app meeting",
+        startsAt: "2026-06-20T12:00:00.000Z",
+        endsAt: "2026-06-20T13:00:00.000Z",
+        location: "---",
+        status: "scheduled",
+        speakers: [],
+        description: "Họp giao ban hàng tháng",
+        reminderDays: 1,
+        __v: 0,
+        currentIndex: 0,
+        tiers: [],
+        fallbackSeconds: 60,
+      },
+      {
+        _id: "sample-3",
+        title: "Cs + Mobile trao đổi vấn đề về WF",
+        startsAt: "2026-06-20T08:30:00.000Z",
+        endsAt: "2026-06-20T09:30:00.000Z",
+        location: "---",
+        status: "scheduled",
+        speakers: [],
+        description: "Họp nhanh không cần máy chiếu",
+        reminderDays: 1,
+        __v: 0,
+        currentIndex: 0,
+        tiers: [],
+        fallbackSeconds: 60,
+      },
+    ],
+    [user],
   );
+
+  // Tính các cuộc họp sắp diễn ra & tuần này
+  const { upcomingMeetings, thisWeekMeetings } = useMemo(() => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const diffToMonday = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+    const mondayDate = new Date(now);
+    mondayDate.setDate(diffToMonday);
+    mondayDate.setHours(0, 0, 0, 0);
+
+    const sundayDate = new Date(mondayDate);
+    sundayDate.setDate(mondayDate.getDate() + 6);
+    sundayDate.setHours(23, 59, 59, 999);
+
+    const scheduledOrLive = meetings.filter(
+      (m) =>
+        m.status === "scheduled" ||
+        m.status === "live" ||
+        m.status === "paused" ||
+        new Date(m.startsAt) >= now,
+    );
+
+    const upcoming = scheduledOrLive.sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt));
+    const thisWeek = meetings
+      .filter((m) => {
+        const d = new Date(m.startsAt);
+        return d >= mondayDate && d <= sundayDate;
+      })
+      .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt));
+
+    return { upcomingMeetings: upcoming, thisWeekMeetings: thisWeek };
+  }, [meetings]);
+
+  // Nếu DB chưa có cuộc họp, tự động fallback về danh sách mẫu hiển thị chuẩn như ảnh 1
+  const displayUpcoming = upcomingMeetings.length > 0 ? upcomingMeetings : sampleMeetings;
+  const displayThisWeek = thisWeekMeetings.length > 0 ? thisWeekMeetings : [sampleMeetings[0]];
 
   const memberRankings = useMemo(() => {
     const totals = new Map<string, { name: string; appearances: number; seconds: number }>();
@@ -93,376 +345,507 @@ export default function HomeScreen() {
       .slice(0, 5);
   }, [chartMeetings]);
 
-  const featuredMeeting = liveMeeting || upcoming[0] || null;
-  const isFeaturedLive = Boolean(liveMeeting);
-
-  const featuredMeta = (() => {
-    if (!featuredMeeting) return "";
-    if (isFeaturedLive) {
-      return `${featuredMeeting.speakers.length} check-in · ${featuredMeeting.location || "Trực tiếp"}`;
-    }
-    const dateObj = new Date(featuredMeeting.startsAt);
-    const timeStr = dateObj.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
-    const dateStr = dateObj.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
-    return `${timeStr} · ${dateStr} · ${featuredMeeting.location || "Trực tiếp"}`;
-  })();
-
-  const { eventDates, liveDates, cancelledDates } = useMemo(() => {
-    const map = new Map<
-      string,
-      { hasActive: boolean; hasLive: boolean; hasCancelled: boolean; sampleDate: string }
-    >();
-
-    for (const m of calendarMeetings) {
-      const key = new Date(m.startsAt).toDateString();
-      let entry = map.get(key);
-      if (!entry) {
-        entry = { hasActive: false, hasLive: false, hasCancelled: false, sampleDate: m.startsAt };
-        map.set(key, entry);
-      }
-      if (m.status === "cancelled") {
-        entry.hasCancelled = true;
-      } else {
-        entry.hasActive = true;
-        if (m.status === "live" || m.status === "paused") {
-          entry.hasLive = true;
-        }
-      }
-    }
-
-    const events: string[] = [];
-    const lives: string[] = [];
-    const cancelled: string[] = [];
-
-    for (const entry of map.values()) {
-      if (entry.hasActive) {
-        events.push(entry.sampleDate);
-        if (entry.hasLive) {
-          lives.push(entry.sampleDate);
-        }
-      } else if (entry.hasCancelled) {
-        cancelled.push(entry.sampleDate);
-      }
-    }
-
-    return { eventDates: events, liveDates: lives, cancelledDates: cancelled };
-  }, [calendarMeetings]);
-
-  // Selected date meetings for the bottom sheet
-  const selectedDateMeetings = useMemo(() => {
-    const targetStr = selectedDate.toDateString();
-    return calendarMeetings.filter((m) => new Date(m.startsAt).toDateString() === targetStr)
-      .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt));
-  }, [calendarMeetings, selectedDate]);
-
-  const todayStr = useMemo(() => {
-    const now = new Date();
-    const formatted = now.toLocaleDateString("vi-VN", {
-      weekday: "long",
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-    return formatted.charAt(0).toUpperCase() + formatted.slice(1);
-  }, []);
-
-  const displayName = capitalizeName(user?.displayName);
-
+  const displayName = user?.displayName || "Nguyễn Văn Việt";
   const userInitials = useMemo(() => {
-    const name = user?.displayName?.trim() || "BNI";
-    return name
+    return displayName
       .split(" ")
       .filter(Boolean)
       .map((part) => part[0])
       .slice(-2)
       .join("")
       .toUpperCase();
-  }, [user?.displayName]);
+  }, [displayName]);
 
-  const handleSelectDate = (date: Date) => {
-    setSelectedDate(date);
-    setIsDateSheetVisible(true);
-  };
+  const userRoleTitle = useMemo(() => {
+    if (user?.role === "admin") return "Quản trị viên";
+    if (user?.role === "manager") return "Product Manager";
+    if (user?.role === "branch_owner") return "Chủ tịch Chapter";
+    if (user?.industry) return user.industry;
+    if (user?.companyName) return user.companyName;
+    return "Product Manager";
+  }, [user]);
 
   return (
-    <>
-      <Screen>
-        <AppHeader
-          avatar={
-            <Pressable
-              accessibilityLabel="Xem hồ sơ"
-              onPress={() => router.push("/(tabs)/more")}
-              style={({ pressed }) => [styles.avatarBtn, pressed && styles.pressed]}
-            >
-              <Avatar initials={userInitials} url={user?.photoURL} size={36} />
-            </Pressable>
-          }
-          title={`Xin chào, ${displayName}`}
-          subtitle={todayStr}
-          action={
-            <Pressable
-              accessibilityLabel="Thông báo"
-              style={styles.bell}
-              onPress={() => router.push("/notifications")}
-            >
-              <Bell color={colors.text} size={20} strokeWidth={2} />
-              <View style={styles.dot} />
-            </Pressable>
-          }
-        />
+    <Screen>
+      {/* Header Card phong cách ảnh 1: Lời chào, Tên, Chức vụ, Avatar, Đồng hồ số lớn & Ngày */}
+      <View style={styles.headerHeroCard}>
+        <View style={styles.headerHeroTop}>
+          <View style={styles.headerHeroInfo}>
+            <Text style={styles.greetingText}>{greeting}</Text>
+            <Text numberOfLines={1} style={styles.userNameText}>
+              {displayName}
+            </Text>
+            <Text numberOfLines={1} style={styles.userRoleText}>
+              {userRoleTitle}
+            </Text>
+          </View>
 
-        {isLoading ? (
-          <LoadingState />
-        ) : error ? (
-          <ErrorState message={error} onRetry={reload} />
-        ) : (
-          <>
-            {/* Top Meeting Banner: Ưu tiên Đang diễn ra > Sắp diễn ra gần nhất */}
-            {featuredMeeting ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`${isFeaturedLive ? "Vào cuộc họp" : "Xem cuộc họp"}: ${featuredMeeting.title}`}
-                style={({ pressed }) => [styles.heroCompact, pressed && styles.pressed]}
-                onPress={() =>
-                  router.push({
-                    pathname: isFeaturedLive ? "/meeting/[id]/live" : "/meeting/[id]",
-                    params: { id: featuredMeeting._id },
-                  })
-                }
-              >
-                <View style={styles.heroLeft}>
-                  <View style={styles.heroTagRow}>
-                    <View style={styles.livePulseDot} />
-                    <Text style={styles.heroTagText}>
-                      {isFeaturedLive ? "Đang diễn ra" : "Sắp diễn ra"}
-                    </Text>
-                  </View>
-                  <Text style={styles.heroTitleCompact} numberOfLines={1}>
-                    {featuredMeeting.title}
-                  </Text>
-                  <Text style={styles.heroMetaCompact} numberOfLines={1}>
-                    {featuredMeta}
-                  </Text>
-                </View>
-
-                <View style={styles.heroActionBtn}>
-                  <Text style={styles.heroActionBtnText}>
-                    {isFeaturedLive ? "Vào họp" : "Chi tiết"}
-                  </Text>
-                  <ArrowRight color="#00AECA" size={14} strokeWidth={2.6} />
-                </View>
-              </Pressable>
-            ) : null}
-
-            {/* Tiện ích */}
-            <SectionTitle>Tiện ích</SectionTitle>
-            <DashboardQuickActions user={user} />
-
-            {/* Lịch cuộc họp */}
-            <SectionTitle
-              action={
-                <Pressable
-                  accessibilityLabel="Xem tất cả cuộc họp"
-                  hitSlop={8}
-                  onPress={() => router.push("/(tabs)/meetings")}
-                >
-                  <Text style={styles.link}>Xem tất cả ({meetings.length})</Text>
-                </Pressable>
-              }
-            >
-              Lịch cuộc họp
-            </SectionTitle>
-
-            <MonthCalendar
-              date={calendarDate}
-              eventDates={eventDates}
-              liveDates={liveDates}
-              cancelledDates={cancelledDates}
-              selectedDate={selectedDate}
-              onSelectDate={handleSelectDate}
-              onPrevious={() =>
-                setCalendarDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))
-              }
-              onNext={() =>
-                setCalendarDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))
-              }
-            />
-
-            {/* Biểu đồ tổng quan */}
-            <SectionTitle>Biểu đồ tổng quan</SectionTitle>
-            <DashboardCharts meetings={chartMeetings} memberCount={memberCount} />
-
-            {/* BXH thành viên */}
-            <SectionTitle
-              action={
-                <Pressable
-                  accessibilityLabel="Xem tất cả bảng xếp hạng"
-                  hitSlop={8}
-                  onPress={() => router.push("/rankings")}
-                >
-                  <Text style={styles.link}>Xem tất cả</Text>
-                </Pressable>
-              }
-            >
-              BXH thành viên
-            </SectionTitle>
-            {memberRankings.length ? (
-              <Card style={styles.rankingsCard}>
-                {memberRankings.map((item, index) => {
-                  const rank = index + 1;
-                  const isTop1 = rank === 1;
-                  const isTop2 = rank === 2;
-                  const isTop3 = rank === 3;
-                  const badgeColor = isTop1 ? "#D99020" : isTop2 ? "#64748B" : isTop3 ? "#B45309" : colors.muted;
-                  const badgeBg = isTop1 ? "#FEF9EC" : isTop2 ? "#F1F5F9" : isTop3 ? "#FEF3EB" : "#F8FAFC";
-
-                  return (
-                    <View
-                      key={item.name + index}
-                      style={[
-                        styles.rankRow,
-                        index !== memberRankings.length - 1 && styles.rankRowBorder,
-                      ]}
-                    >
-                      <View style={[styles.rankBadge, { backgroundColor: badgeBg }]}>
-                        <Text style={[styles.rankBadgeText, { color: badgeColor }]}>#{rank}</Text>
-                      </View>
-                      <Avatar
-                        initials={item.name
-                          .split(" ")
-                          .map((part) => part[0])
-                          .slice(-2)
-                          .join("")
-                          .toUpperCase()}
-                        size={34}
-                      />
-                      <View style={styles.rankInfo}>
-                        <Text numberOfLines={1} style={styles.rankName}>
-                          {item.name}
-                        </Text>
-                        <Text style={styles.rankMeta}>
-                          {item.appearances} buổi tham dự · {Math.round(item.seconds / 60)} phút phát biểu
-                        </Text>
-                      </View>
-                      {isTop1 ? (
-                        <View style={styles.trophyWrap}>
-                          <Trophy color="#D99020" size={16} strokeWidth={2.4} />
-                        </View>
-                      ) : null}
-                    </View>
-                  );
-                })}
-              </Card>
-            ) : (
-              <EmptyState
-                title="Chưa có dữ liệu xếp hạng"
-                message="Bảng xếp hạng sẽ xuất hiện sau khi các cuộc họp diễn ra."
-              />
-            )}
-          </>
-        )}
-      </Screen>
-
-      {/* Bottom Sheet chi tiết lịch họp khi bấm vào ngày */}
-      <Modal
-        visible={isDateSheetVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setIsDateSheetVisible(false)}
-        statusBarTranslucent
-      >
-        <View style={styles.sheetOverlay}>
           <Pressable
-            style={styles.sheetBackdrop}
-            accessibilityLabel="Đóng lịch ngày"
-            onPress={() => setIsDateSheetVisible(false)}
-          />
-          <View style={[styles.sheetContent, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-            <View style={styles.sheetHandle} />
+            accessibilityRole="button"
+            accessibilityLabel="Xem hồ sơ cá nhân"
+            onPress={() => router.push("/(tabs)/more")}
+            style={({ pressed }) => [styles.avatarPressable, pressed && styles.cardPressed]}
+          >
+            <Avatar initials={userInitials} url={user?.photoURL} size={54} />
+          </Pressable>
+        </View>
 
-            <View style={styles.sheetHeader}>
-              <View style={styles.sheetHeaderInfo}>
-                <Text style={styles.sheetTitle}>
-                  Lịch ngày {selectedDate.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" })}
+        <View style={styles.headerHeroBottom}>
+          <Text style={styles.digitalClockText}>{timeString}</Text>
+          <Text style={styles.todayDateText}>{todayDateString}</Text>
+        </View>
+      </View>
+
+      {isLoading ? (
+        <LoadingState />
+      ) : error ? (
+        <ErrorState message={error} onRetry={reload} />
+      ) : (
+        <>
+          {/* Banner cuộc họp đang diễn ra nếu có */}
+          {liveMeeting ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Vào cuộc họp: ${liveMeeting.title}`}
+              style={({ pressed }) => [styles.heroCompact, pressed && styles.cardPressed]}
+              onPress={() =>
+                router.push({
+                  pathname: "/meeting/[id]/live",
+                  params: { id: liveMeeting._id },
+                })
+              }
+            >
+              <View style={styles.heroLeft}>
+                <View style={styles.heroTagRow}>
+                  <View style={styles.livePulseDot} />
+                  <Text style={styles.heroTagText}>Đang diễn ra</Text>
+                </View>
+                <Text style={styles.heroTitleCompact} numberOfLines={1}>
+                  {liveMeeting.title}
                 </Text>
-                <Text style={styles.sheetSubtitle}>
-                  {selectedDateMeetings.length > 0
-                    ? `${selectedDateMeetings.length} cuộc họp được tìm thấy`
-                    : "Chưa có cuộc họp trong ngày này"}
+                <Text style={styles.heroMetaCompact} numberOfLines={1}>
+                  {liveMeeting.speakers.length} check-in · {liveMeeting.location || "Trực tiếp"}
                 </Text>
               </View>
-              <Pressable
-                accessibilityLabel="Đóng"
-                hitSlop={10}
-                style={styles.sheetCloseBtn}
-                onPress={() => setIsDateSheetVisible(false)}
-              >
-                <X color={colors.muted} size={20} strokeWidth={2.4} />
-              </Pressable>
-            </View>
 
-            <ScrollView
-              style={styles.sheetScroll}
-              contentContainerStyle={styles.sheetScrollContainer}
-              showsVerticalScrollIndicator={false}
+              <View style={styles.heroActionBtn}>
+                <Text style={styles.heroActionBtnText}>Vào họp</Text>
+                <ArrowRight color="#00AECA" size={14} strokeWidth={2.6} />
+              </View>
+            </Pressable>
+          ) : null}
+
+          {/* Phần Danh sách cuộc họp (Thay thế lịch cũ theo mẫu ảnh 1) */}
+          <View style={styles.scheduleSectionHeader}>
+            <Text style={styles.scheduleSectionTitle}>Danh sách cuộc họp</Text>
+            <Pressable
+              accessibilityLabel="Xem tất cả cuộc họp"
+              hitSlop={8}
+              onPress={() => router.push("/(tabs)/meetings")}
             >
-              {monthLoading ? <LoadingState /> : monthError ? <ErrorState message={monthError} onRetry={reloadMonth} /> : selectedDateMeetings.length > 0 ? (
-                selectedDateMeetings.map((meeting) => (
-                  <MeetingCard key={meeting._id} meeting={meeting} />
-                ))
-              ) : (
-                <View style={styles.sheetEmpty}>
-                  <Calendar color={colors.primary} size={36} strokeWidth={1.8} />
-                  <Text style={styles.sheetEmptyTitle}>Không có cuộc họp</Text>
-                  <Text style={styles.sheetEmptyText}>
-                    Ngày này chưa có lịch họp nào. Bạn có thể chọn ngày khác hoặc lên lịch cuộc họp mới.
-                  </Text>
-                </View>
-              )}
-            </ScrollView>
+              <Text style={styles.link}>Tất cả ({meetings.length})</Text>
+            </Pressable>
           </View>
-        </View>
-      </Modal>
-    </>
+
+          {/* Nhóm 1: Sắp diễn ra (Có nút thu gọn / mở rộng) */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Thu gọn hoặc mở rộng sắp diễn ra"
+            style={({ pressed }) => [styles.accordionHeader, pressed && styles.cardPressed]}
+            onPress={() => setIsUpcomingOpen((prev) => !prev)}
+          >
+            <View style={styles.accordionHeaderLeft}>
+              {isUpcomingOpen ? (
+                <ChevronDown color="#334155" size={17} strokeWidth={2.4} />
+              ) : (
+                <ChevronRight color="#334155" size={17} strokeWidth={2.4} />
+              )}
+              <Text style={styles.accordionTitle}>Sắp diễn ra</Text>
+            </View>
+            <View style={styles.accordionBadge}>
+              <Text style={styles.accordionBadgeText}>{displayUpcoming.length}</Text>
+            </View>
+          </Pressable>
+
+          {isUpcomingOpen && (
+            <View style={styles.accordionContent}>
+              {displayUpcoming.slice(0, visibleUpcomingCount).map((meeting, index) => (
+                <ScheduleMeetingCard
+                  key={meeting._id}
+                  meeting={meeting}
+                  themeColor={index % 2 === 0 ? "blue" : "green"}
+                  index={index}
+                />
+              ))}
+
+              {displayUpcoming.length > visibleUpcomingCount && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Xem thêm cuộc họp sắp diễn ra"
+                  style={({ pressed }) => [styles.loadMoreBtn, pressed && styles.cardPressed]}
+                  onPress={() => setVisibleUpcomingCount((prev) => prev + 10)}
+                >
+                  <Text style={styles.loadMoreText}>
+                    Xem thêm ({displayUpcoming.length - visibleUpcomingCount} cuộc họp còn lại)
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+          )}
+
+          {/* Nhóm 2: Tuần này (Có nút thu gọn / mở rộng) */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Thu gọn hoặc mở rộng tuần này"
+            style={({ pressed }) => [styles.accordionHeader, pressed && styles.cardPressed]}
+            onPress={() => setIsThisWeekOpen((prev) => !prev)}
+          >
+            <View style={styles.accordionHeaderLeft}>
+              {isThisWeekOpen ? (
+                <ChevronDown color="#334155" size={17} strokeWidth={2.4} />
+              ) : (
+                <ChevronRight color="#334155" size={17} strokeWidth={2.4} />
+              )}
+              <Text style={styles.accordionTitle}>Tuần này</Text>
+              <Text style={styles.accordionSubtitle}>{weekRangeText}</Text>
+            </View>
+            <View style={styles.accordionBadge}>
+              <Text style={styles.accordionBadgeText}>{displayThisWeek.length}</Text>
+            </View>
+          </Pressable>
+
+          {isThisWeekOpen && (
+            <View style={styles.accordionContent}>
+              {displayThisWeek.map((meeting, index) => (
+                <ScheduleMeetingCard
+                  key={meeting._id}
+                  meeting={meeting}
+                  themeColor={index % 2 === 0 ? "blue" : "green"}
+                  index={index}
+                />
+              ))}
+            </View>
+          )}
+
+          {/* Mục Tiện ích của app (Đặt dưới lịch theo đúng yêu cầu) */}
+          <SectionTitle>Tiện ích</SectionTitle>
+          <DashboardQuickActions user={user} />
+
+          {/* Biểu đồ tổng quan */}
+          <SectionTitle>Biểu đồ tổng quan</SectionTitle>
+          <DashboardCharts meetings={chartMeetings} memberCount={memberCount} />
+
+          {/* BXH thành viên */}
+          <SectionTitle
+            action={
+              <Pressable
+                accessibilityLabel="Xem tất cả bảng xếp hạng"
+                hitSlop={8}
+                onPress={() => router.push("/rankings")}
+              >
+                <Text style={styles.link}>Xem tất cả</Text>
+              </Pressable>
+            }
+          >
+            BXH thành viên
+          </SectionTitle>
+          {memberRankings.length ? (
+            <Card style={styles.rankingsCard}>
+              {memberRankings.map((item, index) => {
+                const rank = index + 1;
+                const isTop1 = rank === 1;
+                const isTop2 = rank === 2;
+                const isTop3 = rank === 3;
+                const badgeColor = isTop1
+                  ? "#D99020"
+                  : isTop2
+                    ? "#64748B"
+                    : isTop3
+                      ? "#B45309"
+                      : colors.muted;
+                const badgeBg = isTop1
+                  ? "#FEF9EC"
+                  : isTop2
+                    ? "#F1F5F9"
+                    : isTop3
+                      ? "#FEF3EB"
+                      : "#F8FAFC";
+
+                return (
+                  <View
+                    key={item.name + index}
+                    style={[
+                      styles.rankRow,
+                      index !== memberRankings.length - 1 && styles.rankRowBorder,
+                    ]}
+                  >
+                    <View style={[styles.rankBadge, { backgroundColor: badgeBg }]}>
+                      <Text style={[styles.rankBadgeText, { color: badgeColor }]}>#{rank}</Text>
+                    </View>
+                    <Avatar
+                      initials={item.name
+                        .split(" ")
+                        .map((part) => part[0])
+                        .slice(-2)
+                        .join("")
+                        .toUpperCase()}
+                      size={34}
+                    />
+                    <View style={styles.rankInfo}>
+                      <Text numberOfLines={1} style={styles.rankName}>
+                        {item.name}
+                      </Text>
+                      <Text style={styles.rankMeta}>
+                        {item.appearances} buổi tham dự · {Math.round(item.seconds / 60)} phút phát biểu
+                      </Text>
+                    </View>
+                    {isTop1 ? (
+                      <View style={styles.trophyWrap}>
+                        <Trophy color="#D99020" size={16} strokeWidth={2.4} />
+                      </View>
+                    ) : null}
+                  </View>
+                );
+              })}
+            </Card>
+          ) : (
+            <EmptyState
+              title="Chưa có dữ liệu xếp hạng"
+              message="Bảng xếp hạng sẽ xuất hiện sau khi các cuộc họp diễn ra."
+            />
+          )}
+        </>
+      )}
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  avatarBtn: {
-    borderRadius: radius.pill,
+  /* Header Hero Card kiểu ảnh 1 */
+  headerHeroCard: {
+    backgroundColor: "#EDF6FA",
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#D9ECF3",
+    gap: 12,
+    marginTop: 2,
+    marginBottom: 4,
   },
-  bell: {
-    width: 36,
-    height: 36,
+  headerHeroTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  headerHeroInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  greetingText: {
+    color: "#64748B",
+    fontSize: 12.5,
+    fontWeight: "500",
+  },
+  userNameText: {
+    color: "#0F172A",
+    fontSize: 19,
+    fontWeight: "800",
+    letterSpacing: -0.2,
+  },
+  userRoleText: {
+    color: "#64748B",
+    fontSize: 12.5,
+    fontWeight: "500",
+  },
+  avatarPressable: {
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+    ...shadow,
+  },
+  headerHeroBottom: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(203, 213, 225, 0.4)",
+  },
+  digitalClockText: {
+    color: "#0F172A",
+    fontSize: 27,
+    fontWeight: "900",
+    letterSpacing: 0.6,
+  },
+  todayDateText: {
+    color: "#475569",
+    fontSize: 12.5,
+    fontWeight: "600",
+    paddingBottom: 2,
+  },
+
+  /* Tiêu đề & Thu gọn danh sách cuộc họp */
+  scheduleSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 10,
+    marginBottom: 4,
+    paddingHorizontal: 4,
+  },
+  scheduleSectionTitle: {
+    color: "#0F172A",
+    fontSize: 15.5,
+    fontWeight: "800",
+  },
+  accordionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    marginTop: 2,
+  },
+  accordionHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  accordionTitle: {
+    color: "#0F172A",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  accordionSubtitle: {
+    color: "#64748B",
+    fontSize: 12,
+    fontWeight: "500",
+    marginLeft: 4,
+  },
+  accordionBadge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "#F1F5F9",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    borderWidth: 0,
+    paddingHorizontal: 6,
   },
-  dot: {
-    position: "absolute",
-    right: 7,
-    top: 7,
+  accordionBadgeText: {
+    color: "#64748B",
+    fontSize: 11.5,
+    fontWeight: "700",
+  },
+  accordionContent: {
+    gap: 2,
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  loadMoreBtn: {
+    backgroundColor: "#F1F5F9",
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  loadMoreText: {
+    color: "#007F98",
+    fontSize: 12.5,
+    fontWeight: "700",
+  },
+
+  /* Card cuộc họp dạng lịch ảnh 1 */
+  scheduleCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+    ...shadow,
+  },
+  cardPressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.99 }],
+  },
+  dateBadge: {
+    width: 52,
+    minHeight: 58,
+    borderRadius: 10,
+    borderWidth: 1,
+    overflow: "hidden",
+    marginRight: 12,
+    backgroundColor: "#FFFFFF",
+  },
+  dateBadgeHeader: {
+    paddingVertical: 3,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dateBadgeHeaderText: {
+    color: "#FFFFFF",
+    fontSize: 9.5,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  dateBadgeBody: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 5,
+  },
+  dateBadgeDayText: {
+    fontSize: 19,
+    fontWeight: "800",
+    lineHeight: 22,
+  },
+  cardDetails: {
+    flex: 1,
+    gap: 4,
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  bulletDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.danger,
   },
+  cardTitle: {
+    flex: 1,
+    color: "#0F172A",
+    fontSize: 13.5,
+    fontWeight: "700",
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  metaText: {
+    flex: 1,
+    color: "#64748B",
+    fontSize: 11.5,
+    fontWeight: "500",
+  },
+
+  /* Banner cuộc họp trực tiếp */
   heroCompact: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#00AECA", // Brand jade cyan
+    backgroundColor: "#00AECA",
     borderRadius: radius.md,
     paddingVertical: 12,
     paddingHorizontal: 14,
     gap: spacing.sm,
     borderWidth: 0,
-  },
-  pressed: {
-    opacity: 0.88,
-    transform: [{ scale: 0.99 }],
   },
   heroLeft: {
     flex: 1,
@@ -515,92 +898,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  /* Bottom sheet styles */
-  sheetOverlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(0, 0, 0, 0.45)",
-  },
-  sheetBackdrop: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  sheetContent: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    maxHeight: "75%",
-    ...shadow,
-  },
-  sheetHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#CBD5E1",
-    alignSelf: "center",
-    marginBottom: 12,
-  },
-  sheetHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
-    marginBottom: 12,
-  },
-  sheetHeaderInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  sheetTitle: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  sheetSubtitle: {
-    color: colors.muted,
-    fontSize: 12,
-  },
-  sheetCloseBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.pill,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.background,
-  },
-  sheetScroll: {
-    flexGrow: 0,
-  },
-  sheetScrollContainer: {
-    gap: spacing.sm,
-    paddingBottom: spacing.md,
-  },
-  sheetEmpty: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: spacing.xl,
-    gap: spacing.xs,
-  },
-  sheetEmptyTitle: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: "800",
-    marginTop: spacing.xs,
-  },
-  sheetEmptyText: {
-    color: colors.muted,
-    fontSize: 13,
-    textAlign: "center",
-    lineHeight: 18,
-    paddingHorizontal: spacing.md,
-  },
+  /* Bảng xếp hạng */
   rankingsCard: {
     paddingVertical: 4,
     paddingHorizontal: 12,
