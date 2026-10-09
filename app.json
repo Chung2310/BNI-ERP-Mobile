@@ -13,7 +13,8 @@
       "bundleIdentifier": "vn.igen.connect"
     },
     "android": {
-      "package": "vn.igen.connect",
+      "package": "com.igen.connect",
+      "googleServicesFile": "./google-services.json",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
@@ -71,9 +72,23 @@
         }
       ],
       "@react-native-community/datetimepicker",
-      ["expo-audio", { "microphonePermission": "Cho phép iGen Connect sử dụng micro để gửi tin nhắn thoại." }],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Cho phép iGen Connect sử dụng micro để gửi tin nhắn thoại."
+        }
+      ],
       "expo-video",
-      "expo-screen-orientation"
+      "expo-screen-orientation",
+      [
+        "expo-notifications",
+        {
+          "color": "#00AECA",
+          "defaultChannel": "default"
+        }
+      ],
+      "expo-asset",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true

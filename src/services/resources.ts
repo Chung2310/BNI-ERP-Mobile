@@ -1,5 +1,6 @@
 import * as FileSystem from "expo-file-system/legacy";
 import { apiRequest } from "@/services/api";
+import { downloadAndOpenFile } from "@/services/fileDownload";
 
 export type ResourceShare = { targetId: string; targetType: "user" | "room"; targetName: string };
 export type ResourceItem = {
@@ -15,6 +16,16 @@ export const resourceService = {
     const query = new URLSearchParams({ section: "local" });
     if (parentId) query.set("parentId", parentId);
     return apiRequest<{ items: ResourceItem[] }>(`/api/v1/resources?${query.toString()}`).then((payload) => payload.items || []);
+  },
+  get: (id: string) => apiRequest<{ item: ResourceItem }>(path(id)).then((payload) => payload.item),
+  download: async (item: ResourceItem) => {
+    const freshItem = await resourceService.get(item._id);
+    if (!freshItem.fileUrl) throw new Error("Tài nguyên này chưa có đường dẫn tệp.");
+    await downloadAndOpenFile({
+      url: freshItem.fileUrl,
+      name: freshItem.name || item.name,
+      mimeType: freshItem.mimeType || item.mimeType,
+    });
   },
   trash: () => apiRequest<{ items: ResourceItem[] }>("/api/v1/resources/trash").then((payload) => payload.items || []),
   breadcrumb: (id: string) => apiRequest<{ trail: Pick<ResourceItem, "_id" | "name">[] }>(`/api/v1/resources/breadcrumb/${encodeURIComponent(id)}`).then((payload) => payload.trail || []),
