@@ -137,8 +137,11 @@ export function NotificationProvider({ children }: PropsWithChildren) {
       if (!active || !Notifications) return;
       responseSubscription = Notifications.addNotificationResponseReceivedListener(handleResponse);
       void Notifications.getLastNotificationResponseAsync().then(handleResponse).catch(() => undefined);
-      tokenSubscription = Notifications.addPushTokenListener(() => {
-        void registerCurrentDeviceForPush().catch(() => undefined);
+      tokenSubscription = Notifications.addPushTokenListener((nativeToken) => {
+        if (typeof nativeToken.data !== "string") return;
+        // Do not call getDevicePushTokenAsync() inside this listener because
+        // obtaining a token can trigger the listener again on Android.
+        void registerCurrentDeviceForPush(nativeToken.data).catch(() => undefined);
       });
     }).catch(() => undefined);
     return () => {
