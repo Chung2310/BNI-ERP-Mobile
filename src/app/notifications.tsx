@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Bell, BriefcaseBusiness, CheckCheck, GraduationCap, Package, Settings } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { Button, Card, EmptyState, ErrorState, LoadingState, Screen } from "@/components/ui";
 import { useAsyncData } from "@/hooks/useAsyncData";
+import { useNotifications } from "@/context/NotificationContext";
 import { notificationService, type NotificationItem } from "@/services/notifications";
 import { colors, radius, spacing } from "@/theme/tokens";
 
@@ -13,12 +14,18 @@ const notificationIcons = { kho: Package, task: BriefcaseBusiness, training: Gra
 export default function NotificationsScreen() {
   const [type, setType] = useState<NotificationItem["type"] | undefined>();
   const { data, setData, error, isLoading, reload } = useAsyncData(() => notificationService.list({ type }), type || "all");
+  const { markRead: markReadRealtime, markAllRead, revision } = useNotifications();
+
+  useEffect(() => {
+    if (revision > 0) void reload();
+  }, [reload, revision]);
+
   const markRead = async (item: NotificationItem) => {
     if (item.read) return;
-    await notificationService.markRead(item._id);
+    await markReadRealtime(item);
     setData(data ? { ...data, unreadCount: Math.max(0, data.unreadCount - 1), data: data.data.map((entry) => entry._id === item._id ? { ...entry, read: true } : entry) } : data);
   };
-  const markAll = async () => { await notificationService.markAllRead(); await reload(); };
+  const markAll = async () => { await markAllRead(); await reload(); };
   return (
     <Screen>
       <BackHeader title="Thông báo" subtitle={`${data?.unreadCount || 0} mục chưa đọc`} compact />

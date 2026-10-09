@@ -20,6 +20,10 @@ export function setApiAccessToken(token: string | null) {
   accessToken = token;
 }
 
+export function getApiAccessToken() {
+  return accessToken;
+}
+
 export function setApiTokenPersister(persister: (token: string) => Promise<void>) {
   persistAccessToken = persister;
 }

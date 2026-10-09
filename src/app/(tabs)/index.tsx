@@ -1,6 +1,7 @@
 import { router, useFocusEffect } from "expo-router";
 import {
   ArrowRight,
+  Bell,
   ChevronDown,
   ChevronRight,
   Clock,
@@ -20,6 +21,7 @@ import {
 } from "@/components/ui";
 import { DashboardQuickActions } from "@/components/DashboardQuickActions";
 import { useAuth } from "@/context/AuthContext";
+import { useNotifications } from "@/context/NotificationContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { applyMeetingChange, meetingService, subscribeMeetingChanges, type Meeting } from "@/services/meeting";
 import { colors, radius, shadow, spacing } from "@/theme/tokens";
@@ -225,6 +227,7 @@ function LiveWaveform() {
 
 export default function HomeScreen() {
   const { user } = useAuth();
+  const { unreadCount } = useNotifications();
   const [currentTime, setCurrentTime] = useState(() => new Date());
 
   // Trạng thái thu gọn/mở rộng các mục lịch họp
@@ -379,14 +382,29 @@ export default function HomeScreen() {
             </Text>
           </View>
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Xem hồ sơ cá nhân"
-            onPress={() => router.push("/profile")}
-            style={({ pressed }) => [styles.avatarPressable, pressed && styles.cardPressed]}
-          >
-            <Avatar initials={userInitials} url={user?.photoURL} size={54} />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Thông báo${unreadCount ? `, ${unreadCount} mục chưa đọc` : ""}`}
+              onPress={() => router.push("/notifications")}
+              style={({ pressed }) => [styles.notificationButton, pressed && styles.cardPressed]}
+            >
+              <Bell color={colors.primaryDark} size={22} strokeWidth={2} />
+              {unreadCount > 0 ? (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
+                </View>
+              ) : null}
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Xem hồ sơ cá nhân"
+              onPress={() => router.push("/profile")}
+              style={({ pressed }) => [styles.avatarPressable, pressed && styles.cardPressed]}
+            >
+              <Avatar initials={userInitials} url={user?.photoURL} size={54} />
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.headerHeroBottom}>
@@ -597,6 +615,39 @@ const styles = StyleSheet.create({
   headerHeroInfo: {
     flex: 1,
     gap: 2,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  notificationButton: {
+    width: 42,
+    height: 42,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 21,
+    backgroundColor: colors.surface,
+    ...shadow,
+  },
+  notificationBadge: {
+    position: "absolute",
+    top: -3,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: colors.surface,
+    backgroundColor: colors.danger,
+  },
+  notificationBadgeText: {
+    color: colors.surface,
+    fontSize: 8,
+    fontWeight: "900",
   },
   greetingText: {
     color: "#64748B",

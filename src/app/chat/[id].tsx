@@ -37,6 +37,7 @@ import { useAsyncData } from '@/hooks/useAsyncData';
 import { apiConfig } from '@/services/api';
 import { chatService, type ChatAttachment, type ChatLinkPreview, type ChatMessage, type ChatRoom } from '@/services/chat';
 import { cachePickedChatImage, chatMediaUri, rememberChatMedia } from '@/services/chatMediaCache';
+import { downloadAndOpenFile } from '@/services/fileDownload';
 import { colors, radius, spacing } from '@/theme/tokens';
 
 const senderId = (message: ChatMessage) =>
@@ -166,6 +167,7 @@ export default function ChatRoomScreen() {
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
+  const [downloadingFileUrl, setDownloadingFileUrl] = useState<string | null>(null);
   const { data, setData, error, isLoading, reload } = useAsyncData(() => chatService.messages(id), id);
   const { data: room, setData: setRoom } = useAsyncData(() => chatService.room(id), id);
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -556,6 +558,22 @@ export default function ChatRoomScreen() {
     ), 250);
   };
 
+  const downloadAttachment = async (attachment: ChatAttachment) => {
+    if (downloadingFileUrl) return;
+    setDownloadingFileUrl(attachment.url);
+    try {
+      await downloadAndOpenFile({
+        url: attachment.url,
+        name: attachment.name,
+        mimeType: attachment.type,
+      });
+    } catch (cause) {
+      Alert.alert('Không thể tải tệp', friendlyErrorMessage(cause, 'Vui lòng thử lại.'));
+    } finally {
+      setDownloadingFileUrl(null);
+    }
+  };
+
   const renderMessage = ({ item, index }: { item: DisplayMessage; index: number }) => {
     const mine = senderId(item) === user?.uid;
     const quoted = replyMessage(item.replyTo);
@@ -606,9 +624,10 @@ export default function ChatRoomScreen() {
                   onRetry={item.pendingAttachment ? () => void sendPendingAttachment(item.pendingAttachment!) : undefined}
                 />
               ) : attachment.type?.startsWith('video/') ? <ChatVideoAttachment key={attachment.url + attachmentIndex} attachment={attachment} mine={mine} compact={Boolean(mediaOnly)} pending={item.pendingAttachment} onRetry={item.pendingAttachment ? () => void sendPendingAttachment(item.pendingAttachment!) : undefined} /> : item.pendingAttachment ? <PendingFileAttachment key={attachment.url + attachmentIndex} attachment={attachment} pending={item.pendingAttachment} onRetry={() => void sendPendingAttachment(item.pendingAttachment!)} /> : attachment.type?.startsWith('audio/') ? <ChatAudioAttachment key={attachment.url + attachmentIndex} attachment={attachment} mine={mine} /> : (
-                <Pressable key={attachment.url + attachmentIndex} onPress={() => void Linking.openURL(attachment.url)} style={[styles.file, mine && styles.myFile]}>
+                <Pressable disabled={Boolean(downloadingFileUrl)} key={attachment.url + attachmentIndex} onPress={() => void downloadAttachment(attachment)} style={[styles.file, mine && styles.myFile]}>
+                  {downloadingFileUrl === attachment.url ? <ActivityIndicator color={mine ? '#FFFFFF' : colors.primaryDark} size='small' /> : <FileText color={mine ? '#FFFFFF' : colors.primaryDark} size={19} />}
                   <Text numberOfLines={1} style={[styles.fileText, mine && styles.mineText]}>
-                    {attachment.name || 'Mở tệp đính kèm'}
+                    {downloadingFileUrl === attachment.url ? 'Đang tải tệp...' : attachment.name || 'Tải tệp đính kèm'}
                   </Text>
                 </Pressable>
               ),
