@@ -25,6 +25,8 @@ import { useNotifications } from "@/context/NotificationContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { applyMeetingChange, meetingService, subscribeMeetingChanges, type Meeting } from "@/services/meeting";
 import { colors, radius, shadow, spacing } from "@/theme/tokens";
+import { meetingCheckInAvailability } from "@/utils/meetingCheckIn";
+import { hasPermission } from "@/utils/permissions";
 
 function formatMeetingDetails(startsAt: string, endsAt?: string) {
   const start = new Date(startsAt);
@@ -343,6 +345,12 @@ export default function HomeScreen() {
 
   const featuredMeeting = liveMeeting ?? upcomingMeetings[0];
   const isFeaturedLive = Boolean(liveMeeting);
+  const featuredCanCheckIn = Boolean(
+    featuredMeeting &&
+    !hasPermission(user, "meetings:manage", "access:manage") &&
+    meetingCheckInAvailability(featuredMeeting, currentTime.getTime()) === "open"
+  );
+  const featuredActionLabel = isFeaturedLive || featuredCanCheckIn ? "Vào ngay" : "Xem chi tiết";
   const featuredSchedule = featuredMeeting
     ? formatMeetingDetails(featuredMeeting.startsAt, featuredMeeting.endsAt)
     : null;
@@ -360,12 +368,11 @@ export default function HomeScreen() {
 
   const userRoleTitle = useMemo(() => {
     if (user?.role === "admin") return "Quản trị viên";
-    if (user?.role === "manager") return "Product Manager";
-    if (user?.role === "branch_owner") return "Chủ tịch Chapter";
-    if (user?.industry) return user.industry;
-    if (user?.companyName) return user.companyName;
-    return "Product Manager";
-  }, [user]);
+    if (user?.role === "manager") return "Quản lý";
+    if (user?.role === "branch_owner") return "Chủ chi nhánh";
+    if (user?.role === "teacher") return "Giảng viên";
+    return "Thành viên";
+  }, [user?.role]);
 
   return (
     <Screen>
@@ -382,14 +389,15 @@ export default function HomeScreen() {
             </Text>
           </View>
 
-          <View style={styles.headerActions}>
+          <View style={styles.headerHeroActions}>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`Thông báo${unreadCount ? `, ${unreadCount} mục chưa đọc` : ""}`}
+              hitSlop={10}
               onPress={() => router.push("/notifications")}
               style={({ pressed }) => [styles.notificationButton, pressed && styles.cardPressed]}
             >
-              <Bell color={colors.primaryDark} size={22} strokeWidth={2} />
+              <Bell color={colors.primaryDark} size={20} strokeWidth={2} />
               {unreadCount > 0 ? (
                 <View style={styles.notificationBadge}>
                   <Text style={styles.notificationBadgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
@@ -423,7 +431,7 @@ export default function HomeScreen() {
           {featuredMeeting ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`${isFeaturedLive ? "Vào ngay" : "Xem chi tiết"} cuộc họp: ${featuredMeeting.title}`}
+              accessibilityLabel={`${featuredActionLabel} cuộc họp: ${featuredMeeting.title}`}
               style={styles.heroCompact}
               onPress={() =>
                 router.push({
@@ -487,7 +495,7 @@ export default function HomeScreen() {
                 </View>
 
                 <View style={styles.heroActionBtn}>
-                  <Text style={styles.heroActionBtnText}>{isFeaturedLive ? "Vào ngay" : "Xem chi tiết"}</Text>
+                  <Text style={styles.heroActionBtnText}>{featuredActionLabel}</Text>
                   <ArrowRight color="#FFFFFF" size={13} strokeWidth={2.6} />
                 </View>
               </View>
@@ -614,21 +622,19 @@ const styles = StyleSheet.create({
   },
   headerHeroInfo: {
     flex: 1,
+    minWidth: 0,
     gap: 2,
   },
-  headerActions: {
+  headerHeroActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: spacing.sm,
   },
   notificationButton: {
-    width: 42,
-    height: 42,
+    width: 36,
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 21,
-    backgroundColor: colors.surface,
-    ...shadow,
   },
   notificationBadge: {
     position: "absolute",

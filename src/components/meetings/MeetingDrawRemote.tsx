@@ -11,7 +11,6 @@ import { userService } from "@/services/users";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 import type { UserProfile } from "@/types";
 
-type Game = "wheel" | "bingo";
 type Filter = "all" | "all_members" | "present" | "guest";
 type Participant = {
   id: string;
@@ -77,13 +76,8 @@ export function MeetingDrawRemote({
   onRefresh: () => void;
 }) {
   const insets = useSafeAreaInsets();
-  const [game, setGame] = useState<Game>("wheel");
-  // Mặc định luôn là "Có mặt" cho cả VQMM và Bingo
-  const [selectedFilter, setSelectedFilter] = useState<Record<Game, Filter>>({
-    wheel: "present",
-    bingo: "present",
-  });
-  const [unselected, setUnselected] = useState<Record<Game, string[]>>({ wheel: [], bingo: [] });
+  const [selectedFilter, setSelectedFilter] = useState<Filter>("present");
+  const [unselected, setUnselected] = useState<string[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -109,9 +103,9 @@ export function MeetingDrawRemote({
   );
 
   const roster = useMemo(() => participants(meeting, users), [meeting, users]);
-  const filter = selectedFilter[game];
+  const filter = selectedFilter;
   const filtered = roster.filter((person) => matchesFilter(person, filter));
-  const selected = filtered.filter((person) => !unselected[game].includes(person.id));
+  const selected = filtered.filter((person) => !unselected.includes(person.id));
 
   const previousWinners = useMemo(
     () =>
@@ -129,7 +123,6 @@ export function MeetingDrawRemote({
   );
 
   const canProject =
-    game === "wheel" &&
     selected.length > 0 &&
     selected.length === backendCandidates.length &&
     backendCandidates.every((speaker) => selected.some((person) => person.id === speaker.id));
@@ -142,9 +135,7 @@ export function MeetingDrawRemote({
     if (!canProject) {
       Alert.alert(
         "Chưa thể quay trên màn chiếu",
-        game === "bingo"
-          ? "Backend chưa có lệnh điều khiển cầu Bingo trên màn trình chiếu."
-          : "API trình chiếu hiện chỉ quay danh sách người đã check-in. Bộ lọc hoặc người được tick chưa khớp danh sách này."
+        "API trình chiếu hiện chỉ quay danh sách người đã check-in. Bộ lọc hoặc người được tick chưa khớp danh sách này."
       );
       return;
     }
@@ -193,10 +184,7 @@ export function MeetingDrawRemote({
 
   const closeResult = () => {
     if (winner)
-      setUnselected((current) => ({
-        ...current,
-        wheel: [...new Set([...current.wheel, winner.winnerId])],
-      }));
+      setUnselected((current) => [...new Set([...current, winner.winnerId])]);
     setWinner(null);
     onRefresh();
   };
@@ -216,27 +204,17 @@ export function MeetingDrawRemote({
   };
 
   const selectAll = () => {
-    setUnselected((curr) => ({
-      ...curr,
-      [game]: curr[game].filter((id) => !filtered.some((p) => p.id === id)),
-    }));
+    setUnselected((curr) => curr.filter((id) => !filtered.some((p) => p.id === id)));
   };
 
   const deselectAll = () => {
-    setUnselected((curr) => ({
-      ...curr,
-      [game]: [...new Set([...curr[game], ...filtered.map((p) => p.id)])],
-    }));
+    setUnselected((curr) => [...new Set([...curr, ...filtered.map((p) => p.id)])]);
   };
 
   const togglePerson = (personId: string) => {
-    const isUnselected = unselected[game].includes(personId);
-    setUnselected((curr) => ({
-      ...curr,
-      [game]: isUnselected
-        ? curr[game].filter((id) => id !== personId)
-        : [...curr[game], personId],
-    }));
+    setUnselected((curr) =>
+      curr.includes(personId) ? curr.filter((id) => id !== personId) : [...curr, personId]
+    );
   };
 
   const currentFilterLabel =
@@ -244,24 +222,6 @@ export function MeetingDrawRemote({
 
   return (
     <View style={styles.container}>
-      {/* Tabs chọn trò chơi VQMM hoặc Bingo */}
-      <View style={styles.tabs}>
-        {(["wheel", "bingo"] as Game[]).map((value) => (
-          <Pressable
-            key={value}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: game === value }}
-            onPress={() => setGame(value)}
-            disabled={busy || !!winner}
-            style={[styles.tab, game === value && styles.tabActive]}
-          >
-            <Text style={[styles.tabText, game === value && styles.tabTextActive]}>
-              {value === "wheel" ? "Vòng quay may mắn" : "Lồng cầu Bingo"}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-
       {loading ? <LoadingState /> : null}
 
       {error ? (
@@ -283,9 +243,7 @@ export function MeetingDrawRemote({
       {/* CARD ĐIỀU KHIỂN QUAY THƯỞNG CHÍNH (GỌN GÀNG, KHÔNG XỔ DANH SÁCH CHECKBOX) */}
       <Card style={styles.card}>
         <View style={styles.headingRow}>
-          <Text style={styles.heading}>
-            {game === "wheel" ? "Điều khiển Vòng quay may mắn" : "Điều khiển Lồng cầu Bingo"}
-          </Text>
+          <Text style={styles.heading}>Điều khiển Vòng quay may mắn</Text>
           <Badge tone={canProject ? "success" : "default"}>
             {canProject ? "SẴN SÀNG QUAY" : "CHƯA SẴN SÀNG"}
           </Badge>
@@ -396,7 +354,7 @@ export function MeetingDrawRemote({
                     accessibilityRole="button"
                     accessibilityState={{ selected: isActive }}
                     onPress={() =>
-                      setSelectedFilter((current) => ({ ...current, [game]: value }))
+                      setSelectedFilter(value)
                     }
                     style={[styles.filterChip, isActive && styles.filterChipActive]}
                   >
@@ -440,7 +398,7 @@ export function MeetingDrawRemote({
                 <Text style={styles.emptyText}>Không có thành viên nào trong nhóm này</Text>
               ) : (
                 filtered.map((person) => {
-                  const checked = !unselected[game].includes(person.id);
+                  const checked = !unselected.includes(person.id);
                   return (
                     <Pressable
                       key={person.id}
@@ -500,22 +458,6 @@ export function MeetingDrawRemote({
 const styles = StyleSheet.create({
   container: { gap: spacing.md },
   grow: { flex: 1 },
-
-  // Tabs
-  tabs: { flexDirection: "row", gap: spacing.sm },
-  tab: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 44,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  tabActive: { backgroundColor: colors.primaryDark, borderColor: colors.primaryDark },
-  tabText: { color: colors.text, fontWeight: "700", fontSize: 13 },
-  tabTextActive: { color: "#FFFFFF" },
 
   card: { gap: spacing.sm, padding: spacing.md },
   headingRow: {

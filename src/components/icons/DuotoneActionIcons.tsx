@@ -238,3 +238,38 @@ export function DuotoneShieldIcon({
     </Svg>
   );
 }
+
+export function DuotoneBellIcon({
+  color = "#00AECA",
+  size = 24,
+}: {
+  color?: string;
+  size?: number;
+  strokeWidth?: number;
+}) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {/* Vòm chuông nền nhạt */}
+      <Path
+        d="M12 3.8C8.9 3.8 6.4 6.3 6.4 9.4V14.1L4.8 16.6C4.3 17.3 4.8 18.2 5.6 18.2H18.4C19.2 18.2 19.7 17.3 19.2 16.6L17.6 14.1V9.4C17.6 6.3 15.1 3.8 12 3.8Z"
+        fill={color}
+        fillOpacity={0.25}
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      {/* Quai treo đỉnh chuông */}
+      <Path
+        d="M10.2 3.8C10.2 2.8 11 2 12 2C13 2 13.8 2.8 13.8 3.8"
+        stroke={color}
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+      {/* Quả lắc chuông phía dưới */}
+      <Path
+        d="M9.8 18.2C10.1 19.5 10.95 20.4 12 20.4C13.05 20.4 13.9 19.5 14.2 18.2H9.8Z"
+        fill={color}
+      />
+    </Svg>
+  );
+}

@@ -122,7 +122,11 @@ export async function apiPostWithUploadProgress<T>(path: string, body: string, o
         const parsed: unknown = xhr.responseText ? JSON.parse(xhr.responseText) : {};
         resolve({ status: xhr.status, payload: parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {} });
       } catch {
-        reject(new ApiError("Hệ thống đang bận. Vui lòng thử lại sau.", xhr.status));
+        if (xhr.status < 200 || xhr.status >= 300) {
+          resolve({ status: xhr.status, payload: {} });
+        } else {
+          reject(new ApiError("Hệ thống đang bận. Vui lòng thử lại sau.", xhr.status));
+        }
       }
     };
     xhr.send(body);
