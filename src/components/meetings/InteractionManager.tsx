@@ -594,7 +594,11 @@ export function InteractionManager({
             </View>
             <View>
               <Text style={s.heading}>Phản hồi từ người tham dự</Text>
-              <Text style={s.metaSubtitle}>Duyệt và điều phối các ý kiến đóng góp</Text>
+              <Text style={s.metaSubtitle}>
+                {state.session?.moderationEnabled
+                  ? "Duyệt và điều phối các ý kiến đóng góp"
+                  : "Ý kiến được tự động hiển thị trên màn hình chiếu"}
+              </Text>
             </View>
           </View>
           <Badge tone={responses.length > 0 ? "primary" : "default"}>
@@ -709,7 +713,7 @@ export function InteractionManager({
                   <Text style={s.answerText}>{response.answer}</Text>
                 </View>
 
-                {canManage ? (
+                {canManage && state.session?.moderationEnabled ? (
                   <View style={s.moderationRow}>
                     {response.status !== "approved" ? (
                       <Pressable

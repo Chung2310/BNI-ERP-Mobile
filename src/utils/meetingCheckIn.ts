@@ -7,6 +7,7 @@ export function meetingCheckInAvailability(
   now = Date.now(),
 ): "open" | "upcoming" | "closed" {
   if (!["scheduled", "live", "paused"].includes(meeting.status)) return "closed";
+  if (meeting.status === "live" || meeting.status === "paused") return "open";
 
   const startsAt = Date.parse(meeting.startsAt);
   if (!Number.isFinite(startsAt)) return "closed";

@@ -1,5 +1,5 @@
 import { friendlyErrorMessage } from "@/utils/userFacingError";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as Location from "expo-location";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
@@ -61,13 +61,8 @@ export default function MeetingDetailScreen() {
   const [busy, setBusy] = useState(false);
   const [checkInBusy, setCheckInBusy] = useState(false);
   const [checkInError, setCheckInError] = useState("");
-  const [currentTime, setCurrentTime] = useState(Date.now);
   const checkInPending = useRef(false);
-  useFocusEffect(useCallback(() => {
-    setCurrentTime(Date.now());
-    const timer = setInterval(() => setCurrentTime(Date.now()), 30_000);
-    return () => clearInterval(timer);
-  }, []));
+  const autoCheckInAttempted = useRef<string | null>(null);
   const [search, setSearch] = useState("");
   const { scrollRef, onSearchLayout, onSearchFocus, onSearchBlur } = useRevealSearch();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -76,23 +71,12 @@ export default function MeetingDetailScreen() {
   const actionPending = useRef(false);
   const manage = hasPermission(user, "meetings:manage", "access:manage");
 
-  const filteredSpeakers = useMemo(() => {
-    if (!meeting) return [];
-    const query = search.trim().toLocaleLowerCase("vi");
-    return query ? meeting.speakers.filter((speaker) => [speaker.name, speaker.email, speaker.company].some((value) => value?.toLocaleLowerCase("vi").includes(query))) : meeting.speakers;
-  }, [meeting, search]);
-
-  if (isLoading) return <Screen><BackHeader title="Chi tiết cuộc họp" compact /><LoadingState /></Screen>;
-  if (error || !meeting) return <Screen><BackHeader title="Chi tiết cuộc họp" compact /><ErrorState message={error || "Không tìm thấy cuộc họp."} onRetry={reload} /></Screen>;
-
-  const attendance = meeting.speakers.find((speaker) => speaker.userId === user?.uid);
-  const attendancePosition = attendance ? meeting.speakers.findIndex((speaker) => speaker.id === attendance.id) + 1 : 0;
-  const meetingOpen = ["scheduled", "live", "paused"].includes(meeting.status);
-  const checkInAvailability = meetingCheckInAvailability(meeting, currentTime);
-  const currentSpeaker = meeting.currentIndex >= 0 ? meeting.speakers[meeting.currentIndex] : undefined;
-
-  const checkIn = async () => {
-    if (checkInPending.current || meetingCheckInAvailability(meeting) !== "open" || attendance) return;
+  const checkIn = useCallback(async (target: Meeting) => {
+    if (
+      checkInPending.current ||
+      meetingCheckInAvailability(target) !== "open" ||
+      target.speakers.some((speaker) => speaker.userId === user?.uid)
+    ) return;
     checkInPending.current = true;
     setCheckInBusy(true);
     setCheckInError("");
@@ -107,7 +91,34 @@ export default function MeetingDetailScreen() {
       checkInPending.current = false;
       setCheckInBusy(false);
     }
-  };
+  }, [id, setData, user?.uid]);
+
+  useEffect(() => {
+    if (!meeting || isLoading || manage || !user?.uid || autoCheckInAttempted.current === meeting._id) return;
+    const timer = setTimeout(() => {
+      if (autoCheckInAttempted.current === meeting._id) return;
+      autoCheckInAttempted.current = meeting._id;
+      if (
+        meetingCheckInAvailability(meeting) === "open" &&
+        !meeting.speakers.some((speaker) => speaker.userId === user.uid)
+      ) void checkIn(meeting);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [checkIn, isLoading, manage, meeting, user?.uid]);
+
+  const filteredSpeakers = useMemo(() => {
+    if (!meeting) return [];
+    const query = search.trim().toLocaleLowerCase("vi");
+    return query ? meeting.speakers.filter((speaker) => [speaker.name, speaker.email, speaker.company].some((value) => value?.toLocaleLowerCase("vi").includes(query))) : meeting.speakers;
+  }, [meeting, search]);
+
+  if (isLoading) return <Screen><BackHeader title="Chi tiết cuộc họp" compact /><LoadingState /></Screen>;
+  if (error || !meeting) return <Screen><BackHeader title="Chi tiết cuộc họp" compact /><ErrorState message={error || "Không tìm thấy cuộc họp."} onRetry={reload} /></Screen>;
+
+  const attendance = meeting.speakers.find((speaker) => speaker.userId === user?.uid);
+  const attendancePosition = attendance ? meeting.speakers.findIndex((speaker) => speaker.id === attendance.id) + 1 : 0;
+  const meetingOpen = ["scheduled", "live", "paused"].includes(meeting.status);
+  const currentSpeaker = meeting.currentIndex >= 0 ? meeting.speakers[meeting.currentIndex] : undefined;
 
   const closeSettings = () => {
     if (actionPending.current) return;
@@ -168,11 +179,31 @@ export default function MeetingDetailScreen() {
         <Metric label="CÒN LẠI" value={String(meeting.speakers.filter((speaker) => !(speaker.spokenSeconds || 0)).length)} />
       </View>
 
+      {!manage ? (
+        <Card style={styles.attendance}>
+          <View style={styles.sectionRow}><Text style={styles.cardTitle}>Thông tin tham dự của bạn</Text>{attendance ? <Badge tone="primary">ĐÃ CHECK-IN</Badge> : <Badge>CHƯA CHECK-IN</Badge>}</View>
+          {attendance ? (
+            <>
+              <Text style={styles.body}>Check-in lúc {dateTime(attendance.checkedInAt)}</Text>
+              <View style={styles.metrics}>
+                <Metric label="THỨ TỰ" value={String(attendancePosition)} />
+                <Metric label="PHÁT BIỂU" value={`${attendance.seconds} giây`} />
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={styles.body}>{checkInBusy ? "Đang xác nhận vị trí…" : "Chưa check-in"}</Text>
+              {checkInError ? <Text style={styles.checkInError}>{checkInError}</Text> : null}
+            </>
+          )}
+        </Card>
+      ) : null}
+
       <SectionTitle>Quy trình cuộc họp</SectionTitle>
       <Card style={styles.processCard}>
         {!manage ? <ProcessRow icon={Eye} label="Theo dõi cuộc họp" detail="Xem nội dung đang trình chiếu trực tiếp" onPress={() => router.push({ pathname: "/meeting/[id]/watch", params: { id } })} /> : null}
         <ProcessRow icon={MapPin} label="Check-in" detail={`${meeting.speakers.length} người đã điểm danh`} onPress={() => router.push({ pathname: "/meeting/[id]/attendees", params: { id } })} />
-        <ProcessRow icon={Gift} label="Vòng quay & Bingo" detail="Kết quả Vòng quay và Bingo" onPress={() => router.push({ pathname: "/meeting/[id]/game-results", params: { id } })} />
+        <ProcessRow icon={Gift} label="Vòng quay may mắn" detail="Kết quả vòng quay may mắn" onPress={() => router.push({ pathname: "/meeting/[id]/game-results", params: { id } })} />
         <ProcessRow icon={MessageCircle} label="Thu ý kiến" detail={manage ? "Xem phản hồi và cấu hình câu hỏi" : "Trả lời câu hỏi ngay trong ứng dụng"} onPress={() => router.push(manage ? { pathname: "/meeting/[id]/interaction", params: { id } } : { pathname: "/meeting/[id]/respond", params: { id } })} />
         <ProcessRow icon={Presentation} label="Thuyết trình" detail="Danh sách slide của người trình bày" onPress={() => router.push({ pathname: "/meeting/[id]/slides", params: { id } })} />
       </Card>
@@ -188,29 +219,6 @@ export default function MeetingDetailScreen() {
         {meeting.seriesId ? <InfoRow icon={CalendarClock} label="Loại lịch" value="Cuộc họp định kỳ" /> : null}
       </Card>
       {meeting.description ? <Card style={styles.description}><Text style={styles.cardTitle}>Nội dung cuộc họp</Text><Text style={styles.body}>{meeting.description}</Text></Card> : null}
-
-      {!manage ? (
-        <Card style={styles.attendance}>
-          <View style={styles.sectionRow}><Text style={styles.cardTitle}>Thông tin tham dự của bạn</Text>{attendance ? <Badge tone="primary">ĐÃ CHECK-IN</Badge> : <Badge>CHƯA CHECK-IN</Badge>}</View>
-          {attendance ? (
-            <>
-              <Text style={styles.body}>Check-in lúc {dateTime(attendance.checkedInAt)}</Text>
-              <View style={styles.metrics}>
-                <Metric label="THỨ TỰ" value={String(attendancePosition)} />
-                <Metric label="PHÁT BIỂU" value={`${attendance.seconds} giây`} />
-              </View>
-            </>
-          ) : (
-            <>
-              <Text style={styles.body}>{checkInAvailability === "upcoming" ? "Check-in bằng GPS mở từ 2 giờ trước khi cuộc họp bắt đầu." : checkInAvailability === "open" ? "Bạn có thể check-in bằng GPS khi ở trong phạm vi địa điểm." : "Cuộc họp đã đóng điểm danh."}</Text>
-              {checkInAvailability === "open" ? <>
-                <Button icon={MapPin} fullWidth disabled={checkInBusy} onPress={() => void checkIn()}>{checkInBusy ? "Đang xác nhận vị trí…" : "Check-in bằng GPS"}</Button>
-                {checkInError ? <Text style={styles.checkInError}>{checkInError}</Text> : null}
-              </> : null}
-            </>
-          )}
-        </Card>
-      ) : null}
 
       <SectionTitle>Người đã check-in · thứ tự phát biểu</SectionTitle>
       {meeting.speakers.length ? (
@@ -312,7 +320,7 @@ const styles = StyleSheet.create({
   processDetail: { marginTop: 3, color: colors.muted, fontSize: 11, lineHeight: 16 },
   summary: { gap: spacing.sm, padding: spacing.md, paddingTop: spacing.sm },
   summaryWithCover: { minHeight: 150, justifyContent: "flex-end", overflow: "hidden" },
-  summaryCover: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
+  summaryCover: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, transform: [{ scale: 1.06 }] },
   summaryShade: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(7, 22, 36, 0.60)" },
   summaryRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   title: { marginTop: spacing.xs, color: colors.text, fontSize: 19, lineHeight: 24, fontWeight: "900" },

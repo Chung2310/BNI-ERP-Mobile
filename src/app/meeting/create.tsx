@@ -5,7 +5,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import { Redirect, router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CalendarPlus, CalendarRange, ImagePlus, MapPin, Plus, Trash2, Upload, type LucideIcon } from "lucide-react-native";
+import { CalendarPlus, CalendarRange, MapPin, Plus, Trash2, Upload, type LucideIcon } from "lucide-react-native";
 import {
   ActivityIndicator,
   Image,
@@ -24,6 +24,7 @@ import { useAuth } from "@/context/AuthContext";
 import { meetingService, type MeetingPoint, type MeetingRecurrence, type SpeakingTimeSlot } from "@/services/meeting";
 import { colors, radius, shadow, spacing } from "@/theme/tokens";
 import { defaultSpeakingTimeSlots, parseVietnamDateTime, recurringMeetingDates, twoHoursAfter, validateSpeakingTimeSlots } from "@/utils/meetingForm";
+import { defaultMeetingCoverSource, uploadDefaultMeetingCover } from "@/utils/defaultMeetingCover";
 import { canCreateMeeting } from "@/utils/permissions";
 
 type CreateMode = "single" | "recurring";
@@ -172,7 +173,8 @@ function CreateMeetingForm() {
         if (title.trim().length > 200) throw new Error("Tên cuộc họp không được vượt quá 200 ký tự.");
         if (!start || !end) throw new Error("Thời gian phải theo định dạng YYYY-MM-DD HH:mm.");
         if (end <= start) throw new Error("Giờ kết thúc phải sau giờ bắt đầu.");
-        const meeting = await meetingService.create({ ...common, title: title.trim(), startsAt: start.toISOString(), endsAt: end.toISOString() });
+        const coverImageUrl = common.coverImage || await uploadDefaultMeetingCover();
+        const meeting = await meetingService.create({ ...common, coverImage: coverImageUrl, title: title.trim(), startsAt: start.toISOString(), endsAt: end.toISOString() });
         router.replace({ pathname: "/meeting/[id]", params: { id: meeting._id } });
       } else {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(recurrence.startDate)) throw new Error("Ngày bắt đầu chu kỳ phải theo định dạng YYYY-MM-DD.");
@@ -180,7 +182,8 @@ function CreateMeetingForm() {
         if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(recurrence.time)) throw new Error("Giờ bắt đầu phải theo định dạng HH:mm.");
         if (!Number.isInteger(recurrence.durationMinutes) || recurrence.durationMinutes < 1 || recurrence.durationMinutes > 1440) throw new Error("Thời lượng mỗi buổi phải từ 1 đến 1440 phút.");
         if (!preview.length) throw new Error("Không có buổi họp nào trong chu kỳ đã chọn.");
-        const meetings = await meetingService.createSeries({ ...common, recurrence });
+        const coverImageUrl = common.coverImage || await uploadDefaultMeetingCover();
+        const meetings = await meetingService.createSeries({ ...common, coverImage: coverImageUrl, recurrence });
         Alert.alert("Tạo lịch thành công", `Đã tạo ${meetings.length} buổi họp định kỳ.`, [
           { text: "Xem lịch", onPress: () => router.replace("/meetings") },
         ]);
@@ -241,8 +244,11 @@ function CreateMeetingForm() {
         </FormSection>
 
         <FormSection title="Ảnh bìa sự kiện">
-          {coverImage ? <Image accessibilityLabel="Ảnh bìa cuộc họp" source={{ uri: coverImage }} style={styles.cover} /> : <View style={styles.coverPlaceholder}><ImagePlus color={colors.primary} size={34} /><Text style={styles.help}>PNG, JPG, WEBP hoặc GIF · tối đa 10MB</Text></View>}
-          <Button icon={Upload} tone="secondary" fullWidth disabled={uploading} onPress={pickCover} style={styles.actionBtn}>{uploading ? "Đang tải ảnh…" : coverImage ? "Đổi ảnh bìa" : "Chọn ảnh từ máy"}</Button>
+          <View style={styles.coverFrame}>
+            <Image accessibilityLabel="Ảnh bìa cuộc họp" source={coverImage ? { uri: coverImage } : defaultMeetingCoverSource} style={styles.cover} resizeMode="cover" />
+          </View>
+          {!coverImage ? <Text style={styles.help}>Đang dùng ảnh bìa mặc định.</Text> : null}
+          <Button icon={Upload} tone="secondary" fullWidth disabled={uploading} onPress={pickCover} style={styles.actionBtn}>{uploading ? "Đang tải ảnh…" : "Chọn ảnh bìa khác"}</Button>
         </FormSection>
 
         <FormSection title="Nhắc hẹn">
@@ -357,8 +363,8 @@ const styles = StyleSheet.create({
   chipTextActive: { color: "#FFFFFF" },
   twoColumns: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
   column: { flex: 1 },
-  cover: { width: "100%", height: 140, borderRadius: radius.md, backgroundColor: colors.background },
-  coverPlaceholder: { height: 100, alignItems: "center", justifyContent: "center", gap: spacing.xs, borderWidth: 1, borderStyle: "dashed", borderColor: colors.primary, borderRadius: radius.md, backgroundColor: colors.primarySoft },
+  coverFrame: { width: "100%", height: 140, borderRadius: radius.md, backgroundColor: colors.background, overflow: "hidden" },
+  cover: { width: "100%", height: "100%", transform: [{ scale: 1.06 }] },
   slot: { gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background, padding: spacing.md },
   slotHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   slotTitle: { color: colors.text, fontSize: 13, fontWeight: "800" },

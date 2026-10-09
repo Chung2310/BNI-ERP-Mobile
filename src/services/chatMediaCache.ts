@@ -2,6 +2,7 @@ import { File, Paths } from 'expo-file-system';
 import { Platform } from 'react-native';
 
 const localImages = new Map<string, string>();
+const mediaDimensions = new Map<string, { width: number; height: number }>();
 
 export async function cachePickedChatImage(uri: string, mimeType?: string): Promise<string> {
   if (Platform.OS === 'web') return uri;
@@ -16,8 +17,13 @@ export async function cachePickedChatImage(uri: string, mimeType?: string): Prom
   }
 }
 
-export function rememberChatMedia(remoteUrl: string, localUri: string) {
+export function rememberChatMedia(remoteUrl: string, localUri: string, dimensions?: { width?: number; height?: number }) {
   localImages.set(remoteUrl, localUri);
+  if (dimensions?.width && dimensions.height) mediaDimensions.set(remoteUrl, { width: dimensions.width, height: dimensions.height });
+}
+
+export function chatMediaDimensions(remoteUrl: string) {
+  return mediaDimensions.get(remoteUrl);
 }
 
 export function chatMediaUri(remoteUrl: string) {

@@ -59,12 +59,18 @@ export default function MeetingResponseScreen() {
   const alreadyAnswered = Boolean(existingAnswer) && !session?.allowMultipleResponses;
   const answeredCount =
     session?.questions.filter((question) => answers[question.id]?.trim()).length || 0;
-  const complete = Boolean(session?.questions.length && answeredCount === session.questions.length);
   const token = session ? tokenFromUrl(session.participationUrl) : "";
 
   const submit = async () => {
-    if (!user || !session || !accepting || !complete || !token || sendingRef.current || alreadyAnswered)
+    if (!user || !session || !accepting || !token || sendingRef.current || alreadyAnswered)
       return;
+    const submittedAnswers = session.questions
+      .map((question) => ({
+        questionId: question.id,
+        answer: answers[question.id]?.trim() || "",
+      }))
+      .filter(({ answer }) => answer.length > 0);
+    if (!submittedAnswers.length) return;
     sendingRef.current = true;
     setSending(true);
     setSubmitError("");
@@ -72,13 +78,15 @@ export default function MeetingResponseScreen() {
       const result = await meetingService.submitInteractionAnswers(token, {
         participantId: user.uid,
         name: user.displayName?.trim() || user.email?.split("@")[0] || "Thành viên",
-        answers: session.questions.map((question) => ({
-          questionId: question.id,
-          answer: answers[question.id].trim(),
-        })),
+        answers: submittedAnswers,
       });
-      setSubmitted({ ...result, sessionId: session.id });
-      setAnswers({});
+      if (!session.allowMultipleResponses) {
+        setSubmitted({ ...result, sessionId: session.id });
+      } else {
+        setSubmitted(null);
+      }
+      // Làm trống ô nhập để thành viên tiếp tục nhập ngay lập tức
+      setAnswers((current) => ({ ...current, [activeQuestion?.id || ""]: "" }));
       void reload();
     } catch (cause) {
       setSubmitError(
@@ -196,8 +204,8 @@ export default function MeetingResponseScreen() {
               {/* Nội dung câu hỏi to rõ ràng */}
               <Text style={styles.questionText}>{activeQuestion.text}</Text>
 
-              {/* Trạng thái 1: Đã gửi câu trả lời */}
-              {(currentSubmission && !session.allowMultipleResponses) || alreadyAnswered ? (
+              {/* Trạng thái 1: Đã gửi câu trả lời (chỉ áp dụng khi không cho phép gửi nhiều lần) */}
+              {(!session.allowMultipleResponses && (currentSubmission || alreadyAnswered)) ? (
                 <View style={styles.resultBox}>
                   <CheckCircle2 color={colors.success} size={34} />
                   <Text style={styles.resultTitle}>Đã gửi câu trả lời</Text>
@@ -206,25 +214,6 @@ export default function MeetingResponseScreen() {
                       ? "Câu trả lời của bạn đang chờ người điều hành duyệt."
                       : "Cảm ơn bạn đã tham gia đóng góp ý kiến!"}
                   </Text>
-                </View>
-              ) : currentSubmission && session.allowMultipleResponses ? (
-                <View style={styles.resultBox}>
-                  <CheckCircle2 color={colors.success} size={34} />
-                  <Text style={styles.resultTitle}>Đã gửi câu trả lời</Text>
-                  <Text style={styles.resultMeta}>
-                    {currentSubmission.status === "pending"
-                      ? "Câu trả lời đang chờ duyệt. Bạn có thể gửi thêm ý kiến khác."
-                      : "Bạn có thể gửi thêm câu trả lời khác."}
-                  </Text>
-                  {accepting ? (
-                    <Button
-                      tone="secondary"
-                      onPress={() => setSubmitted(null)}
-                      style={styles.retryBtn}
-                    >
-                      Gửi thêm câu trả lời
-                    </Button>
-                  ) : null}
                 </View>
               ) : !accepting ? (
                 /* Trạng thái 2: Chưa mở hoặc đã kết thúc */
@@ -260,7 +249,7 @@ export default function MeetingResponseScreen() {
                   <View style={styles.inputFooter}>
                     <Text style={styles.progress}>
                       {session.questions.length > 1
-                        ? `Đã trả lời ${answeredCount}/${session.questions.length} câu`
+                        ? `Đã trả lời ${answeredCount}/${session.questions.length} · có thể gửi`
                         : ""}
                     </Text>
                     <Text style={styles.counter}>
@@ -273,7 +262,7 @@ export default function MeetingResponseScreen() {
                   <Button
                     icon={Send}
                     fullWidth
-                    disabled={!complete || sending || !token}
+                    disabled={answeredCount === 0 || sending || !token}
                     onPress={() => void submit()}
                     style={styles.submitBtn}
                   >
@@ -412,6 +401,7 @@ const styles = StyleSheet.create({
   progress: {
     color: colors.muted,
     fontSize: 12,
+    flexShrink: 1,
   },
   counter: {
     color: colors.muted,
