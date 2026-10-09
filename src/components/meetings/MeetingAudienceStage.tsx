@@ -9,7 +9,7 @@ import { buildActiveMemberRankings } from "@/components/ActiveMemberRanking";
 import type { AudienceSnapshot } from "@/hooks/useMeetingDisplay";
 import { colors } from "@/theme/tokens";
 
-export function AudienceStage({ data, fullscreen = false, stageWidth }: { data: AudienceSnapshot; fullscreen?: boolean; stageWidth?: number }) {
+export function AudienceStage({ data, fullscreen = false, stageWidth, onRefresh }: { data: AudienceSnapshot; fullscreen?: boolean; stageWidth?: number; onRefresh?: () => void }) {
   const { width } = useWindowDimensions();
   const contentWidth = stageWidth ?? width - 40;
   const contentHeight = contentWidth * 9 / 16;
@@ -34,12 +34,44 @@ export function AudienceStage({ data, fullscreen = false, stageWidth }: { data: 
     <Text style={[styles.title, fullscreen && styles.fullscreenSpeakerName]}>{speaker?.name || (meeting.speechesCompletedAt ? "Đã hoàn tất phần phát biểu" : "Chờ người trình bày")}</Text>
     {speaker ? fullscreen ? <Text style={styles.fullscreenTimer}>{Math.floor(remaining / 60).toString().padStart(2, "0")}:{(remaining % 60).toString().padStart(2, "0")}{meeting.status === "paused" ? " · Tạm dừng" : ""}</Text> : <><Text style={styles.timer}>{Math.floor(remaining / 60).toString().padStart(2, "0")}:{(remaining % 60).toString().padStart(2, "0")}</Text><Text style={styles.body}>{meeting.status === "paused" ? "Tạm dừng" : `Lượt ${meeting.currentIndex + 1}/${meeting.speakers.length}`}</Text></> : null}
   </View>;
-  if (view === "luckyDraw") return <MeetingWheelPreview meeting={meeting} now={now} width={fullscreen ? contentWidth : undefined} />;
+  if (view === "luckyDraw") return <MeetingWheelPreview meeting={meeting} now={now} width={fullscreen ? contentWidth : undefined} fullscreen={fullscreen} />;
   if (view === "audienceResponses") {
     const session = data.interaction?.session;
-    const question = session?.questions.find((item) => item.id === session.activeQuestionId) || session?.questions[0];
-    const questions = question ? [question] : [];
-    return questions.length ? fullscreen ? <ScrollView style={{ width: contentWidth, height: contentHeight }} contentContainerStyle={styles.fullscreenCloud} nestedScrollEnabled><ResponseWordCloud questions={questions} responses={data.interaction?.allResponses || data.interaction?.responses || []} /></ScrollView> : <ResponseWordCloud questions={questions} responses={data.interaction?.allResponses || data.interaction?.responses || []} /> : <Card style={fullscreen && { width: contentWidth, height: contentHeight }}><Text style={styles.body}>Chờ câu hỏi từ quản trị viên</Text></Card>;
+    const allQuestions = [...(session?.questions || [])].sort((a, b) => a.order - b.order);
+
+    if (!allQuestions.length) {
+      return (
+        <Card style={fullscreen && { width: contentWidth, minHeight: 180, justifyContent: "center", alignItems: "center" }}>
+          <Text style={styles.body}>Chờ câu hỏi từ quản trị viên</Text>
+        </Card>
+      );
+    }
+
+    if (fullscreen) {
+      return (
+        <View style={{ width: contentWidth, paddingBottom: 40, paddingTop: 4 }}>
+          <ResponseWordCloud
+            questions={allQuestions}
+            responses={data.interaction?.allResponses || data.interaction?.responses || []}
+            compact={allQuestions.length > 1}
+            boardMode={allQuestions.length > 1}
+            darkHeader={true}
+            session={data.interaction?.session}
+            onRefresh={onRefresh}
+          />
+        </View>
+      );
+    }
+
+    // Hiển thị toàn bộ câu hỏi trên màn hình theo dõi (không cần zoom/fullscreen)
+    return (
+      <ResponseWordCloud
+        questions={allQuestions}
+        responses={data.interaction?.allResponses || data.interaction?.responses || []}
+        session={data.interaction?.session}
+        onRefresh={onRefresh}
+      />
+    );
   }
   if (view === "activeMembers") {
     const { rankings } = buildActiveMemberRankings(data.history || [], data.members || [], meeting);

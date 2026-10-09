@@ -1,5 +1,5 @@
 import { apiPostWithUploadProgress, apiRequest } from '@/services/api';
-import { File } from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 export type ChatAttachment = { url: string; name: string; type: string; size?: number; uploadToken?: string };
 export type ChatReaction = { emoji: string; userId: string | { _id: string } };
@@ -61,19 +61,42 @@ export const chatService = {
       method: 'POST',
       body: JSON.stringify({ content, attachments, ...(replyTo ? { replyTo } : {}) }),
     }).then((payload) => payload.data),
-  uploadAttachment: async (asset: { uri: string; name: string; mimeType?: string; size?: number }, onProgress: (fraction: number) => void = () => undefined): Promise<ChatAttachment> => {
+  uploadAttachment: async (asset: { uri: string; name: string; mimeType?: string; size?: number; base64?: string }, onProgress: (fraction: number) => void = () => undefined): Promise<ChatAttachment> => {
     const type = asset.mimeType || 'application/octet-stream';
-    const file = new File(asset.uri);
     onProgress(0);
-    const base64 = await file.base64();
+    let base64 = asset.base64;
+    let temporaryUri: string | null = null;
+    if (!base64) try {
+      let readableUri = asset.uri;
+      if (asset.uri.startsWith('content://')) {
+        if (!FileSystem.cacheDirectory) throw new Error('Không thể truy cập bộ nhớ tạm để tải tệp lên.');
+        temporaryUri = `${FileSystem.cacheDirectory}chat-upload-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        await FileSystem.copyAsync({ from: asset.uri, to: temporaryUri });
+        readableUri = temporaryUri;
+      }
+      try {
+        base64 = await FileSystem.readAsStringAsync(readableUri, { encoding: FileSystem.EncodingType.Base64 });
+      } catch (cause) {
+        if (!FileSystem.cacheDirectory || temporaryUri) throw cause;
+        temporaryUri = `${FileSystem.cacheDirectory}chat-upload-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        await FileSystem.copyAsync({ from: asset.uri, to: temporaryUri });
+        base64 = await FileSystem.readAsStringAsync(temporaryUri, { encoding: FileSystem.EncodingType.Base64 });
+      }
+    } catch {
+      throw new Error('Không đọc được tệp đã chọn. Hãy chọn lại tệp từ bộ nhớ thiết bị.');
+    } finally {
+      if (temporaryUri) await FileSystem.deleteAsync(temporaryUri, { idempotent: true }).catch(() => undefined);
+    }
+    if (!base64) throw new Error('Tệp đã chọn không có dữ liệu để gửi.');
     onProgress(0.05);
     const payload = await apiPostWithUploadProgress<{ url: string; uploadToken?: string }>(
       '/api/v1/media/upload',
-      JSON.stringify({ file: `data:${type};base64,${base64}`, sourceType: 'chat.attachment', fileName: asset.name, mimeType: type, size: asset.size ?? file.size }),
+      JSON.stringify({ file: `data:${type};base64,${base64}`, sourceType: 'chat.attachment', fileName: asset.name, mimeType: type, size: asset.size }),
       (fraction) => onProgress(0.05 + fraction * 0.9),
     );
+    if (!payload.url) throw new Error('Máy chủ chưa trả về đường dẫn tệp. Vui lòng thử lại.');
     onProgress(0.95);
-    return { url: payload.url, name: asset.name, type, size: asset.size ?? file.size, uploadToken: payload.uploadToken };
+    return { url: payload.url, name: asset.name, type, size: asset.size, uploadToken: payload.uploadToken };
   },
   remove: (roomId: string, messageId: string) =>
     apiRequest<{ data: ChatMessage }>(roomPath(roomId) + '/messages/' + encodeURIComponent(messageId), { method: 'DELETE' }).then((payload) => payload.data),

@@ -36,8 +36,9 @@ export function MeetingAudienceFullscreen({ data, visible, onClose }: { data: Au
 
   const availableWidth = Math.max(1, size.width - insets.left - insets.right - 24);
   const availableHeight = Math.max(1, size.height - insets.top - insets.bottom - 24);
-  const frameWidth = Math.max(1, Math.min(availableWidth, availableHeight * 16 / 9));
-  const frameHeight = frameWidth * 9 / 16;
+  const isVideoOrSlide = data?.meeting.presentation?.view === "speaker";
+  const frameWidth = isVideoOrSlide ? Math.max(1, Math.min(availableWidth, availableHeight * 16 / 9)) : availableWidth;
+  const frameHeight = isVideoOrSlide ? frameWidth * 9 / 16 : availableHeight;
 
   return <Modal visible={visible && !!data} animationType="fade" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
     <StatusBar hidden={visible} />
@@ -45,7 +46,7 @@ export function MeetingAudienceFullscreen({ data, visible, onClose }: { data: Au
       const next = nativeEvent.layout;
       setSize((current) => current.width === next.width && current.height === next.height ? current : { width: next.width, height: next.height });
     }}>
-      {data ? <ScrollView style={{ width: frameWidth, height: frameHeight, flexGrow: 0 }} contentContainerStyle={styles.content} bounces={false} showsVerticalScrollIndicator={false}>
+      {data ? <ScrollView style={{ width: frameWidth, height: frameHeight }} contentContainerStyle={[styles.content, { width: frameWidth, minHeight: frameHeight }]} bounces={true} showsVerticalScrollIndicator={true}>
         <AudienceStage data={data} fullscreen stageWidth={frameWidth} />
       </ScrollView> : null}
       <Pressable accessibilityRole="button" accessibilityLabel="Đóng toàn màn hình" onPress={onClose} style={[styles.close, { top: insets.top + spacing.sm, right: insets.right + spacing.sm }]}>
@@ -56,7 +57,7 @@ export function MeetingAudienceFullscreen({ data, visible, onClose }: { data: Au
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#000000" },
+  root: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#0B132B" },
   content: { flexGrow: 1, justifyContent: "center", alignItems: "center" },
   close: { position: "absolute", minWidth: touchTarget, minHeight: touchTarget, flexDirection: "row", alignItems: "center", justifyContent: "center", borderRadius: 24, backgroundColor: "rgba(0,0,0,0.65)" },
 });

@@ -101,7 +101,7 @@ export type LuckyDraw = {
   luckyDraw: LuckyDrawConfig;
 };
 export type GameWinnerInput = Pick<LuckyDrawWinner, "id" | "winnerId" | "name" | "prizeName" | "wonAt"> & {
-  source: "wheel" | "bingo";
+  source: "wheel";
   photoURL?: string;
   ticketNumber?: number;
 };
@@ -312,8 +312,8 @@ export const meetingService = {
       }),
     }).then(unwrap),
   createSeries: (input: RecurringMeetingInput) => apiRequest<{ data: Meeting[] }>("/api/v1/meetings/series", { method: "POST", body: JSON.stringify(input) }).then(unwrap),
-  uploadCover: (base64: string) => apiRequest<{ url: string }>("/api/v1/media/upload", {
+  uploadCover: (base64: string, mimeType: "image/jpeg" | "image/png" = "image/jpeg") => apiRequest<{ url: string }>("/api/v1/media/upload", {
     method: "POST",
-    body: JSON.stringify({ file: `data:image/jpeg;base64,${base64}`, folder: "igen_erp/meetings" }),
+    body: JSON.stringify({ file: `data:${mimeType};base64,${base64}`, folder: "igen_erp/meetings" }),
   }).then((payload) => payload.url),
 };

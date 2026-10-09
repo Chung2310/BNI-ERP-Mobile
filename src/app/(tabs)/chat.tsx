@@ -49,6 +49,11 @@ export default function ChatScreen() {
   const rooms = useMemo(() => {
     const keyword = query.trim().toLocaleLowerCase('vi');
     return [...(data || [])]
+      .filter((room) => {
+        if (room.isGroup || room.lastMessage) return true;
+        if (room.creatorId) return room.creatorId === user?.uid;
+        return !room.blockedBy?.some((blockerId) => blockerId !== user?.uid);
+      })
       .filter((room) => !keyword || [roomName(room), ...room.members.map((member) => member.userId.displayName)]
         .some((value) => value.toLocaleLowerCase('vi').includes(keyword)))
       .sort((a, b) => {

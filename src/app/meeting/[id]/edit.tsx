@@ -158,7 +158,7 @@ function EditForm({ meeting }: { meeting: Meeting }) {
       </FormSection>
 
       <FormSection title="Ảnh bìa sự kiện">
-        {coverImage ? <Image source={{ uri: coverImage }} style={styles.cover} /> : <View style={styles.coverPlaceholder}><ImagePlus color={colors.primary} size={34} /><Text style={styles.help}>Chưa có ảnh bìa</Text></View>}
+        {coverImage ? <View style={styles.coverFrame}><Image source={{ uri: coverImage }} style={styles.cover} resizeMode="cover" /></View> : <View style={styles.coverPlaceholder}><ImagePlus color={colors.primary} size={34} /><Text style={styles.help}>Chưa có ảnh bìa</Text></View>}
         <View style={styles.columns}><View style={styles.column}><Button icon={Upload} tone="secondary" fullWidth disabled={uploading} onPress={pickCover}>{uploading ? "Đang tải…" : "Chọn ảnh"}</Button></View>{coverImage ? <View style={styles.column}><Button icon={Trash2} tone="secondary" fullWidth onPress={() => setCoverImage("")}>Xóa ảnh</Button></View> : null}</View>
       </FormSection>
 
@@ -202,7 +202,8 @@ const styles = StyleSheet.create({
   readonly: { marginTop: spacing.xs, borderRadius: radius.md, backgroundColor: colors.background, color: colors.muted, padding: spacing.md },
   columns: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
   column: { flex: 1 },
-  cover: { width: "100%", height: 180, borderRadius: radius.md, backgroundColor: colors.background },
+  coverFrame: { width: "100%", height: 180, borderRadius: radius.md, backgroundColor: colors.background, overflow: "hidden" },
+  cover: { width: "100%", height: "100%", transform: [{ scale: 1.06 }] },
   coverPlaceholder: { height: 130, alignItems: "center", justifyContent: "center", gap: spacing.sm, borderWidth: 1, borderStyle: "dashed", borderColor: colors.primary, borderRadius: radius.md, backgroundColor: colors.primarySoft },
   help: { color: colors.muted, fontSize: 12, lineHeight: 17 },
   slot: { gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background, padding: spacing.md },
