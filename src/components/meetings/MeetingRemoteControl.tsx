@@ -267,6 +267,7 @@ export function MeetingRemoteControl({
     viewOverride || meeting?.presentation?.view || "checkin";
   const closed = meeting?.status === "ended" || meeting?.status === "cancelled";
   const disabled = !canManage || closed || busy || Boolean(syncError);
+  const speakerSwitchDisabled = disabled || Boolean(meeting?.presentation?.autoAdvance);
 
   // Bộ lọc khách đã check-in
   const filteredSpeakers = (() => {
@@ -532,7 +533,7 @@ export function MeetingRemoteControl({
 
                           <Pressable
                             accessibilityLabel={`Chiếu slide của ${person.name}`}
-                            disabled={disabled}
+                            disabled={speakerSwitchDisabled}
                             onPress={() =>
                               void run((current) =>
                                 meetingService.presentation(
@@ -545,7 +546,7 @@ export function MeetingRemoteControl({
                             style={[
                               styles.actionIconBtn,
                               styles.actionIconBtnPresent,
-                              disabled && styles.disabled,
+                              speakerSwitchDisabled && styles.disabled,
                             ]}
                           >
                             <Play color="#FFFFFF" size={15} />
@@ -629,14 +630,14 @@ export function MeetingRemoteControl({
                     <SpeakerAction
                       icon={SkipBack}
                       accessibilityLabel="Người phát biểu trước"
-                      disabled={disabled || meeting.currentIndex <= 0}
+                      disabled={speakerSwitchDisabled || meeting.currentIndex <= 0}
                       onPress={() => control("previous")}
                     />
                     <SpeakerAction
                       icon={SkipForward}
                       accessibilityLabel="Người phát biểu tiếp theo"
                       primary
-                      disabled={disabled}
+                      disabled={speakerSwitchDisabled}
                       onPress={() => control("next")}
                     />
                     <SpeakerAction
@@ -677,8 +678,8 @@ export function MeetingRemoteControl({
                           <Pressable
                             accessibilityRole="button"
                             accessibilityLabel={`Chiếu slide của ${person.name}`}
-                            accessibilityState={{ disabled, selected: isCurrent }}
-                            disabled={disabled}
+                            accessibilityState={{ disabled: speakerSwitchDisabled, selected: isCurrent }}
+                            disabled={speakerSwitchDisabled}
                             onPress={() =>
                               void run((current) =>
                                 meetingService.presentation(
@@ -688,7 +689,7 @@ export function MeetingRemoteControl({
                                 )
                               )
                             }
-                            style={styles.personMain}
+                            style={[styles.personMain, speakerSwitchDisabled && styles.disabled]}
                           >
                             <Text style={styles.personIndex}>{index + 1}</Text>
                             <Text

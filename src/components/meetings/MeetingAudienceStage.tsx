@@ -9,7 +9,7 @@ import { buildActiveMemberRankings } from "@/components/ActiveMemberRanking";
 import type { AudienceSnapshot } from "@/hooks/useMeetingDisplay";
 import { colors } from "@/theme/tokens";
 
-export function AudienceStage({ data, fullscreen = false, stageWidth, onRefresh }: { data: AudienceSnapshot; fullscreen?: boolean; stageWidth?: number; onRefresh?: () => void }) {
+export function AudienceStage({ data, fullscreen = false, stageWidth }: { data: AudienceSnapshot; fullscreen?: boolean; stageWidth?: number }) {
   const { width } = useWindowDimensions();
   const contentWidth = stageWidth ?? width - 40;
   const contentHeight = contentWidth * 9 / 16;
@@ -56,8 +56,6 @@ export function AudienceStage({ data, fullscreen = false, stageWidth, onRefresh 
             compact={allQuestions.length > 1}
             boardMode={allQuestions.length > 1}
             darkHeader={true}
-            session={data.interaction?.session}
-            onRefresh={onRefresh}
           />
         </View>
       );
@@ -68,8 +66,6 @@ export function AudienceStage({ data, fullscreen = false, stageWidth, onRefresh 
       <ResponseWordCloud
         questions={allQuestions}
         responses={data.interaction?.allResponses || data.interaction?.responses || []}
-        session={data.interaction?.session}
-        onRefresh={onRefresh}
       />
     );
   }

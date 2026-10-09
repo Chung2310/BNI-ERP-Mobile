@@ -1,6 +1,7 @@
 import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { Alert } from "@/components/AppAlert";
 import * as Clipboard from "expo-clipboard";
+import QRCode from "react-native-qrcode-svg";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Check,
@@ -528,7 +529,7 @@ export function InteractionManager({
         ) : null}
       </Card>
 
-      {/* CARD 2: LINK TƯƠNG TÁC CHO KHÁCH MỜI */}
+      {/* QR dẫn tới biểu mẫu trả lời trên web */}
       {state.session ? (
         <Card style={s.card}>
           <View style={s.shareHeader}>
@@ -536,12 +537,23 @@ export function InteractionManager({
               <Globe color={colors.primaryDark} size={18} />
             </View>
             <View style={s.grow}>
-              <Text style={s.heading}>Link tương tác cho khách mời</Text>
+              <Text style={s.heading}>QR trả lời ý kiến</Text>
               <Text style={s.metaSubtitle}>
-                Thành viên có thể tương tác trực tiếp không cần truy cập qua link đóng góp ý kiến
+                Mở nhận câu trả lời, sau đó cho thành viên quét mã để điền trên trình duyệt.
               </Text>
             </View>
           </View>
+
+          {participationUrl ? (
+            <View style={s.qrSection}>
+              <View style={s.qrFrame}>
+                <QRCode value={participationUrl} size={208} quietZone={8} />
+              </View>
+              <Text style={s.qrCaption}>Quét mã để mở biểu mẫu trả lời</Text>
+            </View>
+          ) : (
+            <Text style={s.meta}>Chưa có liên kết tham gia. Hãy làm mới phiên ý kiến.</Text>
+          )}
 
           <Pressable onPress={copyParticipationLink} style={s.linkBox}>
             <Link color={colors.primaryDark} size={16} />
@@ -814,6 +826,9 @@ function Toggle({
 const s = StyleSheet.create({
   embedded: { gap: spacing.md },
   card: { padding: spacing.md, marginBottom: spacing.md },
+  qrSection: { alignItems: "center", gap: spacing.sm, marginVertical: spacing.md },
+  qrFrame: { backgroundColor: "#FFFFFF", padding: spacing.xs, borderRadius: radius.md },
+  qrCaption: { color: colors.muted, fontSize: 12, textAlign: "center" },
   previewTabs: { gap: spacing.sm, paddingRight: spacing.md, marginBottom: spacing.md },
   previewTab: {
     minHeight: 40,

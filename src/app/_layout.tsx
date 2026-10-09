@@ -30,7 +30,6 @@ export default function RootLayout() {
             <Stack.Screen name="meeting/[id]/live" />
             <Stack.Screen name="meeting/[id]/watch" />
             <Stack.Screen name="meeting/[id]/interaction" />
-            <Stack.Screen name="meeting/[id]/respond" />
             <Stack.Screen name="member/[id]" />
             <Stack.Screen name="chat/[id]" />
             <Stack.Screen name="notifications" />

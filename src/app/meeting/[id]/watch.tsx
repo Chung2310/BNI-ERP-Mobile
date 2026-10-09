@@ -31,7 +31,7 @@ export default function WatchMeetingScreen() {
       <BackHeader title="Theo dõi cuộc họp" subtitle={data?.meeting.title} action={data ? <Pressable accessibilityRole="button" accessibilityLabel="Mở trình chiếu toàn màn hình" onPress={() => setExpanded(true)} style={styles.expand}><Expand color={colors.primaryDark} size={22} /></Pressable> : undefined} />
       {error ? <Card><Text style={styles.error}>{error}</Text><Button onPress={retry}>Thử lại</Button></Card> : null}
       {!data && !error ? <ActivityIndicator color={colors.primary} style={styles.loading} /> : null}
-      {data ? <><Text style={styles.connection}>{error ? "Đang kết nối lại · Nội dung lần cập nhật gần nhất" : "● Đang theo dõi trực tiếp"}</Text><AudienceStage data={data} onRefresh={retry} /></> : null}
+      {data ? <><Text style={styles.connection}>{error ? "Đang kết nối lại · Nội dung lần cập nhật gần nhất" : "● Đang theo dõi trực tiếp"}</Text><AudienceStage data={data} /></> : null}
     </Screen>
     <MeetingAudienceFullscreen data={data} visible={expanded} onClose={() => setExpanded(false)} />
   </>;

@@ -169,7 +169,6 @@ export type MeetingInteractionResponse = {
 };
 export type MeetingInteraction = { session: MeetingInteractionSession | null; responses: MeetingInteractionResponse[]; allResponses?: MeetingInteractionResponse[] };
 export type MeetingInteractionInput = Pick<MeetingInteractionSession, "question" | "durationSeconds" | "requireName" | "showNames" | "moderationEnabled" | "allowMultipleResponses">;
-export type MeetingInteractionSubmission = { ids: string[]; status: "pending" | "approved"; meetingTitle: string; answerCount: number };
 
 export type SpeakingTimeSlot = { startTime: string; endTime: string; seconds: number };
 export type MeetingPoint = { latitude: number; longitude: number };
@@ -282,8 +281,6 @@ export const meetingService = {
     apiRequest<{ data: LuckyDrawConfig }>(`/api/v1/meetings/${encodeURIComponent(id)}/lucky-draw/reset`, { method: "POST", body: JSON.stringify(prizeId ? { prizeId } : {}) }).then(unwrap),
   resolveQr: (token: string) => apiRequest<{ data: { id: string; title: string; startsAt: string; location?: string } }>(`/api/v1/meeting-checkin/${encodeURIComponent(token)}`).then(unwrap),
   interaction: (id: string) => apiRequest<{ data: MeetingInteraction }>(`/api/v1/meetings/${encodeURIComponent(id)}/interaction`).then(unwrap),
-  submitInteractionAnswers: (token: string, input: { participantId: string; name: string; answers: { questionId: string; answer: string }[] }) =>
-    apiRequest<{ data: MeetingInteractionSubmission }>(`/api/v1/meeting-interaction/${encodeURIComponent(token)}/responses`, { method: "POST", body: JSON.stringify(input) }).then(unwrap),
   saveInteraction: (id: string, input: MeetingInteractionInput) =>
     apiRequest<{ data: MeetingInteraction }>(`/api/v1/meetings/${encodeURIComponent(id)}/interaction`, { method: "PUT", body: JSON.stringify(input) }).then(unwrap),
   addInteractionQuestion: (id: string, question: string) =>

@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Animated, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { Alert } from "@/components/AppAlert";
-import { MessageCircle, PenLine, Send, X } from "lucide-react-native";
-import { useAuth } from "@/context/AuthContext";
-import { meetingService, type MeetingInteractionQuestion, type MeetingInteractionResponse, type MeetingInteractionSession } from "@/services/meeting";
+import { MessageCircle } from "lucide-react-native";
+import type { MeetingInteractionQuestion, MeetingInteractionResponse } from "@/services/meeting";
 import { Badge, Card } from "@/components/ui";
 import { colors, radius, spacing } from "@/theme/tokens";
 
@@ -35,13 +34,6 @@ const COLOR_ROTATION = [
   COLOR_FAMILIES.gold,
   COLOR_FAMILIES.coral,
 ];
-
-function tokenFromUrl(url?: string): string {
-  if (!url) return "";
-  const marker = "/meeting-interaction/";
-  const start = url.indexOf(marker);
-  return start < 0 ? "" : url.slice(start + marker.length).split(/[/?#]/)[0];
-}
 
 function buildTerms(responses: MeetingInteractionResponse[]): CloudTerm[] {
   const terms = new Map<string, CloudTerm>();
@@ -273,15 +265,11 @@ function QuestionCloud({
   responses,
   compact,
   isBoard = false,
-  canAnswer = false,
-  onOpenAnswer,
 }: {
   question: MeetingInteractionQuestion;
   responses: MeetingInteractionResponse[];
   compact: boolean;
   isBoard?: boolean;
-  canAnswer?: boolean;
-  onOpenAnswer?: (question: MeetingInteractionQuestion) => void;
 }) {
   const questionResponses = useMemo(
     () => responses.filter((response) => response.questionId === question.id),
@@ -338,18 +326,6 @@ function QuestionCloud({
         </View>
         <View style={styles.headerRightActions}>
           <Badge tone="primary">{approvedCount} Ý KIẾN</Badge>
-          {canAnswer && onOpenAnswer ? (
-            <Pressable
-              onPress={() => onOpenAnswer(question)}
-              style={({ pressed }) => [styles.quickAnswerBtn, pressed && styles.btnPressed]}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel={`Trả lời câu ${question.order}`}
-            >
-              <PenLine size={12} color="#00ADFC" />
-              <Text style={styles.quickAnswerBtnText}>Trả lời</Text>
-            </Pressable>
-          ) : null}
         </View>
       </View>
 
@@ -392,79 +368,17 @@ export function ResponseWordCloud({
   compact = false,
   boardMode = false,
   darkHeader = false,
-  session,
-  onRefresh,
 }: {
   questions: MeetingInteractionQuestion[];
   responses: MeetingInteractionResponse[];
   compact?: boolean;
   boardMode?: boolean;
   darkHeader?: boolean;
-  session?: MeetingInteractionSession | null;
-  onRefresh?: () => void;
 }) {
-  const { user } = useAuth();
-  const token = session ? tokenFromUrl(session.participationUrl) : "";
-  const canAnswer = Boolean(session && session.status === "open" && token);
-
-  const [answeringQuestion, setAnsweringQuestion] = useState<MeetingInteractionQuestion | null>(null);
-  const [inputText, setInputText] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState("");
-
   const boardRows = useMemo(() => {
     if (!boardMode || questions.length <= 1) return null;
     return groupQuestionsForBoard(questions);
   }, [boardMode, questions]);
-
-  // Kiểm tra xem người dùng hiện tại đã trả lời câu hỏi này chưa (khi không cho phép gửi nhiều lần)
-  const hasAlreadyAnsweredThis = useMemo(() => {
-    if (!session || session.allowMultipleResponses || !answeringQuestion || !user) return false;
-    return responses.some(
-      (r) => r.participantId === user.uid && r.questionId === answeringQuestion.id
-    );
-  }, [session, answeringQuestion, user, responses]);
-
-  const handleOpenAnswer = (q: MeetingInteractionQuestion) => {
-    setAnsweringQuestion(q);
-    setInputText("");
-    setSubmitError("");
-  };
-
-  const handleCloseModal = () => {
-    setAnsweringQuestion(null);
-    setInputText("");
-    setSubmitError("");
-  };
-
-  const handleSubmitAnswer = async () => {
-    if (!answeringQuestion || !inputText.trim() || isSubmitting || !token) return;
-    setIsSubmitting(true);
-    setSubmitError("");
-    try {
-      const text = inputText.trim();
-      await meetingService.submitInteractionAnswers(token, {
-        participantId: user?.uid || "guest",
-        name: user?.displayName?.trim() || user?.email?.split("@")[0] || "Thành viên",
-        answers: [{ questionId: answeringQuestion.id, answer: text }],
-      });
-
-      // Cập nhật real-time dữ liệu ra Word Cloud
-      onRefresh?.();
-
-      if (session?.allowMultipleResponses) {
-        // Cho phép gửi nhiều: làm trống ô nhập để nhập tiếp ngay lập tức, KHÔNG báo popup
-        setInputText("");
-      } else {
-        // Chỉ gửi 1 lần: đóng popup
-        handleCloseModal();
-      }
-    } catch {
-      setSubmitError("Không thể gửi câu trả lời. Vui lòng thử lại.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   if (!questions.length) return null;
 
@@ -502,8 +416,6 @@ export function ResponseWordCloud({
                     responses={responses}
                     compact={true}
                     isBoard={true}
-                    canAnswer={canAnswer}
-                    onOpenAnswer={handleOpenAnswer}
                   />
                 </View>
               ))}
@@ -517,106 +429,10 @@ export function ResponseWordCloud({
             question={question}
             responses={responses}
             compact={compact}
-            canAnswer={canAnswer}
-            onOpenAnswer={handleOpenAnswer}
           />
         ))
       )}
 
-      {/* POPUP TRẢ LỜI Ý KIẾN TRỰC TIẾP */}
-      <Modal
-        visible={Boolean(answeringQuestion)}
-        transparent
-        animationType="fade"
-        onRequestClose={handleCloseModal}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalCard}>
-            {/* Header popup */}
-            <View style={styles.modalHeader}>
-              <View style={styles.modalTitleRow}>
-                <View style={styles.modalOrderBadge}>
-                  <Text style={styles.modalOrderBadgeText}>
-                    CÂU {answeringQuestion?.order}
-                  </Text>
-                </View>
-                <Text numberOfLines={2} style={styles.modalQuestionText}>
-                  {answeringQuestion?.text}
-                </Text>
-              </View>
-              <Pressable
-                onPress={handleCloseModal}
-                hitSlop={8}
-                style={styles.modalCloseBtn}
-                accessibilityRole="button"
-                accessibilityLabel="Đóng popup"
-              >
-                <X size={20} color={colors.text} />
-              </Pressable>
-            </View>
-
-            {/* Nội dung popup */}
-            {hasAlreadyAnsweredThis ? (
-              <View style={styles.answeredNoticeBox}>
-                <Text style={styles.answeredNoticeTitle}>
-                  Bạn đã gửi câu trả lời cho câu hỏi này rồi.
-                </Text>
-                <Text style={styles.answeredNoticeDesc}>
-                  Phiên tương tác chỉ cho phép gửi câu trả lời 1 lần.
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.modalInputWrap}>
-                <TextInput
-                  value={inputText}
-                  onChangeText={setInputText}
-                  placeholder="Nhập ý kiến / từ khóa của bạn..."
-                  placeholderTextColor={colors.muted}
-                  multiline
-                  maxLength={200}
-                  textAlignVertical="top"
-                  style={styles.modalTextInput}
-                  autoFocus
-                />
-              </View>
-            )}
-
-            {/* Footer: Chỉ 1 nút icon gửi + đếm ký tự bên trái, góc phải đã có X nên không thêm nút đóng */}
-            {!hasAlreadyAnsweredThis ? (
-              <View style={styles.modalFooter}>
-                <View style={styles.modalFooterLeft}>
-                  {submitError ? (
-                    <Text style={styles.modalErrorText}>{submitError}</Text>
-                  ) : (
-                    <Text style={styles.modalCharCount}>{inputText.length}/200</Text>
-                  )}
-                </View>
-
-                <Pressable
-                  disabled={!inputText.trim() || isSubmitting}
-                  onPress={handleSubmitAnswer}
-                  style={({ pressed }) => [
-                    styles.modalBtnSubmit,
-                    (!inputText.trim() || isSubmitting) && styles.modalBtnSubmitDisabled,
-                    pressed && styles.btnPressed,
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Gửi câu trả lời"
-                >
-                  {isSubmitting ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Send size={18} color="#FFFFFF" />
-                  )}
-                </Pressable>
-              </View>
-            ) : null}
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
     </View>
   );
 }
@@ -686,155 +502,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-  },
-  quickAnswerBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    backgroundColor: "rgba(0, 173, 252, 0.12)",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: "rgba(0, 173, 252, 0.25)",
-  },
-  quickAnswerBtnText: {
-    color: "#00ADFC",
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  btnPressed: {
-    opacity: 0.7,
-  },
-
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: spacing.md,
-  },
-  modalCard: {
-    width: "100%",
-    maxWidth: 420,
-    backgroundColor: "#FFFFFF",
-    borderRadius: radius.xl,
-    padding: spacing.md,
-    gap: spacing.sm,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#E2E8F0",
-    paddingBottom: spacing.xs,
-  },
-  modalTitleRow: {
-    flex: 1,
-    gap: 4,
-  },
-  modalOrderBadge: {
-    alignSelf: "flex-start",
-    backgroundColor: "rgba(0, 173, 252, 0.12)",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: radius.sm,
-  },
-  modalOrderBadgeText: {
-    color: "#00ADFC",
-    fontSize: 11,
-    fontWeight: "800",
-  },
-  modalQuestionText: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: "700",
-    lineHeight: 20,
-  },
-  modalCloseBtn: {
-    padding: 2,
-  },
-  modalInputWrap: {
-    gap: 4,
-    marginTop: 2,
-  },
-  modalTextInput: {
-    minHeight: 85,
-    maxHeight: 140,
-    borderWidth: 1,
-    borderColor: "#CBD5E1",
-    borderRadius: radius.md,
-    padding: spacing.sm,
-    fontSize: 14,
-    color: colors.text,
-    backgroundColor: "#F8FAFC",
-  },
-  modalInputFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 2,
-  },
-  modalErrorText: {
-    color: colors.danger,
-    fontSize: 12,
-  },
-  modalCharCount: {
-    color: colors.muted,
-    fontSize: 11,
-    alignSelf: "flex-end",
-  },
-  answeredNoticeBox: {
-    backgroundColor: "#FEF3C7",
-    padding: spacing.md,
-    borderRadius: radius.md,
-    gap: 4,
-    marginVertical: spacing.xs,
-  },
-  answeredNoticeTitle: {
-    color: "#92400E",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  answeredNoticeDesc: {
-    color: "#B45309",
-    fontSize: 12,
-  },
-  modalFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 4,
-  },
-  modalFooterLeft: {
-    flex: 1,
-    paddingRight: spacing.sm,
-  },
-  modalBtnSubmit: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.pill,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.brandBlue,
-    shadowColor: colors.brandBlue,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  modalBtnSubmitDisabled: {
-    opacity: 0.4,
-    shadowOpacity: 0,
-    elevation: 0,
   },
 
   sectionHeader: { marginBottom: 2 },
