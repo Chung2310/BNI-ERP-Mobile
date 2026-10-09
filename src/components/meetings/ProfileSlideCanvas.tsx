@@ -31,8 +31,8 @@ export function ProfileSlideCanvas({ slide, width }: { slide: ProfileSlide; widt
     <Image source={require("../../../assets/meeting-slide/portrait-frame.png")} style={box(100, 247, 480, 456)} resizeMode="stretch" />
     <View style={[box(60, 710, 575, 62), styles.namePill]}><Text numberOfLines={1} adjustsFontSizeToFit style={label(28)}>{slide.name?.toLocaleUpperCase("vi-VN")}</Text></View>
     {slide.company ? <Text numberOfLines={2} style={[box(48, 790, 600, 82), label(30, RED)]}>{slide.company.toLocaleUpperCase("vi-VN")}</Text> : null}
-    {slide.phone ? <Text numberOfLines={1} style={[box(48, 882, 600, 42), label(27, "#00ADFC")]}>HOTLINE: {slide.phone}</Text> : null}
-    {slide.address ? <Text numberOfLines={3} style={[box(48, 933, 600, 110), { ...label(27, "#00ADFC"), textAlign: "left" }]}>{slide.address}</Text> : null}
+    {slide.phone ? <Text numberOfLines={1} style={[box(48, 882, 600, 42), label(27, "#00528d")]}>HOTLINE: {slide.phone}</Text> : null}
+    {slide.address ? <Text numberOfLines={3} style={[box(48, 933, 600, 110), { ...label(27, "#00528d"), textAlign: "left" }]}>{slide.address}</Text> : null}
 
     {slide.industry ? <>
       <View style={[box(710, 252, 1100, 148), styles.industry]}><Text numberOfLines={3} adjustsFontSizeToFit style={label(45)}>{slide.industry.toLocaleUpperCase("vi-VN")}</Text></View>
@@ -50,7 +50,7 @@ export function ProfileSlideCanvas({ slide, width }: { slide: ProfileSlide; widt
 
     {slide.targetMarket ? <>
       <View style={[box(710, 777, 470, 54), styles.namePill]}><Text style={label(26)}>THỊ TRƯỜNG MỤC TIÊU</Text></View>
-      <Text numberOfLines={5} style={[box(735, 850, 1020, 176), { fontSize: px(39), lineHeight: px(47), fontWeight: "700", color: "#00ADFC", includeFontPadding: false }]}>{slide.targetMarket}</Text>
+      <Text numberOfLines={5} style={[box(735, 850, 1020, 176), { fontSize: px(39), lineHeight: px(47), fontWeight: "700", color: "#003b67", includeFontPadding: false }]}>{slide.targetMarket}</Text>
     </> : null}
     <View style={[box(1690, 990, 230, 90), styles.footerRed]} />
   </View>;
