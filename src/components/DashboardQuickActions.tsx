@@ -1,36 +1,35 @@
-import type { ComponentType } from 'react';
+import { useContext } from 'react';
 import { router, type Href } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Users } from 'lucide-react-native';
-import {
-  DuotoneAnalyticsIcon,
-  DuotoneCalendarIcon,
-  DuotoneChatIcon,
-  DuotoneCreateMeetingIcon,
-  DuotoneSettingsIcon,
-  DuotoneTrophyIcon,
-} from '@/components/icons/DuotoneActionIcons';
+import { CalendarCheck, CalendarPlus, ChartNoAxesCombined, MessageSquareMore, Podium, Settings, Users, type LucideIcon } from 'lucide-react-native';
+import { ChatUnreadCountContext } from '@/context/ChatUnreadCountContext';
 import type { UserProfile } from '@/types';
 import { colors, radius, spacing } from '@/theme/tokens';
 import { canCreateMeeting } from '@/utils/permissions';
 
 interface QuickActionDef {
-  icon: ComponentType<{ color?: string; size?: number; strokeWidth?: number }>;
+  icon: LucideIcon;
   title: string;
   href: Href;
   color: string;
+  unreadCount?: number;
 }
 
-function ActionItem({ icon: Icon, title, href, color }: QuickActionDef) {
+function ActionItem({ icon: Icon, title, href, color, unreadCount = 0 }: QuickActionDef) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={title}
+      accessibilityLabel={unreadCount > 0 ? `${title}, ${unreadCount} tin nhắn chưa đọc` : title}
       style={({ pressed }) => [styles.item, pressed && styles.pressed]}
       onPress={() => router.push(href)}
     >
       <View style={styles.iconBox}>
         <Icon color={color} size={25} strokeWidth={2.2} />
+        {unreadCount > 0 ? (
+          <View style={styles.unreadBadge}>
+            <Text style={styles.unreadBadgeText}>{unreadCount >= 100 ? '99+' : unreadCount}</Text>
+          </View>
+        ) : null}
       </View>
       <Text style={styles.itemTitle} numberOfLines={2}>
         {title}
@@ -46,23 +45,24 @@ export function DashboardQuickActions({
   liveMeetingId?: string;
 }) {
   const showCreateMeeting = canCreateMeeting(user);
+  const chatUnreadCount = useContext(ChatUnreadCountContext);
 
   const actions: QuickActionDef[] = [];
 
   // Thêm Lịch trình lên đầu tiện ích (dẫn đến tab cuộc họp/lịch trình)
   actions.push({
-    icon: DuotoneCalendarIcon,
+    icon: CalendarCheck,
     title: 'Lịch trình',
     href: '/(tabs)/meetings',
-    color: '#00AECA',
+    color: colors.brandBlue,
   });
 
   // Thêm Thống kê vào tiện ích
   actions.push({
-    icon: DuotoneAnalyticsIcon,
+    icon: ChartNoAxesCombined,
     title: 'Thống kê',
     href: '/(tabs)/statistics',
-    color: '#00AECA',
+    color: colors.brandBlue,
   });
 
   if (user && user.role !== 'admin') {
@@ -70,37 +70,38 @@ export function DashboardQuickActions({
       icon: Users,
       title: 'Thành viên',
       href: '/(tabs)/members',
-      color: '#00AECA',
+      color: colors.brandBlue,
     });
   }
 
   if (showCreateMeeting) {
     actions.push({
-      icon: DuotoneCreateMeetingIcon,
+      icon: CalendarPlus,
       title: 'Tạo cuộc họp',
       href: '/meeting/create',
-      color: '#00AECA',
+      color: colors.brandBlue,
     });
   }
 
   actions.push(
     {
-      icon: DuotoneChatIcon,
+      icon: MessageSquareMore,
       title: 'Trò chuyện',
       href: '/(tabs)/chat',
-      color: '#00AECA',
+      color: colors.brandBlue,
+      unreadCount: chatUnreadCount,
     },
     {
-      icon: DuotoneTrophyIcon,
+      icon: Podium,
       title: 'Xếp hạng',
       href: '/rankings',
-      color: '#00AECA',
+      color: colors.brandBlue,
     },
     {
-      icon: DuotoneSettingsIcon,
+      icon: Settings,
       title: 'Cài đặt',
       href: '/settings',
-      color: '#00AECA',
+      color: colors.brandBlue,
     }
   );
 
@@ -135,15 +136,34 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 2,
     marginBottom: 2,
+    overflow: 'visible',
   },
   iconBox: {
     width: 40,
     height: 40,
-    borderRadius: radius.md,
-    backgroundColor: '#FFFFFF', // Nền màu trắng trùng với màu card
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'visible',
+    zIndex: 1,
   },
+  unreadBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -10,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 3,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+    backgroundColor: '#E53935',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+    elevation: 2,
+  },
+  unreadBadgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' },
   itemTitle: {
     marginTop: 2,
     color: colors.text,

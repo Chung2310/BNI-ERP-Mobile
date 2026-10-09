@@ -18,7 +18,7 @@ type Player = { id: string; name: string; photoURL?: string; category: "present"
 
 const categoryNames: Record<Category, string> = { all: "Tất cả", all_members: "Tất cả TV", present: "Có mặt", guest: "Khách mời" };
 const playerTypeNames: Record<Player["category"], string> = { present: "Có mặt", absent: "Vắng mặt", guest: "Khách mời" };
-const wedgeColors = ["#00AFC8", "#087F9A", "#F5B841", "#D97867", "#439B80", "#596CB4"];
+const wedgeColors = ["#00ADFC", "#8B5CF6", "#F5B841", "#D97867", "#439B80", "#EC4899"];
 const initials = (name: string) => name.split(" ").filter(Boolean).map((word) => word[0]).slice(-2).join("").toUpperCase();
 
 function roster(meeting: Meeting, users: UserProfile[]): Player[] {
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   addGuest: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   categoryRow: { flexDirection: "row", gap: 6, width: "100%" },
   categoryChip: { flex: 1, minHeight: 32, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, backgroundColor: colors.surface, paddingHorizontal: 2 },
-  categoryChipActive: { backgroundColor: colors.primaryDark, borderColor: colors.primaryDark },
+  categoryChipActive: { backgroundColor: colors.brandBlue, borderColor: colors.brandBlue },
   categoryChipText: { color: colors.text, fontSize: 11, fontWeight: "700", textAlign: "center" },
   categoryChipTextActive: { color: "#FFFFFF" },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }, chip: { minHeight: 40, justifyContent: "center", borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, backgroundColor: colors.surface, paddingHorizontal: spacing.md }, chipActive: { backgroundColor: colors.primarySoft, borderColor: colors.primaryDark }, chipText: { color: colors.primaryDark, fontSize: 12, fontWeight: "700" },

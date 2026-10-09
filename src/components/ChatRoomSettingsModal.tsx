@@ -230,6 +230,6 @@ const styles = StyleSheet.create({
   saveText: { color: colors.primaryDark, fontSize: 13, fontWeight: '700' },
   input: { minHeight: 46, margin: spacing.md, paddingHorizontal: spacing.md, borderRadius: radius.md, backgroundColor: colors.surface, color: colors.text },
   addingContent: { marginHorizontal: spacing.md, borderRadius: radius.lg, overflow: 'hidden' },
-  addButton: { minHeight: 48, marginHorizontal: spacing.md, marginTop: spacing.sm, borderRadius: radius.md, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  addButton: { minHeight: 48, marginHorizontal: spacing.md, marginTop: spacing.sm, borderRadius: radius.md, backgroundColor: colors.brandBlue, alignItems: 'center', justifyContent: 'center' },
   addButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
 });

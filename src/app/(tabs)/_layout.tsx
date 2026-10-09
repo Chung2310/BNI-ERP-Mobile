@@ -1,8 +1,10 @@
 import { Redirect, Tabs } from "expo-router";
-import { CalendarDays, CircleUserRound, Home, MessageCircle, MoreHorizontal, Users, type LucideIcon } from "lucide-react-native";
-import { StyleSheet, View } from "react-native";
+import { useContext } from "react";
+import { CalendarDays, CircleUserRound, Home, MessageCircle, Users, type LucideIcon } from "lucide-react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/context/AuthContext";
+import { ChatUnreadCountContext } from "@/context/ChatUnreadCountContext";
 import { colors } from "@/theme/tokens";
 
 const icons: Record<string, LucideIcon> = {
@@ -15,6 +17,7 @@ const icons: Record<string, LucideIcon> = {
 
 export default function TabsLayout() {
   const { isLoading, token } = useAuth();
+  const chatUnreadCount = useContext(ChatUnreadCountContext);
   const insets = useSafeAreaInsets();
   if (!isLoading && !token) return <Redirect href="/login" />;
   const bottomPadding = Math.max(insets.bottom, 8);
@@ -25,8 +28,9 @@ export default function TabsLayout() {
       backBehavior="initialRoute"
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: colors.primaryDark,
+        tabBarActiveTintColor: colors.brandBlue,
         tabBarInactiveTintColor: colors.muted,
+        tabBarButton: (props) => <Pressable {...props} ref={undefined} android_ripple={{ color: "transparent" }} style={({ pressed }) => [props.style, pressed && styles.tabPressed]} />,
         tabBarStyle: {
           height: 56 + bottomPadding,
           paddingTop: 6,
@@ -38,14 +42,18 @@ export default function TabsLayout() {
         tabBarItemStyle: {
           overflow: "visible",
         },
-        tabBarLabelStyle: { fontSize: 10.5, fontWeight: "500" },
-        tabBarIcon: ({ color, focused }) => {
-          const Icon = icons[route.name] || MoreHorizontal;
+        tabBarLabelStyle: {
+          fontSize: 10.5,
+          fontWeight: "600",
+        },
+        tabBarIcon: ({ focused }) => {
+          const Icon = icons[route.name] || Home;
+          const isHome = route.name === "index";
           return (
-            <View style={[styles.iconWrapper, focused && styles.iconWrapperActive]}>
+            <View style={[styles.iconWrapper, isHome && styles.homeIconWrapper]}>
               <Icon
-                color={focused ? colors.surface : color}
-                size={focused ? 23 : 22}
+                color={focused ? colors.brandBlue : colors.muted}
+                size={isHome ? (focused ? 24 : 23) : (focused ? 23 : 22)}
                 strokeWidth={focused ? 2.2 : 1.8}
               />
             </View>
@@ -59,10 +67,13 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: "Home",
-          tabBarLabelStyle: { fontSize: 10.5, fontWeight: "600" },
         }}
       />
-      <Tabs.Screen name="chat" options={{ title: "Trò chuyện" }} />
+      <Tabs.Screen name="chat" options={{
+        title: "Trò chuyện",
+        tabBarBadge: chatUnreadCount > 0 ? chatUnreadCount >= 100 ? "99+" : chatUnreadCount : undefined,
+        tabBarBadgeStyle: styles.chatBadge,
+      }} />
       <Tabs.Screen name="more" options={{ title: "Cá nhân" }} />
       <Tabs.Screen
         name="statistics"
@@ -76,23 +87,15 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
+  chatBadge: { minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: "#E53935", color: "#FFFFFF", fontSize: 10, fontWeight: "800" },
+  tabPressed: { opacity: 0.82 },
   iconWrapper: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
     alignItems: "center",
     justifyContent: "center",
-    overflow: "visible",
   },
-  iconWrapperActive: {
-    transform: [{ translateY: -7 }],
-    backgroundColor: colors.primary,
-    borderWidth: 3,
-    borderColor: colors.surface,
-    shadowColor: colors.primaryDark,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.24,
-    shadowRadius: 6,
-    elevation: 7,
+  homeIconWrapper: {
+    transform: [{ translateY: -4 }],
   },
 });

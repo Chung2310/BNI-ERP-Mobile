@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.pill,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.brandBlue,
     paddingHorizontal: spacing.lg,
   },
   submitBtnDisabled: {

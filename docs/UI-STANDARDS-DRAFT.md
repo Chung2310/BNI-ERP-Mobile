@@ -21,9 +21,9 @@ Trạng thái: chờ duyệt wireframe. Đây là nền tảng để dựng high
 
 | Token | Giá trị dự thảo | Mục đích |
 |---|---:|---|
-| Primary | `#00AECA` | CTA, tab đang chọn, trạng thái chủ động |
-| Primary dark | `#007F98` | Chữ/link trên nền sáng |
-| Primary soft | `#E4F8FB` | Badge và vùng chọn nhẹ |
+| Primary | `#00ADFC` | CTA, tab đang chọn, trạng thái chủ động |
+| Primary dark | `#00ADFC` | Chữ/link dùng cùng màu thương hiệu |
+| Primary soft | `rgba(0, 173, 252, 0.12)` | Badge và vùng chọn nhẹ từ màu thương hiệu |
 | Surface | `#FFFFFF` | Card, sheet, navigation |
 | Background | `#F7FAFB` | Nền ứng dụng |
 | Text | `#102533` | Nội dung chính |
@@ -32,7 +32,7 @@ Trạng thái: chờ duyệt wireframe. Đây là nền tảng để dựng high
 | Danger | `#D9485F` | Xóa, kết thúc họp, lỗi nghiêm trọng |
 | Warning | `#D99020` | Sắp đến hạn, cần chú ý |
 
-Màu đỏ chỉ dùng cho cảnh báo, thao tác phá hủy và trạng thái live; không dùng làm màu thương hiệu chính.
+Chữ và icon trên nút nền primary dùng màu trắng. Màu đỏ dùng cho cảnh báo, thao tác phá hủy, trạng thái live và số tin nhắn chưa đọc; không dùng làm màu thương hiệu chính.
 
 ### Chữ
 

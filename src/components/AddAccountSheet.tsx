@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", justifyContent: "flex-end", gap: spacing.sm, paddingTop: spacing.xs },
   cancelButton: { minHeight: touchTarget, justifyContent: "center", paddingHorizontal: spacing.lg },
   cancelText: { color: colors.muted, fontSize: 13, fontWeight: "700" },
-  saveButton: { minHeight: touchTarget, minWidth: 120, alignItems: "center", justifyContent: "center", borderRadius: radius.md, backgroundColor: colors.primary, paddingHorizontal: spacing.lg },
+  saveButton: { minHeight: touchTarget, minWidth: 120, alignItems: "center", justifyContent: "center", borderRadius: radius.md, backgroundColor: colors.brandBlue, paddingHorizontal: spacing.lg },
   saveText: { color: "#FFFFFF", fontSize: 13, fontWeight: "700" },
   disabled: { opacity: 0.6 },
 });

@@ -21,8 +21,8 @@ import { Card } from '@/components/ui';
 import { KeyboardResponsiveView } from '@/components/KeyboardResponsiveView';
 
 const palette = {
-  present: '#00AECA', // Brand primary jade cyan
-  guest: '#5EE2F6',   // Lighter brand cyan
+  present: '#00ADFC', // Brand primary jade cyan
+  guest: 'rgba(0, 173, 252, 0.45)',   // Lighter brand blue
   absent: '#CDEAF1',  // Soft pale ice cyan tint
 };
 
