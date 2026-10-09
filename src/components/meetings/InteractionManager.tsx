@@ -538,7 +538,7 @@ export function InteractionManager({
             <View style={s.grow}>
               <Text style={s.heading}>Link tương tác cho khách mời</Text>
               <Text style={s.metaSubtitle}>
-                Khách tham gia trực tiếp qua trình duyệt web, không cần cài app
+                Thành viên có thể tương tác trực tiếp không cần truy cập qua link đóng góp ý kiến
               </Text>
             </View>
           </View>
