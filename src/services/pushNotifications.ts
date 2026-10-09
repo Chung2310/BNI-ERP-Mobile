@@ -31,12 +31,12 @@ function showOpenNotificationSettingsPrompt() {
   );
 }
 
-async function performDevicePushRegistration(): Promise<string | null> {
+async function performDevicePushRegistration(providedToken?: string): Promise<string | null> {
   if (Platform.OS === "web" || !Device.isDevice) return null;
   const Notifications = await getPushNotificationsModule();
   if (!Notifications) return null;
 
-  if (Platform.OS === "android") {
+  if (!providedToken && Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
       name: "Thông báo iGen Connect",
       importance: Notifications.AndroidImportance.HIGH,
@@ -46,21 +46,25 @@ async function performDevicePushRegistration(): Promise<string | null> {
     });
   }
 
-  const currentPermission = await Notifications.getPermissionsAsync();
-  if (!currentPermission.granted && !currentPermission.canAskAgain) {
-    showOpenNotificationSettingsPrompt();
-    return null;
+  let token = providedToken;
+  if (!token) {
+    const currentPermission = await Notifications.getPermissionsAsync();
+    if (!currentPermission.granted && !currentPermission.canAskAgain) {
+      showOpenNotificationSettingsPrompt();
+      return null;
+    }
+
+    const permission = currentPermission.granted
+      ? currentPermission
+      : await Notifications.requestPermissionsAsync();
+    if (!permission.granted) return null;
+
+    // This is the provider-native token: FCM on Android and APNs on iOS.
+    // The backend sends directly to those providers; Expo Push Service is not used.
+    const nativeToken = await Notifications.getDevicePushTokenAsync();
+    token = nativeToken.data;
   }
-
-  const permission = currentPermission.granted
-    ? currentPermission
-    : await Notifications.requestPermissionsAsync();
-  if (!permission.granted) return null;
-
-  // This is the provider-native token: FCM on Android and APNs on iOS.
-  // The backend sends directly to those providers; Expo Push Service is not used.
-  const nativeToken = await Notifications.getDevicePushTokenAsync();
-  const token = nativeToken.data;
+  if (!token) return null;
   const previousToken = await SecureStore.getItemAsync(PUSH_TOKEN_KEY);
   const legacyExpoToken = await SecureStore.getItemAsync(LEGACY_EXPO_PUSH_TOKEN_KEY);
 
@@ -89,9 +93,9 @@ async function performDevicePushRegistration(): Promise<string | null> {
   return token;
 }
 
-export function registerCurrentDeviceForPush(): Promise<string | null> {
+export function registerCurrentDeviceForPush(nativeToken?: string): Promise<string | null> {
   if (registrationPromise) return registrationPromise;
-  registrationPromise = performDevicePushRegistration()
+  registrationPromise = performDevicePushRegistration(nativeToken)
     .finally(() => { registrationPromise = null; });
   return registrationPromise;
 }
