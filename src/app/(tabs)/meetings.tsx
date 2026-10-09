@@ -350,6 +350,9 @@ export default function MeetingsScreen() {
           </View>
 
           <View style={styles.headerRightActions}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Xem hồ sơ cá nhân" hitSlop={8} onPress={() => router.push("/profile")}>
+              <Avatar initials={userInitials} url={user?.photoURL} size={32} />
+            </Pressable>
             {canCreateMeeting && (
               <Pressable
                 accessibilityRole="button"
@@ -361,9 +364,6 @@ export default function MeetingsScreen() {
                 <Plus color="#FFFFFF" size={19} strokeWidth={2.4} />
               </Pressable>
             )}
-            <Pressable accessibilityRole="button" accessibilityLabel="Xem hồ sơ cá nhân" hitSlop={8} onPress={() => router.push("/profile")}>
-              <Avatar initials={userInitials} url={user?.photoURL} size={32} />
-            </Pressable>
           </View>
         </View>
       </View>
