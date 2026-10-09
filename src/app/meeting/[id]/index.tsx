@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
   body: { color: colors.muted, fontSize: 13, lineHeight: 20 },
   checkInError: { color: colors.danger, fontSize: 13, lineHeight: 19 },
   cardTitle: { color: colors.text, fontSize: 15, fontWeight: "900" },
-  attendance: { gap: spacing.md, borderColor: "#B9E7EE", backgroundColor: colors.primarySoft },
+  attendance: { gap: spacing.md, borderColor: "rgba(0, 173, 252, 0.25)", backgroundColor: colors.primarySoft },
   sectionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
   speakersCard: { gap: 0, paddingVertical: spacing.sm },
   searchBox: { height: 38, flexDirection: "row", alignItems: "center", gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, backgroundColor: colors.background, margin: spacing.sm, paddingHorizontal: spacing.md },

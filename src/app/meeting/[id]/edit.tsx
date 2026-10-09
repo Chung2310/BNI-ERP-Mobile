@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
   slotHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   slotTitle: { color: colors.text, fontSize: 13, fontWeight: "800" },
   remove: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center" },
-  bulk: { borderColor: "#B9E7EE", backgroundColor: colors.primarySoft },
+  bulk: { borderColor: "rgba(0, 173, 252, 0.25)", backgroundColor: colors.primarySoft },
   bulkRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   bulkText: { flex: 1, gap: spacing.xs },
   errorCard: { borderColor: "#F4BCC5", backgroundColor: "#FFF4F6" },

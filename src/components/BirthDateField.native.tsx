@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
   title: { color: colors.text, fontSize: 16, fontWeight: "800", paddingHorizontal: spacing.xs },
   actions: { flexDirection: "row", gap: spacing.sm },
   cancel: { flex: 1, minHeight: touchTarget, alignItems: "center", justifyContent: "center", borderRadius: radius.md, backgroundColor: colors.background },
-  confirm: { flex: 1, minHeight: touchTarget, alignItems: "center", justifyContent: "center", borderRadius: radius.md, backgroundColor: colors.primary },
+  confirm: { flex: 1, minHeight: touchTarget, alignItems: "center", justifyContent: "center", borderRadius: radius.md, backgroundColor: colors.brandBlue },
   cancelText: { color: colors.muted, fontSize: 14, fontWeight: "700" },
   confirmText: { color: "#FFFFFF", fontSize: 14, fontWeight: "700" },
 });

@@ -164,7 +164,7 @@ export function ResourceManager() {
       </View></View>
     </Modal>
   </Screen>
-    {!trash && canManage && currentFolderMutable && !createMenuOpen ? <Pressable accessibilityRole="button" accessibilityLabel="Thêm tài nguyên" accessibilityState={{ expanded: false }} onPress={() => setCreateMenuOpen(true)} style={[styles.addButton, { bottom: insets.bottom + spacing.xl }]}><Plus color={colors.primaryDark} size={26} strokeWidth={2.5} /></Pressable> : null}
+    {!trash && canManage && currentFolderMutable && !createMenuOpen ? <Pressable accessibilityRole="button" accessibilityLabel="Thêm tài nguyên" accessibilityState={{ expanded: false }} onPress={() => setCreateMenuOpen(true)} style={[styles.addButton, { bottom: insets.bottom + spacing.xl }]}><Plus color="#FFFFFF" size={26} strokeWidth={2.5} /></Pressable> : null}
     {createMenuOpen ? <View accessibilityViewIsModal style={styles.createOverlay}>
       <Pressable accessibilityLabel="Đóng menu thêm tài nguyên" style={styles.createBackdrop} onPress={() => setCreateMenuOpen(false)} />
       <View style={[styles.createMenu, { bottom: insets.bottom + spacing.xl }]}>
@@ -184,11 +184,11 @@ function formatSize(size?: number) { if (!size) return "Không rõ dung lượng
 const styles = StyleSheet.create({
   page: { flex: 1 },
   headerAction: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center" },
-  addButton: { position: "absolute", right: spacing.lg, width: 56, height: 56, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.primarySoft, elevation: 4, shadowColor: colors.text, shadowOpacity: 0.16, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
+  addButton: { position: "absolute", right: spacing.lg, width: 56, height: 56, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.brandBlue, elevation: 4, shadowColor: colors.brandBlue, shadowOpacity: 0.24, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
   createOverlay: { ...StyleSheet.absoluteFill, zIndex: 10 },
   createBackdrop: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(8, 24, 32, 0.76)" },
   createMenu: { position: "absolute", right: spacing.lg, alignItems: "flex-end", gap: spacing.sm },
-  createOption: { minWidth: 190, minHeight: touchTarget, paddingHorizontal: spacing.lg, flexDirection: "row", alignItems: "center", gap: spacing.md, borderRadius: radius.pill, backgroundColor: colors.primaryDark },
+  createOption: { minWidth: 190, minHeight: touchTarget, paddingHorizontal: spacing.lg, flexDirection: "row", alignItems: "center", gap: spacing.md, borderRadius: radius.pill, backgroundColor: colors.brandBlue },
   createOptionText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
   createClose: { width: 56, height: 56, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.primarySoft },
   crumbs: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 2, paddingHorizontal: 4 }, crumb: { flexDirection: "row", alignItems: "center", minHeight: 36, maxWidth: 170 }, crumbText: { color: colors.primaryDark, fontSize: 12, fontWeight: "700" },

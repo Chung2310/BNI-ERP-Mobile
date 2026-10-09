@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Animated, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Animated, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert } from "@/components/AppAlert";
 import { MessageCircle, PenLine, Send, X } from "lucide-react-native";
 import { useAuth } from "@/context/AuthContext";
 import { meetingService, type MeetingInteractionQuestion, type MeetingInteractionResponse, type MeetingInteractionSession } from "@/services/meeting";
@@ -157,7 +158,8 @@ function CloudWord({
   const showDetail = () => {
     Alert.alert(
       `"${item.text}"`,
-      `Từ khóa này đã được ${item.count} người tham dự gửi trong buổi họp.`
+      `Từ khóa này đã được ${item.count} người tham dự gửi trong buổi họp.`,
+      [{ text: "OK" }]
     );
   };
 
@@ -344,7 +346,7 @@ function QuestionCloud({
               accessibilityRole="button"
               accessibilityLabel={`Trả lời câu ${question.order}`}
             >
-              <PenLine size={12} color="#007F98" />
+              <PenLine size={12} color="#00ADFC" />
               <Text style={styles.quickAnswerBtnText}>Trả lời</Text>
             </Pressable>
           ) : null}
@@ -689,15 +691,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    backgroundColor: "#E4F8FB",
+    backgroundColor: "rgba(0, 173, 252, 0.12)",
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: "#BFEBF2",
+    borderColor: "rgba(0, 173, 252, 0.25)",
   },
   quickAnswerBtnText: {
-    color: "#007F98",
+    color: "#00ADFC",
     fontSize: 11,
     fontWeight: "700",
   },
@@ -741,13 +743,13 @@ const styles = StyleSheet.create({
   },
   modalOrderBadge: {
     alignSelf: "flex-start",
-    backgroundColor: "#E4F8FB",
+    backgroundColor: "rgba(0, 173, 252, 0.12)",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: radius.sm,
   },
   modalOrderBadgeText: {
-    color: "#007F98",
+    color: "#00ADFC",
     fontSize: 11,
     fontWeight: "800",
   },
@@ -822,8 +824,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.primaryDark,
-    shadowColor: colors.primaryDark,
+    backgroundColor: colors.brandBlue,
+    shadowColor: colors.brandBlue,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,

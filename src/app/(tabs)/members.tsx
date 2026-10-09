@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   loadMoreText: {
-    color: colors.primary, // Màu brand iGen Connect (#00AECA)
+    color: colors.primary, // Màu brand iGen Connect (#00ADFC)
     fontSize: 12,
     fontWeight: "700",
   },

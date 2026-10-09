@@ -442,7 +442,7 @@ export function InteractionManager({
         {canManage ? (
           <View style={s.actionGroup}>
             {!state.session ? (
-              <Button icon={Save} fullWidth disabled={Boolean(busy)} onPress={save}>
+              <Button fullWidth disabled={Boolean(busy)} onPress={save}>
                 Tạo phiên tương tác
               </Button>
             ) : null}
@@ -804,7 +804,7 @@ function Toggle({
         value={value}
         onValueChange={onChange}
         disabled={disabled}
-        trackColor={{ false: colors.border, true: "#83D9E5" }}
+        trackColor={{ false: colors.border, true: "rgba(0, 173, 252, 0.35)" }}
         thumbColor={value ? colors.primaryDark : "#FFFFFF"}
       />
     </View>
@@ -824,7 +824,7 @@ const s = StyleSheet.create({
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.md,
   },
-  previewTabActive: { borderColor: colors.primaryDark, backgroundColor: colors.primaryDark },
+  previewTabActive: { borderColor: colors.brandBlue, backgroundColor: colors.brandBlue },
   previewTabText: { color: colors.text, fontSize: 13, fontWeight: "700" },
   previewTabTextActive: { color: "#FFFFFF" },
 
@@ -896,14 +896,14 @@ const s = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#EDF2F7",
   },
-  orderBadgeActive: { backgroundColor: colors.primaryDark },
+  orderBadgeActive: { backgroundColor: colors.brandBlue },
   orderBadgeText: { color: colors.text, fontSize: 13, fontWeight: "800" },
   orderBadgeTextActive: { color: "#FFFFFF" },
   questionText: { color: colors.text, fontSize: 13, fontWeight: "700", lineHeight: 18 },
   questionTextActive: { color: colors.primaryDark },
   itemMetaRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
   activeChip: {
-    backgroundColor: colors.primaryDark,
+    backgroundColor: colors.brandBlue,
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: 4,
@@ -944,7 +944,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
     borderWidth: 1,
-    borderColor: "#B9E7EE",
+    borderColor: "rgba(0, 173, 252, 0.25)",
     backgroundColor: colors.primarySoft,
     borderRadius: radius.md,
     padding: spacing.md,
@@ -958,7 +958,7 @@ const s = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: radius.sm,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -966,8 +966,8 @@ const s = StyleSheet.create({
   settingsPanel: {
     borderWidth: 1,
     borderTopWidth: 0,
-    borderColor: "#B9E7EE",
-    backgroundColor: "#F9FEFF",
+    borderColor: "rgba(0, 173, 252, 0.25)",
+    backgroundColor: "rgba(0, 173, 252, 0.06)",
     borderBottomLeftRadius: radius.md,
     borderBottomRightRadius: radius.md,
     padding: spacing.md,
@@ -1054,7 +1054,7 @@ const s = StyleSheet.create({
   },
   statBadgeActive: {
     backgroundColor: colors.primarySoft,
-    borderColor: "#B9E7EE",
+    borderColor: "rgba(0, 173, 252, 0.25)",
   },
   statLabel: { color: colors.muted, fontSize: 11, fontWeight: "600" },
   statValue: { color: colors.text, fontSize: 12, fontWeight: "800" },
@@ -1070,8 +1070,8 @@ const s = StyleSheet.create({
     borderColor: colors.border,
   },
   filterChipActive: {
-    backgroundColor: colors.primaryDark,
-    borderColor: colors.primaryDark,
+    backgroundColor: colors.brandBlue,
+    borderColor: colors.brandBlue,
   },
   filterChipText: { color: colors.muted, fontSize: 12, fontWeight: "700" },
   filterChipTextActive: { color: "#FFFFFF" },
@@ -1118,7 +1118,7 @@ const s = StyleSheet.create({
   },
   modBtnApprove: { backgroundColor: "#E7F7F0", borderColor: "#B2E5D0" },
   modBtnHide: { backgroundColor: "#F1F5F9", borderColor: colors.border },
-  modBtnShow: { backgroundColor: colors.primarySoft, borderColor: "#B9E7EE" },
+  modBtnShow: { backgroundColor: colors.primarySoft, borderColor: "rgba(0, 173, 252, 0.25)" },
   modBtnReject: { backgroundColor: "#FEECEF", borderColor: "#F8B4C0" },
   modBtnText: { fontSize: 12, fontWeight: "800" },
 });

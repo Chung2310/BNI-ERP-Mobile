@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   crownSlot: { height: 22, alignItems: "center", justifyContent: "center" },
   name: { width: "100%", marginTop: spacing.xs, color: colors.text, fontSize: 11, fontWeight: "800", textAlign: "center" },
   score: { marginVertical: 3, color: colors.primaryDark, fontSize: 12, fontWeight: "900" },
-  bar: { width: "100%", alignItems: "center", justifyContent: "flex-end", paddingBottom: spacing.sm, borderTopLeftRadius: 10, borderTopRightRadius: 10, backgroundColor: "#B9E7EE", borderWidth: 1, borderColor: "#A5DFE8" },
+  bar: { width: "100%", alignItems: "center", justifyContent: "flex-end", paddingBottom: spacing.sm, borderTopLeftRadius: 10, borderTopRightRadius: 10, backgroundColor: "rgba(0, 173, 252, 0.25)", borderWidth: 1, borderColor: "rgba(0, 173, 252, 0.25)" },
   rank: { color: colors.primaryDark, fontSize: 13, fontWeight: "900" },
   list: { paddingVertical: 0 },
   row: { minHeight: 62, flexDirection: "row", alignItems: "center", gap: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },

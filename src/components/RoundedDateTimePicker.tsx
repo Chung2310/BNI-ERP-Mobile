@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.background,
   },
-  confirm: { backgroundColor: colors.primary },
+  confirm: { backgroundColor: colors.brandBlue },
   cancelText: { color: colors.muted, fontSize: 14, fontWeight: "600" },
   confirmText: { color: "#FFFFFF", fontSize: 14, fontWeight: "700" },
 
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 44,
     borderRadius: radius.md,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.brandBlue,
     alignItems: "center",
     justifyContent: "center",
   },

@@ -652,12 +652,13 @@ export default function ChatRoomScreen() {
     return (
       <View>
         {showDay ? <Text style={styles.day}>{formatDay(item.createdAt)}</Text> : null}
-        <View style={[styles.messageRow, mine && styles.myMessageRow]}>
-          <Pressable
-            accessibilityHint='Nhấn giữ để xem thao tác'
+        <View style={[styles.messageRow, mine && styles.myMessageRow, reactionCounts.length > 0 && styles.messageRowWithReactions]}>
+          <View style={styles.bubbleWrapper}>
+            <Pressable
+              accessibilityHint='Nhấn giữ để xem thao tác'
             delayLongPress={350}
             onLongPress={item.pendingAttachment ? undefined : () => openActions(item)}
-            style={[styles.bubble, mine && styles.mine, mediaOnly && styles.mediaBubble, item.isDeleted && styles.deletedBubble, jumpTargetId === item._id && styles.highlightBubble]}
+            style={[styles.bubble, mine && styles.mine, reactionCounts.length > 0 && styles.bubbleWithReactions, mediaOnly && styles.mediaBubble, item.isDeleted && styles.deletedBubble, jumpTargetId === item._id && styles.highlightBubble]}
           >
             {!mine ? <Text style={styles.sender}>{item.senderName}</Text> : null}
             {quoted ? (
@@ -706,12 +707,25 @@ export default function ChatRoomScreen() {
               {mine && !item.pendingAttachment && item.readBy && room && item.readBy.length >= room.members.length ? <Text style={[styles.edited, !mediaOnly && styles.mySecondaryText]}>Đã xem</Text> : null}
               <Text style={[styles.time, mine && !mediaOnly && styles.mySecondaryText]}>{item.pendingAttachment ? item.pendingAttachment.status === 'sending' ? 'Đang gửi' : 'Chưa gửi' : formatClock(item.createdAt)}</Text>
             </View>
+            </Pressable>
             {reactionCounts.length ? (
-              <Pressable accessibilityRole='button' accessibilityLabel={`${item.reactions?.length || 0} lượt thả cảm xúc, xem người đã thả`} onPress={() => setReactionMessageId(item._id)} style={[styles.reaction, mine && styles.reactionMine]}>
-                <Text numberOfLines={1} style={styles.reactionText}>{reactionCounts.slice(0, 3).map(([emoji]) => emoji).join(' ')}{reactionCounts.length > 3 ? ' …' : ''}  {item.reactions?.length || 0}</Text>
+              <Pressable
+                accessibilityRole='button'
+                accessibilityLabel={`${item.reactions?.length || 0} lượt bày tỏ cảm xúc, xem người đã thả`}
+                onPress={() => setReactionMessageId(item._id)}
+                style={styles.reactionBadge}
+              >
+                <Text style={styles.reactionEmojis}>
+                  {reactionCounts.slice(0, 3).map(([emoji]) => emoji).join('')}
+                </Text>
+                {item.reactions && item.reactions.length > 1 ? (
+                  <Text style={styles.reactionCountText}>
+                    {item.reactions.length}
+                  </Text>
+                ) : null}
               </Pressable>
             ) : null}
-          </Pressable>
+          </View>
         </View>
       </View>
     );
@@ -796,7 +810,6 @@ export default function ChatRoomScreen() {
 
           {recorderState.isRecording ? <View style={styles.recordingBar}><Mic color={colors.danger} size={18} /><Text style={styles.recordingText}>Đang ghi âm {Math.floor(recorderState.durationMillis / 1000)} giây</Text><Pressable accessibilityLabel='Hủy ghi âm' onPress={() => void stopRecording(false)} style={styles.recordingButton}><X color={colors.muted} size={20} /></Pressable><Pressable accessibilityLabel='Dừng và đính kèm ghi âm' onPress={() => void stopRecording(true)} style={styles.recordingButton}><Check color={colors.primaryDark} size={20} /></Pressable></View> : null}
 
-          {showEmojis ? <View style={styles.emojiPicker}><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.emojiTabs}>{emojiCategories.map((category, index) => <Pressable key={category.label} accessibilityLabel={category.label} onPress={() => setEmojiCategory(index)} style={[styles.emojiTab, emojiCategory === index && styles.emojiTabSelected]}><Text style={styles.emojiTabText}>{category.icon}</Text><Text style={styles.emojiTabLabel}>{category.label}</Text></Pressable>)}</ScrollView><ScrollView style={styles.emojiGridScroll} contentContainerStyle={styles.emojiGrid}>{emojiCategories[emojiCategory].emojis.map((emoji, index) => <Pressable key={`${emoji}-${index}`} accessibilityLabel={`Chèn ${emoji}`} onPress={() => setMessage((current) => current + emoji)} style={styles.emojiButton}><Text style={styles.emojiText}>{emoji}</Text></Pressable>)}</ScrollView></View> : null}
           {mentionNames.length ? <View style={styles.mentions}>{mentionNames.map((candidate) => <Pressable key={candidate} onPress={() => setMessage((current) => `${current.slice(0, current.lastIndexOf('@'))}@${candidate} `)} style={styles.mention}><Text style={styles.mentionText}>@{candidate}</Text></Pressable>)}</View> : null}
 
           <View style={styles.composerContainer}>
@@ -804,7 +817,17 @@ export default function ChatRoomScreen() {
             {blocked ? <Text style={styles.blockedHint}>{blockedByMe ? 'Cuộc trò chuyện đang bị chặn. Mở cài đặt để bỏ chặn.' : 'Người này hiện không muốn nhận tin'}</Text> : null}
             <View style={styles.composer}>
               <Pressable accessibilityLabel='Đính kèm ảnh, video hoặc tệp' disabled={blocked || sending || Boolean(editingMessage)} onPress={() => { Keyboard.dismiss(); setShowAttachmentPicker(true); }} style={styles.composerTool}><Paperclip color={colors.primaryDark} size={20} /></Pressable>
-              <Pressable accessibilityLabel='Chèn emoji' disabled={blocked} onPress={() => { Keyboard.dismiss(); setShowEmojis((value) => !value); }} style={styles.composerTool}><Smile color={colors.primaryDark} size={20} /></Pressable>
+              <Pressable
+                accessibilityLabel='Chèn emoji'
+                disabled={blocked}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setShowEmojis((value) => !value);
+                }}
+                style={[styles.composerTool, showEmojis && styles.composerToolActive]}
+              >
+                <Smile color={showEmojis ? colors.primaryDark : colors.muted} size={20} />
+              </Pressable>
               <TextInput
                 value={message}
                 editable={!blocked}
@@ -836,11 +859,70 @@ export default function ChatRoomScreen() {
                 {sending ? (
                   <ActivityIndicator size='small' color='#FFFFFF' />
                 ) : (
-                  <Send color='#FFFFFF' size={20} />
+                  <Send
+                    color={blocked || !message.trim() || sending ? '#94A3B8' : '#FFFFFF'}
+                    size={20}
+                  />
                 )}
               </Pressable>
             </View>
           </View>
+
+          {showEmojis ? (
+            <View style={[styles.emojiPicker, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+              <View style={styles.emojiTabsContainer}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.emojiTabs}
+                >
+                  {emojiCategories.map((category, index) => {
+                    const isSelected = emojiCategory === index;
+                    return (
+                      <Pressable
+                        key={category.label}
+                        accessibilityLabel={category.label}
+                        onPress={() => setEmojiCategory(index)}
+                        style={[
+                          styles.emojiTab,
+                          isSelected && styles.emojiTabSelected,
+                        ]}
+                      >
+                        <Text style={styles.emojiTabText}>{category.icon}</Text>
+                        <Text
+                          style={[
+                            styles.emojiTabLabel,
+                            isSelected && styles.emojiTabLabelSelected,
+                          ]}
+                        >
+                          {category.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+              <ScrollView
+                style={styles.emojiGridScroll}
+                contentContainerStyle={styles.emojiGrid}
+                showsVerticalScrollIndicator={false}
+              >
+                {emojiCategories[emojiCategory].emojis.map((emoji, index) => (
+                  <Pressable
+                    key={`${emoji}-${index}`}
+                    accessibilityLabel={`Chèn ${emoji}`}
+                    onPress={() => setMessage((current) => current + emoji)}
+                    style={({ pressed }) => [
+                      styles.emojiButton,
+                      pressed && styles.emojiButtonPressed,
+                    ]}
+                  >
+                    <Text style={styles.emojiText}>{emoji}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          ) : null}
         </KeyboardAvoidingView>
       </View>
     </SafeAreaView>
@@ -1022,16 +1104,76 @@ const styles = StyleSheet.create({
   recordingText: { flex: 1, color: colors.text, fontSize: 12, fontWeight: '700' },
   recordingButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   emojiRow: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 6, backgroundColor: colors.surface },
-  emojiPicker: { height: 210, backgroundColor: colors.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
-  emojiTabs: { gap: 4, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
-  emojiTab: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: spacing.sm, borderRadius: radius.pill },
-  emojiTabSelected: { backgroundColor: colors.primarySoft },
-  emojiTabText: { fontSize: 18 },
-  emojiTabLabel: { color: colors.text, fontSize: 11 },
-  emojiGridScroll: { flex: 1 },
-  emojiGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-around', paddingHorizontal: spacing.sm },
-  emojiButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  emojiText: { fontSize: 24 },
+  composerToolActive: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.pill,
+  },
+  emojiPicker: {
+    height: 250,
+    backgroundColor: colors.surface,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  emojiTabsContainer: {
+    height: 44,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#F1F5F9',
+    justifyContent: 'center',
+  },
+  emojiTabs: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: spacing.sm,
+  },
+  emojiTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 32,
+    paddingHorizontal: 12,
+    borderRadius: radius.pill,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  emojiTabSelected: {
+    backgroundColor: colors.primarySoft,
+    borderColor: 'rgba(0, 173, 252, 0.25)',
+  },
+  emojiTabText: {
+    fontSize: 15,
+  },
+  emojiTabLabel: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  emojiTabLabelSelected: {
+    color: colors.primaryDark,
+    fontWeight: '700',
+  },
+  emojiGridScroll: {
+    flex: 1,
+  },
+  emojiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 4,
+    paddingVertical: spacing.xs,
+  },
+  emojiButton: {
+    width: '12.5%',
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emojiButtonPressed: {
+    transform: [{ scale: 1.25 }],
+  },
+  emojiText: {
+    fontSize: 26,
+  },
   imagePreview: { flex: 1, justifyContent: 'center', backgroundColor: '#050B12' },
   imagePreviewClose: { position: 'absolute', zIndex: 1, top: 48, right: 12, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   imagePreviewContent: { width: '100%', height: '80%' },
@@ -1052,7 +1194,7 @@ const styles = StyleSheet.create({
   searchRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
   searchTypes: { gap: 6, paddingVertical: spacing.sm },
   searchType: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill, backgroundColor: colors.primarySoft },
-  searchTypeSelected: { backgroundColor: colors.primary },
+  searchTypeSelected: { backgroundColor: colors.brandBlue },
   searchTypeText: { color: colors.primaryDark, fontSize: 11, fontWeight: '700' },
   searchTypeTextSelected: { color: '#FFFFFF' },
   searchInput: { flex: 1, minHeight: 44, paddingHorizontal: spacing.sm, color: colors.text },
@@ -1092,15 +1234,22 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
-  messageRow: { flexDirection: 'row', justifyContent: 'flex-start' },
+  messageRow: { flexDirection: 'row', justifyContent: 'flex-start', marginVertical: 2 },
   myMessageRow: { justifyContent: 'flex-end' },
-  bubble: {
+  messageRowWithReactions: { marginBottom: 12 },
+  bubbleWrapper: {
     maxWidth: '82%',
+    position: 'relative',
+  },
+  bubbleWithReactions: {
+    paddingBottom: 14,
+    minWidth: 74,
+  },
+  bubble: {
     paddingHorizontal: 14,
     paddingTop: 10,
     paddingBottom: 8,
     borderRadius: 18,
-    borderBottomLeftRadius: 4,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -1111,10 +1260,9 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   mine: {
-    borderBottomLeftRadius: 18,
-    borderBottomRightRadius: 4,
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    borderRadius: 18,
+    backgroundColor: '#00ADFC',
+    borderColor: '#00ADFC',
   },
   mediaBubble: { paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0, borderWidth: 0, borderRadius: 0, backgroundColor: 'transparent', shadowOpacity: 0, elevation: 0 },
   deletedBubble: { backgroundColor: '#F2F5F6', borderColor: colors.border },
@@ -1141,18 +1289,38 @@ const styles = StyleSheet.create({
   mediaMeta: { marginTop: 3, paddingHorizontal: 2 },
   time: { color: colors.muted, fontSize: 9 },
   edited: { color: colors.muted, fontSize: 9, fontStyle: 'italic' },
-  reaction: {
-    alignSelf: 'flex-start',
-    marginTop: 5,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
+  reactionBadge: {
+    position: 'absolute',
+    bottom: -10,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
     borderRadius: radius.pill,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 2.5,
+    elevation: 3,
+    zIndex: 10,
   },
-  reactionMine: { alignSelf: 'flex-end' },
-  reactionText: { color: colors.text, fontSize: 12, fontWeight: '700' },
+  reactionEmojis: {
+    fontSize: 12.5,
+    lineHeight: 16,
+    includeFontPadding: false,
+  },
+  reactionCountText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#475569',
+    lineHeight: 15,
+    includeFontPadding: false,
+  },
   reactionPerson: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
   reactionPersonName: { color: colors.text, fontSize: 14 },
   reactionPersonEmoji: { fontSize: 20 },
@@ -1248,9 +1416,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 22,
-    backgroundColor: colors.primary,
+    backgroundColor: '#00ADFC',
+    shadowColor: '#00ADFC',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  sendDisabled: { opacity: 0.38 },
+  sendDisabled: {
+    backgroundColor: '#E2E8F0',
+    shadowOpacity: 0,
+    elevation: 0,
+    opacity: 1,
+  },
   pressed: { opacity: 0.75, transform: [{ scale: 0.96 }] },
   sendText: { color: '#FFFFFF', fontSize: 18, fontWeight: '900' },
 });

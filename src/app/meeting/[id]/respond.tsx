@@ -313,8 +313,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   tabActive: {
-    backgroundColor: colors.primaryDark,
-    borderColor: colors.primaryDark,
+    backgroundColor: colors.brandBlue,
+    borderColor: colors.brandBlue,
   },
   tabText: {
     color: colors.text,
