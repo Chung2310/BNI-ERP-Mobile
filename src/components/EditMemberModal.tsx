@@ -691,7 +691,7 @@ const styles = StyleSheet.create({
   bannerContainer: {
     width: "100%",
     height: 120,
-    backgroundColor: "#0097B2",
+    backgroundColor: "#00ADFC",
     position: "relative",
     justifyContent: "center",
     alignItems: "center",
@@ -928,7 +928,7 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   submitBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.brandBlue,
   },
   submitBtnText: {
     fontSize: 14,

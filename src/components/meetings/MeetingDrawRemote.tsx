@@ -555,8 +555,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   filterChipActive: {
-    backgroundColor: colors.primaryDark,
-    borderColor: colors.primaryDark,
+    backgroundColor: colors.brandBlue,
+    borderColor: colors.brandBlue,
   },
   filterChipText: {
     color: colors.text,

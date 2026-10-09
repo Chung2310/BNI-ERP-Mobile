@@ -91,8 +91,8 @@ function getMeetingStatusInfo(meeting: Meeting) {
 
   return {
     label: "Sắp diễn ra",
-    color: "#2563EB", // Xanh dương
-    bg: "#DBEAFE",
+    color: "#00ADFC", // Xanh dương
+    bg: "rgba(0, 173, 252, 0.12)",
     isUpcoming: true,
   };
 }
@@ -108,8 +108,8 @@ function ScheduleMeetingCard({
 }) {
   const isBlue = themeColor === "blue";
   const statusInfo = getMeetingStatusInfo(meeting);
-  const primaryColor = statusInfo.isLive ? "#16A34A" : statusInfo.isUpcoming ? "#2563EB" : isBlue ? "#2563EB" : "#10B981";
-  const badgeBorder = statusInfo.isLive ? "#DCFCE7" : statusInfo.isUpcoming ? "#DBEAFE" : isBlue ? "#DBEAFE" : "#D1FAE5";
+  const primaryColor = statusInfo.isLive ? "#16A34A" : statusInfo.isUpcoming ? "#00ADFC" : isBlue ? "#00ADFC" : "#10B981";
+  const badgeBorder = statusInfo.isLive ? "#DCFCE7" : statusInfo.isUpcoming ? "rgba(0, 173, 252, 0.12)" : isBlue ? "rgba(0, 173, 252, 0.12)" : "#D1FAE5";
 
   const { dateStr, timeRange, duration, monthNum, dayNum } = formatMeetingDetails(
     meeting.startsAt,
@@ -395,7 +395,7 @@ export default function HomeScreen() {
               onPress={() => router.push("/notifications")}
               style={({ pressed }) => [styles.notificationButton, pressed && styles.cardPressed]}
             >
-              <Bell color={colors.primaryDark} size={20} strokeWidth={2} />
+              <Bell color={colors.brandBlue} size={20} strokeWidth={2} />
             </Pressable>
             <Pressable
               accessibilityRole="button"
@@ -449,7 +449,7 @@ export default function HomeScreen() {
 
                   <View style={styles.titleWithMic}>
                     <View style={styles.heroIconSlot}>
-                      <Mic color="#00AECA" size={14} strokeWidth={2.4} />
+                      <Mic color={colors.brandBlue} size={14} strokeWidth={2.4} />
                     </View>
                     <Text style={styles.heroTitleCompact} numberOfLines={1}>
                       {featuredMeeting.title}
@@ -459,7 +459,7 @@ export default function HomeScreen() {
                   {!isFeaturedLive && featuredSchedule ? (
                     <View style={styles.heroMetaRow}>
                       <View style={styles.heroIconSlot}>
-                        <Clock color="#00AECA" size={14} strokeWidth={2.2} />
+                        <Clock color={colors.brandBlue} size={14} strokeWidth={2.2} />
                       </View>
                       <Text style={styles.heroMetaCompact} numberOfLines={1}>
                         {featuredSchedule.dateStr} · {featuredSchedule.timeRange}
@@ -469,7 +469,7 @@ export default function HomeScreen() {
 
                   <View style={styles.heroMetaRow}>
                     <View style={styles.heroIconSlot}>
-                      <MapPin color="#00AECA" size={14} strokeWidth={2.2} />
+                      <MapPin color={colors.brandBlue} size={14} strokeWidth={2.2} />
                     </View>
                     <Text style={styles.heroMetaCompact} numberOfLines={1}>
                       {featuredMeeting.location?.trim() || "Chưa xác định"}
@@ -478,7 +478,7 @@ export default function HomeScreen() {
                   {isFeaturedLive ? (
                     <View style={styles.heroMetaRow}>
                       <View style={styles.heroIconSlot}>
-                        <Fingerprint color="#00AECA" size={14} strokeWidth={2.2} />
+                        <Fingerprint color={colors.brandBlue} size={14} strokeWidth={2.2} />
                       </View>
                       <Text style={styles.heroMetaCompact} numberOfLines={1}>
                         {featuredMeeting.speakers.length} người đã check-in
@@ -599,14 +599,19 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   /* Header Hero Card kiểu ảnh 1 */
   headerHeroCard: {
-    backgroundColor: "#EDF6FA",
+    backgroundColor: "#D9F3FE",
     borderRadius: 20,
     padding: 16,
-    borderWidth: 1,
-    borderColor: "#D9ECF3",
+    borderWidth: 1.5,
+    borderColor: "rgba(0, 173, 252, 0.25)",
     gap: 12,
     marginTop: 2,
     marginBottom: 4,
+    shadowColor: colors.brandBlue,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
   },
   headerHeroTop: {
     flexDirection: "row",
@@ -657,7 +662,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingTop: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(203, 213, 225, 0.4)",
+    borderTopColor: "rgba(0, 173, 252, 0.28)",
   },
   digitalClockText: {
     color: "#0F172A",
@@ -730,7 +735,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   loadMoreBtn: {
-    backgroundColor: "transparent",
+    alignSelf: "center",
+    minHeight: 40,
+    paddingHorizontal: 18,
+    borderWidth: 1,
+    borderColor: colors.brandBlue,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
     paddingVertical: 8,
     alignItems: "center",
     justifyContent: "center",
@@ -738,7 +749,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   loadMoreText: {
-    color: "#00AECA",
+    color: colors.brandBlue,
     fontSize: 13,
     fontWeight: "700",
   },
@@ -840,14 +851,14 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
-  /* Banner cuộc họp trực tiếp - Nền nhạt theo màu logo iGen Connect (#00AECA -> #E8F8FA) */
+  /* Banner cuộc họp trực tiếp - Nền nhạt đồng bộ màu thương hiệu brandBlue #00ADFC */
   heroCompact: {
-    backgroundColor: "#E4F8FB",
+    backgroundColor: "#CEEEFD",
     borderRadius: radius.lg,
     padding: 3,
     borderWidth: 1.5,
-    borderColor: "#B9E7EE",
-    shadowColor: "#00AECA",
+    borderColor: "rgba(0, 173, 252, 0.25)",
+    shadowColor: colors.brandBlue,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.16,
     shadowRadius: 8,
@@ -857,12 +868,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#EDF9FB",
+    backgroundColor: "#E2F6FE",
     borderRadius: radius.lg - 3,
     paddingVertical: 11,
     paddingHorizontal: 13,
     borderWidth: 1,
-    borderColor: "#D2F1F6",
+    borderColor: "rgba(0, 173, 252, 0.25)",
     gap: spacing.sm,
   },
   heroLeft: {
@@ -886,8 +897,8 @@ const styles = StyleSheet.create({
     gap: 4.5,
   },
   upcomingTagBadge: {
-    backgroundColor: "#DBEAFE",
-    borderColor: "#93C5FD",
+    backgroundColor: "rgba(0, 173, 252, 0.12)",
+    borderColor: "rgba(0, 173, 252, 0.25)",
   },
   liveDotWrapper: {
     width: 10,
@@ -902,7 +913,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#22C55E",
   },
   upcomingStatusDot: {
-    backgroundColor: "#3B82F6",
+    backgroundColor: "#00ADFC",
   },
   heroTagText: {
     color: "#15803D",
@@ -910,7 +921,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   upcomingTagText: {
-    color: "#1D4ED8",
+    color: "#00ADFC",
   },
   liveWave: {
     height: 16,
@@ -956,12 +967,12 @@ const styles = StyleSheet.create({
   heroActionBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#00AECA",
+    backgroundColor: colors.brandBlue,
     borderRadius: radius.pill,
     paddingVertical: 8,
     paddingHorizontal: 12,
     gap: 4,
-    shadowColor: "#00AECA",
+    shadowColor: colors.brandBlue,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.35,
     shadowRadius: 5,

@@ -32,7 +32,7 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   filters: { flexDirection: "row", gap: 4, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: "#EDF3F5", padding: 4 },
   filter: { flex: 1, minWidth: 0, alignItems: "center", borderRadius: radius.sm, paddingVertical: spacing.sm },
-  active: { backgroundColor: colors.primary },
+  active: { backgroundColor: colors.brandBlue },
   filterText: { color: colors.muted, fontSize: 10, fontWeight: "800" },
   activeText: { color: "#FFFFFF" },
   list: { paddingVertical: 0 },

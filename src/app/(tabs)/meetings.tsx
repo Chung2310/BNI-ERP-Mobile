@@ -28,7 +28,7 @@ import {
   subscribeMeetingChanges,
   type Meeting,
 } from "@/services/meeting";
-import { radius, shadow } from "@/theme/tokens";
+import { colors, radius, shadow } from "@/theme/tokens";
 import { canCreateMeeting as canCreateMeetingForUser } from "@/utils/permissions";
 
 type ViewMode = "month" | "week" | "day";
@@ -327,7 +327,7 @@ export default function MeetingsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* 1. Header Bar: Màu nền chuẩn của brand iGen Connect (#00AECA), Tiêu đề "Lịch trình" */}
+      {/* 1. Header Bar: Màu nền thương hiệu iGen Connect, Tiêu đề "Lịch trình" */}
       <View style={[styles.headerBar, { paddingTop: Math.max(insets.top, 14) }]}>
         <View style={styles.headerContent}>
           <View style={styles.headerTitleWrap}>
@@ -645,7 +645,7 @@ export default function MeetingsScreen() {
                     }
                     style={styles.weekEmptyRow}
                   >
-                    <Plus size={14} color="#00AECA" strokeWidth={2.4} />
+                    <Plus size={14} color={colors.brandBlue} strokeWidth={2.4} />
                     <Text style={styles.weekEmptyText}>Chưa có lịch · Chạm để tạo cuộc họp</Text>
                   </Pressable>
                 ) : (
@@ -859,7 +859,7 @@ export default function MeetingsScreen() {
                   }}
                   style={styles.modalAddMeetingBtn}
                 >
-                  <Plus color="#00AECA" size={19} strokeWidth={2.4} />
+                  <Plus color="#FFFFFF" size={19} strokeWidth={2.4} />
                 </Pressable> : null}
 
                 <Pressable
@@ -949,7 +949,7 @@ export default function MeetingsScreen() {
                 })
               ) : (
                 <View style={styles.sheetEmpty}>
-                  <CalendarIcon color="#00AECA" size={36} strokeWidth={1.8} />
+                  <CalendarIcon color={colors.brandBlue} size={36} strokeWidth={1.8} />
                   <Text style={styles.sheetEmptyTitle}>Không có lịch họp</Text>
                   <Text style={styles.sheetEmptyText}>
                     Ngày này chưa có cuộc họp nào được lên lịch.
@@ -983,9 +983,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
 
-  /* 1. Header Bar: Màu nền chuẩn iGen Connect (#00AECA) */
+  /* 1. Header Bar: Màu nền thương hiệu iGen Connect */
   headerBar: {
-    backgroundColor: "#00AECA",
+    backgroundColor: colors.brandBlue,
     paddingHorizontal: 16,
     paddingBottom: 14,
   },
@@ -1021,7 +1021,9 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: radius.pill,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: "rgba(255, 255, 255, 0.28)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.65)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1140,7 +1142,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   todayCircle: {
-    backgroundColor: "#00AECA",
+    backgroundColor: colors.brandBlue,
   },
   dayNumberText: {
     color: "#1E293B",
@@ -1167,7 +1169,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 1,
   },
   meetingChipBrand: {
-    backgroundColor: "#00AECA",
+    backgroundColor: colors.brandBlue,
   },
   meetingChipTextBrand: {
     color: "#FFFFFF",
@@ -1204,7 +1206,7 @@ const styles = StyleSheet.create({
   },
   monoMeetingCardBrandBorder: {
     borderWidth: 1.5,
-    borderColor: "#00AECA",
+    borderColor: colors.brandBlue,
   },
   monoMeetingCardCancelled: {
     backgroundColor: "#FFFFFF",
@@ -1271,13 +1273,13 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   todaySmallPill: {
-    backgroundColor: "#E4F8FB",
+    backgroundColor: "rgba(0, 173, 252, 0.12)",
     paddingHorizontal: 7,
     paddingVertical: 1.5,
     borderRadius: radius.pill,
   },
   todaySmallPillText: {
-    color: "#00AECA",
+    color: colors.brandBlue,
     fontSize: 11,
     fontWeight: "700",
   },
@@ -1297,11 +1299,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8FAFC",
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: colors.brandBlue,
     borderStyle: "dashed",
   },
   weekEmptyText: {
-    color: "#64748B",
+    color: colors.brandBlue,
     fontSize: 13,
     fontWeight: "500",
   },
@@ -1332,8 +1334,8 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   dayStripPillSelected: {
-    backgroundColor: "#00AECA",
-    borderColor: "#00AECA",
+    backgroundColor: colors.brandBlue,
+    borderColor: colors.brandBlue,
   },
   dayStripLabel: {
     color: "#64748B",
@@ -1355,7 +1357,7 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#00AECA",
+    backgroundColor: colors.brandBlue,
   },
   dayViewDateBanner: {
     flexDirection: "row",
@@ -1412,7 +1414,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    backgroundColor: "#00AECA",
+    backgroundColor: colors.brandBlue,
     paddingHorizontal: 18,
     paddingVertical: 11,
     borderRadius: radius.pill,
@@ -1483,7 +1485,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#E4F8FB",
+    backgroundColor: colors.brandBlue,
   },
   modalCloseBtn: {
     width: 32,
@@ -1548,7 +1550,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    backgroundColor: "#00AECA",
+    backgroundColor: colors.brandBlue,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: radius.pill,
@@ -1571,6 +1573,6 @@ const styles = StyleSheet.create({
     color: "#DC2626",
   },
   textBrand: {
-    color: "#00AECA",
+    color: colors.brandBlue,
   },
 });

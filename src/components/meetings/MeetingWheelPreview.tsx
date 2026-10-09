@@ -29,12 +29,12 @@ const SLICE_COLORS = [
   "#EF4444", // Đỏ tươi
   "#F59E0B", // Vàng hổ phách
   "#10B981", // Xanh ngọc
-  "#3B82F6", // Xanh biển
+  "#00ADFC", // Xanh biển
   "#8B5CF6", // Tím thạch anh
   "#EC4899", // Hồng sen
-  "#06B6D4", // Xanh cyan
+  "#D4A017", // Vàng đất
   "#F97316", // Cam rực rỡ
-  "#6366F1", // Chàm hoàng gia
+  "#C026D3", // Tím hồng
   "#84CC16", // Xanh lá mạ
 ];
 
@@ -189,23 +189,6 @@ export function MeetingWheelPreview({
       return () => clearTimeout(timer);
     }
   }, [winner?.id, spinning, reveals, now]);
-
-  // Tổng hợp tất cả người trúng thưởng theo thời gian thực (Real-time)
-  const allWinners = useMemo(() => {
-    const prizes = meeting.luckyDraw?.prizes || [];
-    const list = prizes.flatMap((prize) =>
-      (prize.winners || []).map((w) => ({
-        ...w,
-        prizeName: w.prizeName || prize.name,
-        prizeReward: prize.reward,
-      }))
-    );
-    return list.sort((a, b) => {
-      const timeA = Date.parse(a.wonAt || "");
-      const timeB = Date.parse(b.wonAt || "");
-      return (Number.isFinite(timeB) ? timeB : 0) - (Number.isFinite(timeA) ? timeA : 0);
-    });
-  }, [meeting.luckyDraw?.prizes]);
 
   const showCelebrationBanner = Boolean(
     winner &&
@@ -415,85 +398,109 @@ export function MeetingWheelPreview({
         </View>
       ) : null}
 
-      {/* 3. BẢNG VÀNG NGƯỜI TRÚNG THƯỞNG REAL-TIME */}
-      <View style={styles.winnersSection}>
-        <View style={styles.winnersHeader}>
-          <View style={styles.winnersTitleRow}>
-            <Trophy size={18} color="#D97706" />
-            <Text style={styles.winnersTitle}>Danh sách trúng thưởng</Text>
-          </View>
-          <Badge tone={allWinners.length > 0 ? "warning" : "default"}>
-            {allWinners.length} người đã trúng
-          </Badge>
-        </View>
+      <MeetingWinnersList meeting={meeting} now={now} />
+    </View>
+  );
+}
 
-        {allWinners.length > 0 ? (
-          <View style={styles.winnersList}>
-            {allWinners.map((item, index) => {
-              const isRecent = item.id === winner?.id && !spinning;
-              return (
-                <View
-                  key={item.id || `winner-${index}`}
-                  style={[styles.winnerItem, isRecent && styles.latestWinnerItem]}
-                >
-                  <View style={styles.rankCol}>
-                    {index === 0 ? (
-                      <Crown size={18} color="#D97706" />
-                    ) : index === 1 ? (
-                      <Award size={18} color="#64748B" />
-                    ) : (
-                      <Text style={styles.rankNumber}>#{index + 1}</Text>
-                    )}
+export function MeetingWinnersList({ meeting, now }: { meeting: Meeting; now: number }) {
+  const winner = meeting.luckyDraw?.prizes
+    .flatMap((prize) => prize.winners)
+    .find((item) => item.id === meeting.presentation?.drawWinnerId);
+  const reveals = Date.parse(meeting.presentation?.drawRevealsAt || "");
+  const spinning = Boolean(winner && Number.isFinite(reveals) && now < reveals);
+  const allWinners = useMemo(() => {
+    const list = (meeting.luckyDraw?.prizes || []).flatMap((prize) =>
+      (prize.winners || []).map((item) => ({
+        ...item,
+        prizeName: item.prizeName || prize.name,
+      }))
+    );
+    return list.sort((a, b) => {
+      const timeA = Date.parse(a.wonAt || "");
+      const timeB = Date.parse(b.wonAt || "");
+      return (Number.isFinite(timeB) ? timeB : 0) - (Number.isFinite(timeA) ? timeA : 0);
+    });
+  }, [meeting.luckyDraw?.prizes]);
+
+  return (
+    <View style={styles.winnersSection}>
+      <View style={styles.winnersHeader}>
+        <View style={styles.winnersTitleRow}>
+          <Trophy size={18} color="#D97706" />
+          <Text style={styles.winnersTitle}>Danh sách trúng thưởng</Text>
+        </View>
+        <Badge tone={allWinners.length > 0 ? "warning" : "default"}>
+          {allWinners.length} người đã trúng
+        </Badge>
+      </View>
+
+      {allWinners.length > 0 ? (
+        <View style={styles.winnersList}>
+          {allWinners.map((item, index) => {
+            const isRecent = item.id === winner?.id && !spinning;
+            return (
+              <View
+                key={item.id || `winner-${index}`}
+                style={[styles.winnerItem, isRecent && styles.latestWinnerItem]}
+              >
+                <View style={styles.rankCol}>
+                  {index === 0 ? (
+                    <Crown size={18} color="#D97706" />
+                  ) : index === 1 ? (
+                    <Award size={18} color="#64748B" />
+                  ) : (
+                    <Text style={styles.rankNumber}>#{index + 1}</Text>
+                  )}
+                </View>
+
+                <Avatar
+                  url={item.photoURL}
+                  initials={item.name ? item.name.slice(0, 1) : "?"}
+                  size={38}
+                />
+
+                <View style={styles.winnerItemContent}>
+                  <View style={styles.winnerNameRow}>
+                    <Text numberOfLines={1} style={styles.winnerNameText}>
+                      {item.name}
+                    </Text>
+                    {isRecent ? (
+                      <View style={styles.recentPill}>
+                        <Gift size={11} color="#B45309" />
+                        <Text style={styles.recentPillText}>Vừa trúng</Text>
+                      </View>
+                    ) : null}
                   </View>
 
-                  <Avatar
-                    url={item.photoURL}
-                    initials={item.name ? item.name.slice(0, 1) : "?"}
-                    size={38}
-                  />
-
-                  <View style={styles.winnerItemContent}>
-                    <View style={styles.winnerNameRow}>
-                      <Text numberOfLines={1} style={styles.winnerNameText}>
-                        {item.name}
+                  <View style={styles.winnerMetaRow}>
+                    {item.prizeName && item.prizeName.toLowerCase() !== "giải thưởng may mắn" ? (
+                      <Text numberOfLines={1} style={styles.prizeBadgeText}>
+                        {item.prizeName}
                       </Text>
-                      {isRecent ? (
-                        <View style={styles.recentPill}>
-                          <Gift size={11} color="#B45309" />
-                          <Text style={styles.recentPillText}>Vừa trúng</Text>
-                        </View>
-                      ) : null}
-                    </View>
-
-                    <View style={styles.winnerMetaRow}>
-                      {item.prizeName && item.prizeName.toLowerCase() !== "giải thưởng may mắn" ? (
-                        <Text numberOfLines={1} style={styles.prizeBadgeText}>
-                          {item.prizeName}
-                        </Text>
-                      ) : null}
-                      {item.ticketNumber ? (
-                        <Text style={styles.ticketBadgeText}>
-                          Số #{item.ticketNumber}
-                        </Text>
-                      ) : null}
-                    </View>
+                    ) : null}
+                    {item.ticketNumber ? (
+                      <Text style={styles.ticketBadgeText}>
+                        Số #{item.ticketNumber}
+                      </Text>
+                    ) : null}
                   </View>
                 </View>
-              );
-            })}
-          </View>
-        ) : (
-          <View style={styles.emptyBox}>
-            <Gift size={32} color="#CBD5E1" />
-            <Text style={styles.emptyTitle}>Chưa có người trúng thưởng</Text>
-            <Text style={styles.emptySubtitle}>
-              {spinning
-                ? "Vòng quay đang xoay để tìm người may mắn..."
-                : "Kết quả trúng thưởng sẽ hiển thị tại đây theo thời gian thực."}
-            </Text>
-          </View>
-        )}
-      </View>
+              </View>
+            );
+          })}
+        </View>
+      ) : (
+        <View style={styles.emptyBox}>
+          <Gift size={32} color="#CBD5E1" />
+          <Text style={styles.emptyTitle}>Chưa có người trúng thưởng</Text>
+          <Text style={styles.emptySubtitle}>
+            {spinning
+              ? "Vòng quay đang xoay để tìm người may mắn..."
+              : "Kết quả trúng thưởng sẽ hiển thị tại đây theo thời gian thực."}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }

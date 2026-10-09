@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
   previewRow: { marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   message: { flex: 1, color: colors.muted, fontSize: 12 },
   unreadMessage: { color: colors.text, fontWeight: '700' },
-  unread: { minWidth: 22, height: 22, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: colors.primary },
+  unread: { minWidth: 22, height: 22, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: '#E53935' },
   unreadText: { color: '#FFFFFF', fontSize: 10, fontWeight: '900' },
   groupIcon: { position: 'absolute', right: -2, bottom: -2, width: 19, height: 19, alignItems: 'center', justifyContent: 'center', borderRadius: 10, borderWidth: 2, borderColor: colors.surface, backgroundColor: colors.primaryDark },
 });

@@ -45,8 +45,13 @@ export type ChatRoom = {
 
 type CreateRoomPayload = { isGroup: boolean; memberIds: string[]; name?: string };
 const roomPath = (roomId: string) => '/api/v1/chat/rooms/' + encodeURIComponent(roomId);
+const unreadChangedListeners = new Set<() => void>();
 
 export const chatService = {
+  onUnreadChanged: (listener: () => void) => {
+    unreadChangedListeners.add(listener);
+    return () => { unreadChangedListeners.delete(listener); };
+  },
   rooms: (): Promise<ChatRoom[]> =>
     apiRequest<{ data: ChatRoom[] } | ChatRoom[]>('/api/v1/chat/rooms').then((payload: any) => payload?.data || (Array.isArray(payload) ? payload : [])),
   createRoom: (body: CreateRoomPayload): Promise<ChatRoom> =>
@@ -128,5 +133,8 @@ export const chatService = {
   deleteRoom: (roomId: string) => apiRequest(roomPath(roomId), { method: 'DELETE' }),
   setBlocked: (roomId: string, blocked: boolean) =>
     apiRequest<{ data: ChatRoom }>(roomPath(roomId) + '/block', { method: 'PATCH', body: JSON.stringify({ blocked }) }).then((payload) => payload.data),
-  markRead: (roomId: string) => apiRequest(roomPath(roomId) + '/read', { method: 'POST' }),
+  markRead: async (roomId: string) => {
+    await apiRequest(roomPath(roomId) + '/read', { method: 'POST' });
+    unreadChangedListeners.forEach((listener) => listener());
+  },
 };

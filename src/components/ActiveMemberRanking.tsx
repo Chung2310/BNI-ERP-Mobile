@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
   podium: { height: 226, flexDirection: 'row', alignItems: 'flex-end', gap: 4, paddingTop: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.border },
   podiumSlot: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' }, podiumName: { width: '100%', color: colors.text, fontSize: 9, fontWeight: '700', textAlign: 'center', marginVertical: 5 },
   placeholder: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderStyle: 'dashed', borderColor: colors.border }, placeholderText: { color: colors.muted, fontSize: 10 },
-  pillar: { width: '88%', alignItems: 'center', justifyContent: 'center', borderTopLeftRadius: radius.md, borderTopRightRadius: radius.md, backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: '#B9E7EE' },
+  pillar: { width: '88%', alignItems: 'center', justifyContent: 'center', borderTopLeftRadius: radius.md, borderTopRightRadius: radius.md, backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: 'rgba(0, 173, 252, 0.25)' },
   firstPillar: { backgroundColor: '#FFF5D9', borderColor: '#F3D58A' }, rank: { color: colors.primaryDark, fontSize: 11, fontWeight: '900' },
   sessions: { color: colors.text, fontSize: 10, fontWeight: '800', marginTop: 4 }, rate: { color: colors.muted, fontSize: 9, marginTop: 2 },
   list: { marginTop: spacing.lg, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, overflow: 'hidden' },

@@ -172,12 +172,12 @@ const styles = StyleSheet.create({
   },
   dayCircleEvent: {
     borderWidth: 1.2,
-    borderColor: "#00AECA",
+    borderColor: colors.brandBlue,
     borderRadius: 14.5,
-    backgroundColor: "#F2FCFE",
+    backgroundColor: "rgba(0, 173, 252, 0.12)",
   },
   dayCircleLive: {
-    backgroundColor: "#00AECA",
+    backgroundColor: colors.brandBlue,
     borderRadius: 14.5,
     borderWidth: 0,
   },
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     fontWeight: "400",
   },
   dayTextEvent: {
-    color: "#00AECA",
+    color: colors.brandBlue,
     fontWeight: "500",
   },
   dayTextLive: {
@@ -234,12 +234,12 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   legendCircleLive: {
-    backgroundColor: "#00AECA",
+    backgroundColor: colors.brandBlue,
   },
   legendCircleEvent: {
     borderWidth: 1,
-    borderColor: "#00AECA",
-    backgroundColor: "#F2FCFE",
+    borderColor: colors.brandBlue,
+    backgroundColor: "rgba(0, 173, 252, 0.12)",
   },
   legendText: {
     color: colors.muted,

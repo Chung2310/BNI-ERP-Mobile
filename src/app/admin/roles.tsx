@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   name: { color: colors.text, fontSize: 15, fontWeight: "800" },
   meta: { marginTop: spacing.xs, color: colors.muted, fontSize: 12 },
   hint: { color: colors.muted, fontSize: 12, lineHeight: 18, marginBottom: spacing.md },
-  addButton: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.primary },
+  addButton: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.brandBlue },
   search: { minHeight: touchTarget, flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, marginBottom: spacing.md },
   searchInput: { flex: 1, color: colors.text, fontSize: 14 },
   listCard: { marginBottom: spacing.sm },

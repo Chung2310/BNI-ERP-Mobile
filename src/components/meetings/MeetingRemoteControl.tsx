@@ -41,7 +41,7 @@ import {
 import { BackHeader } from "@/components/BackHeader";
 import { buildActiveMemberRankings } from "@/components/ActiveMemberRanking";
 import { ProfileSlideCanvas } from "@/components/meetings/ProfileSlideCanvas";
-import { MeetingWheelPreview } from "@/components/meetings/MeetingWheelPreview";
+import { MeetingWheelPreview, MeetingWinnersList } from "@/components/meetings/MeetingWheelPreview";
 import { MeetingDrawRemote } from "@/components/meetings/MeetingDrawRemote";
 import { InteractionManager } from "@/components/meetings/InteractionManager";
 import { ResponseWordCloud } from "@/components/meetings/ResponseWordCloud";
@@ -71,8 +71,8 @@ const views: { value: PresentationView; label: string; icon: LucideIcon }[] = [
   { value: "waiting", label: "Màn chờ", icon: Monitor },
 ];
 
-const brandBlue = "#01BAF9";
-const brandSoft = "#E7F9FF";
+const brandBlue = "#00ADFC";
+const brandSoft = "rgba(0, 173, 252, 0.12)";
 
 type Panel = "speaker" | "draw" | "responses" | "tools";
 
@@ -409,6 +409,8 @@ export function MeetingRemoteControl({
               );
             })}
           </View>
+
+          {view === "luckyDraw" ? <MeetingWinnersList meeting={meeting} now={now} /> : null}
 
           {/* 1. MẶC ĐỊNH HOẶC KHI CHỌN QR CHECK-IN: HIỂN THỊ DS ĐÃ CHECK-IN */}
           {view === "checkin" ? (
@@ -1060,12 +1062,12 @@ function StagePreview({
     );
   }
 
-  if (view === "luckyDraw") return <MeetingWheelPreview meeting={meeting} now={now} />;
+  if (view === "luckyDraw") return <MeetingWheelPreview meeting={meeting} now={now} fullscreen />;
   if (view === "activeMembers") return <StageRankingPreview meeting={meeting} />;
 
   return (
     <View style={styles.stage}>
-      <Monitor color="#7DD3FC" size={34} />
+      <Monitor color="#00ADFC" size={34} />
       <Text style={styles.stageTitle}>{meeting.title}</Text>
       <Text style={styles.stageSub}>Vui lòng chờ</Text>
     </View>
@@ -1427,7 +1429,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   modeIconCircleActive: {
-    backgroundColor: colors.primaryDark,
+    backgroundColor: colors.brandBlue,
   },
   modeLabel: {
     color: colors.text,
@@ -1529,13 +1531,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: 4,
-    backgroundColor: "#E0F2FE",
+    backgroundColor: "rgba(0, 173, 252, 0.12)",
   },
   userTypeTagGuest: {
     backgroundColor: "#FEF3C7",
   },
   userTypeTagText: {
-    color: "#0369A1",
+    color: "#00ADFC",
     fontSize: 10,
     fontWeight: "700",
   },
@@ -1568,7 +1570,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   actionIconBtnPriority: {
-    borderColor: "#B9E7EE",
+    borderColor: "rgba(0, 173, 252, 0.25)",
     backgroundColor: colors.primarySoft,
   },
   actionIconBtnDefer: {
@@ -1576,8 +1578,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   actionIconBtnPresent: {
-    borderColor: colors.primaryDark,
-    backgroundColor: colors.primaryDark,
+    borderColor: colors.brandBlue,
+    backgroundColor: colors.brandBlue,
   },
 
   // Sections chung
@@ -1611,8 +1613,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   speakerActionPrimary: {
-    backgroundColor: colors.primaryDark,
-    borderColor: colors.primaryDark,
+    backgroundColor: colors.brandBlue,
+    borderColor: colors.brandBlue,
   },
 
   compactGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
@@ -1629,7 +1631,7 @@ const styles = StyleSheet.create({
   },
   compactHalf: { width: "48%" },
   compactThird: { width: "31%" },
-  compactPrimary: { backgroundColor: colors.primaryDark, borderColor: colors.primaryDark },
+  compactPrimary: { backgroundColor: colors.brandBlue, borderColor: colors.brandBlue },
   compactActionText: {
     color: colors.text,
     fontSize: 12,

@@ -6,7 +6,7 @@ import { MessageCircle, Phone } from "lucide-react-native";
 import { ActivityIndicator,  Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { Avatar } from "@/components/ui";
 import { chatService, type ChatRoom } from "@/services/chat";
-import { colors, radius, spacing } from "@/theme/tokens";
+import { colors, spacing } from "@/theme/tokens";
 import type { MemberSummary } from "@/types";
 
 export function MemberCard({ member }: { member: MemberSummary }) {
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   industry: {
-    color: colors.primaryDark,
+    color: colors.text,
     fontSize: 11.5,
   },
   phoneRow: {
@@ -180,12 +180,8 @@ const styles = StyleSheet.create({
   chatBtn: {
     width: 34,
     height: 34,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primarySoft,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#CDEEF5",
   },
   chatBtnPressed: {
     opacity: 0.75,
