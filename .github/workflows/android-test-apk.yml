@@ -16,6 +16,10 @@ concurrency:
 env:
   CI: "1"
   NODE_VERSION: "22"
+  # Expo SDK 57 installs expo/fetch globally by default. Its Android response
+  # handling can intermittently truncate JSON in release builds, so keep the
+  # stable React Native networking implementation until the SDK fix lands.
+  EXPO_PUBLIC_USE_RN_FETCH: "1"
   EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL || 'https://staging-bni.igentechnology.net' }}
   ANDROID_GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 || vars.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
 

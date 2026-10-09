@@ -8,6 +8,7 @@ import { apiRequest } from "@/services/api";
 const PUSH_TOKEN_KEY = "igen_native_push_token";
 const LEGACY_EXPO_PUSH_TOKEN_KEY = "igen_expo_push_token";
 const ANDROID_CHANNEL_ID = "default";
+let registrationPromise: Promise<string | null> | null = null;
 
 export async function getPushNotificationsModule() {
   if (Platform.OS === "web" || isRunningInExpoGo()) return null;
@@ -30,7 +31,7 @@ function showOpenNotificationSettingsPrompt() {
   );
 }
 
-export async function registerCurrentDeviceForPush(): Promise<string | null> {
+async function performDevicePushRegistration(): Promise<string | null> {
   if (Platform.OS === "web" || !Device.isDevice) return null;
   const Notifications = await getPushNotificationsModule();
   if (!Notifications) return null;
@@ -86,6 +87,13 @@ export async function registerCurrentDeviceForPush(): Promise<string | null> {
   await SecureStore.setItemAsync(PUSH_TOKEN_KEY, token);
   await SecureStore.deleteItemAsync(LEGACY_EXPO_PUSH_TOKEN_KEY);
   return token;
+}
+
+export function registerCurrentDeviceForPush(): Promise<string | null> {
+  if (registrationPromise) return registrationPromise;
+  registrationPromise = performDevicePushRegistration()
+    .finally(() => { registrationPromise = null; });
+  return registrationPromise;
 }
 
 export async function unregisterCurrentDeviceFromPush(): Promise<void> {
