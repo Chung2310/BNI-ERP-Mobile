@@ -1,4 +1,4 @@
-name: Android test APK
+name: Android standalone APK
 
 on:
   workflow_dispatch:
@@ -21,7 +21,7 @@ env:
 
 jobs:
   build:
-    name: Build installable debug APK
+    name: Build optimized standalone APK
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -70,15 +70,38 @@ jobs:
       - name: Generate Android native project
         run: npx expo prebuild --platform android --clean --no-install
 
-      - name: Build debug APK
+      - name: Build release APK
         working-directory: android
-        run: ./gradlew app:assembleDebug --no-daemon --stacktrace
+        run: ./gradlew app:assembleRelease --no-daemon --stacktrace
+
+      - name: Verify standalone APK
+        shell: bash
+        run: |
+          APK_PATH="android/app/build/outputs/apk/release/app-release.apk"
+
+          if [ ! -f "$APK_PATH" ]; then
+            echo "::error title=Missing APK::Gradle did not create $APK_PATH."
+            exit 1
+          fi
+
+          if ! unzip -Z1 "$APK_PATH" | grep -Fx "assets/index.android.bundle" > /dev/null; then
+            echo "::error title=Missing JavaScript bundle::The APK is not standalone and would require Metro."
+            exit 1
+          fi
+
+          APK_SIZE_BYTES=$(stat --format=%s "$APK_PATH")
+          APK_SIZE_MB=$(awk "BEGIN { printf \"%.1f\", $APK_SIZE_BYTES / 1024 / 1024 }")
+          echo "### Android APK" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Variant: release" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ABI: arm64-v8a" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Size: ${APK_SIZE_MB} MiB" >> "$GITHUB_STEP_SUMMARY"
+          echo "- JavaScript bundle: embedded" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload APK
         uses: actions/upload-artifact@v7
         with:
-          name: igen-connect-test-${{ github.run_number }}
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: igen-connect-standalone-arm64-${{ github.run_number }}
+          path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
-          compression-level: 0
+          compression-level: 6
