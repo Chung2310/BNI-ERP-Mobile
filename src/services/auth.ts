@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import * as LocalAuthentication from "expo-local-authentication";
 import { apiRequest, setApiAccessToken, setApiTokenPersister } from "@/services/api";
+import { galleryImagesFrom } from "@/utils/media";
 import type { UserProfile } from "@/types";
 
 const ACCESS_TOKEN_KEY = "igen_access_token";
@@ -21,7 +22,13 @@ async function deviceId() {
 }
 
 function normalizeUser(user: LoginResponse["user"]): UserProfile {
-  return { ...user, uid: user.uid || user._id || "" };
+  const raw = user as Record<string, unknown>;
+  const gallery = galleryImagesFrom(raw);
+  return {
+    ...user,
+    uid: user.uid || user._id || "",
+    ...(gallery.length > 0 ? { galleryImages: gallery } : {}),
+  };
 }
 
 async function clearLocalSession() {
@@ -45,6 +52,8 @@ export const authService = {
     displayName: string; email: string; phone: string; companyName: string; industry: string;
     address: string; targetMarket: string; birthDate: string; gender: string;
     photoURL?: string; photoUploadToken?: string; coverImage?: string; coverUploadToken?: string;
+    galleryImages?: string[];
+    galleryUploadTokens?: { index: number; uploadToken: string }[];
   }): Promise<UserProfile> {
     const response = await apiRequest<{ user: LoginResponse["user"] }>("/api/v1/auth/profile", {
       method: "PATCH",

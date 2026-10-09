@@ -27,6 +27,7 @@ import { Alert } from "@/components/AppAlert";
 import { RoundedDateTimePicker } from "@/components/RoundedDateTimePicker";
 import { apiRequest } from "@/services/api";
 import { userService } from "@/services/users";
+import { galleryImagesFrom, mediaUrl } from "@/utils/media";
 import { colors, radius, spacing } from "@/theme/tokens";
 import type { UserProfile } from "@/types";
 
@@ -75,10 +76,10 @@ function EditMemberContent({ member, onClose, onUpdated }: Omit<Props, "visible"
     (typeof raw.mobile === "string" ? raw.mobile : "") ||
     "";
 
-  const [coverUrl, setCoverUrl] = useState(member.coverImage || member.coverUrl || "");
-  const [avatarUrl, setAvatarUrl] = useState(member.photoURL || "");
+  const [coverUrl, setCoverUrl] = useState(mediaUrl(member.coverImage || member.coverUrl || ""));
+  const [avatarUrl, setAvatarUrl] = useState(mediaUrl(member.photoURL || ""));
   const [galleryImages, setGalleryImages] = useState<string[]>(() =>
-    (member.galleryImages || []).filter((u) => typeof u === "string" && u.trim())
+    galleryImagesFrom(member)
   );
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -394,7 +395,7 @@ function EditMemberContent({ member, onClose, onUpdated }: Omit<Props, "visible"
               <View style={styles.galleryGrid}>
                 {galleryImages.map((img, index) => (
                   <View key={`${img}-${index}`} style={styles.galleryItem}>
-                    <Image source={{ uri: img }} style={styles.galleryThumb} />
+                    <Image source={{ uri: mediaUrl(img) }} style={styles.galleryThumb} />
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel="Xóa ảnh"

@@ -24,9 +24,11 @@ import { Alert } from "@/components/AppAlert";
 import { BackHeader } from "@/components/BackHeader";
 import { EditMemberModal } from "@/components/EditMemberModal";
 import { Avatar, Button, Card, ErrorState, LoadingState, Screen } from "@/components/ui";
+import { useAuth } from "@/context/AuthContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { userService } from "@/services/users";
 import { chatService } from "@/services/chat";
+import { galleryImagesFrom, mediaUrl } from "@/utils/media";
 import { colors, radius, spacing } from "@/theme/tokens";
 
 const genderLabels = { male: "Nam", female: "Nữ", other: "Khác" } as const;
@@ -41,6 +43,7 @@ function formatBirthDate(value?: string) {
 
 export default function MemberDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { user: currentUser } = useAuth();
   const [isStartingChat, setIsStartingChat] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -73,7 +76,12 @@ export default function MemberDetailScreen() {
   };
 
   const handleDeleteMember = async () => {
-    if (!member || isDeleting) return;
+    if (
+      !member ||
+      currentUser?.role !== "admin" ||
+      currentUser.uid === member.uid ||
+      isDeleting
+    ) return;
     setIsDeleting(true);
     try {
       const memberId = member.uid || id;
@@ -125,11 +133,12 @@ export default function MemberDetailScreen() {
     (typeof raw.mobile === "string" ? raw.mobile : "") ||
     (typeof raw.sdt === "string" ? raw.sdt : "") ||
     "";
-  const coverImage = member.coverImage || member.coverUrl;
-  const galleryImages = (member.galleryImages || []).filter((url) => typeof url === "string" && url.trim());
+  const coverImage = mediaUrl(member.coverImage || member.coverUrl);
+  const galleryImages = galleryImagesFrom(member);
   const gender = member.gender ? genderLabels[member.gender] : "Chưa cập nhật";
+  const canManageMember = currentUser?.role === "admin" && currentUser.uid !== member.uid;
 
-  const headerActions = (
+  const headerActions = canManageMember ? (
     <View style={styles.headerActions}>
       <Pressable
         accessibilityRole="button"
@@ -150,7 +159,7 @@ export default function MemberDetailScreen() {
         <Trash2 size={18} color={colors.danger} />
       </Pressable>
     </View>
-  );
+  ) : undefined;
 
   return (
     <Screen>
@@ -162,7 +171,7 @@ export default function MemberDetailScreen() {
         ) : (
           <View style={styles.cover} />
         )}
-        <Avatar initials={initials} url={member.photoURL} size={88} />
+        <Avatar initials={initials} url={mediaUrl(member.photoURL)} size={88} />
         <Text style={styles.name}>{member.displayName}</Text>
         <Text style={styles.role}>{company}</Text>
         <View style={styles.industryBadge}>
@@ -230,9 +239,9 @@ export default function MemberDetailScreen() {
                 accessibilityRole="imagebutton"
                 accessibilityLabel={"Xem ảnh " + (index + 1)}
                 style={styles.galleryItem}
-                onPress={() => Linking.openURL(url)}
+                onPress={() => Linking.openURL(mediaUrl(url))}
               >
-                <Image source={{ uri: url }} style={styles.galleryImage} resizeMode="cover" />
+                <Image source={{ uri: mediaUrl(url) }} style={styles.galleryImage} resizeMode="cover" />
               </Pressable>
             ))}
           </View>
@@ -243,7 +252,7 @@ export default function MemberDetailScreen() {
 
       {/* Modal chỉnh sửa thông tin */}
       <EditMemberModal
-        visible={showEditModal}
+        visible={canManageMember && showEditModal}
         member={member}
         onClose={() => setShowEditModal(false)}
         onUpdated={() => reload()}
@@ -251,7 +260,7 @@ export default function MemberDetailScreen() {
 
       {/* Popup cảnh báo xóa thành viên */}
       <Modal
-        visible={showDeleteModal}
+        visible={canManageMember && showDeleteModal}
         transparent
         animationType="fade"
         statusBarTranslucent

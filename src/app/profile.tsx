@@ -1,9 +1,9 @@
 import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useEffect, useState } from "react";
 import * as ImagePicker from "expo-image-picker";
-import { router } from "expo-router";
-import { Camera, ChevronRight, LockKeyhole, LogOut, Pencil, Settings, Trash2, X } from "lucide-react-native";
-import { ImageBackground, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import { Camera, ChevronRight, LockKeyhole, LogOut, Pencil, Plus, Settings, Trash2, X } from "lucide-react-native";
+import { ActivityIndicator, Image, ImageBackground, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Alert } from "@/components/AppAlert";
 import { BackHeader } from "@/components/BackHeader";
 import { BirthDateField } from "@/components/BirthDateField";
@@ -11,6 +11,7 @@ import { Avatar, Button, Card, Screen } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { apiRequest } from "@/services/api";
 import { authService } from "@/services/auth";
+import { galleryImagesFrom, mediaUrl } from "@/utils/media";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 import type { UserProfile } from "@/types";
 
@@ -18,6 +19,8 @@ type Form = {
   displayName: string; email: string; phone: string; companyName: string; industry: string;
   address: string; targetMarket: string; birthDate: string; gender: "" | "male" | "female" | "other";
 };
+
+const MAX_GALLERY_IMAGES = 5;
 
 const toForm = (profile: UserProfile): Form => ({
   displayName: profile.displayName || "", email: profile.email || "", phone: profile.phone || "",
@@ -42,11 +45,17 @@ function Info({ label, value }: { label: string; value?: string }) {
 }
 
 export default function ProfileScreen() {
+  const { edit } = useLocalSearchParams<{ edit?: string }>();
   const { user, refreshProfile, applyProfile, signOut, deleteAccount } = useAuth();
+  const shouldEditOnOpen = edit === "profile" || edit === "gallery";
   const [profile, setProfile] = useState<UserProfile | null>(user);
-  const [form, setForm] = useState<Form | null>(null);
+  const [form, setForm] = useState<Form | null>(() => shouldEditOnOpen && user ? toForm(user) : null);
   const [avatarBase64, setAvatarBase64] = useState<string | null>(null);
   const [coverBase64, setCoverBase64] = useState<string | null>(null);
+  const [galleryImages, setGalleryImages] = useState<string[]>(() =>
+    shouldEditOnOpen && user ? galleryImagesFrom(user) : [],
+  );
+  const [isPickingGallery, setIsPickingGallery] = useState(false);
   const [busy, setBusy] = useState(false);
   const [accountPanel, setAccountPanel] = useState<"menu" | "password" | "delete" | null>(null);
   const [newPassword, setNewPassword] = useState("");
@@ -54,17 +63,42 @@ export default function ProfileScreen() {
   const [deletePassword, setDeletePassword] = useState("");
 
   useEffect(() => {
-    void refreshProfile().then(setProfile).catch(() => undefined);
-  }, [refreshProfile]);
+    let active = true;
+    const load = async () => {
+      try {
+        const freshProfile = await refreshProfile();
+        if (!active) return;
+        setProfile(freshProfile);
+        if (shouldEditOnOpen) {
+          setForm(toForm(freshProfile));
+          setAvatarBase64(null);
+          setCoverBase64(null);
+          setGalleryImages(galleryImagesFrom(freshProfile));
+        }
+      } catch {
+        // Ignored
+      }
+    };
+    void load();
+    return () => {
+      active = false;
+    };
+  }, [refreshProfile, shouldEditOnOpen]);
 
   const startEdit = () => {
     if (!profile) return;
     setForm(toForm(profile));
     setAvatarBase64(null);
     setCoverBase64(null);
+    setGalleryImages(galleryImagesFrom(profile));
   };
 
-  const cancelEdit = () => { setForm(null); setAvatarBase64(null); setCoverBase64(null); };
+  const cancelEdit = () => {
+    setForm(null);
+    setAvatarBase64(null);
+    setCoverBase64(null);
+    setGalleryImages([]);
+  };
 
   const pickPhoto = async (target: "avatar" | "cover") => {
     try {
@@ -85,8 +119,51 @@ export default function ProfileScreen() {
     }
   };
 
+  const pickGalleryImages = async () => {
+    const remaining = MAX_GALLERY_IMAGES - galleryImages.length;
+    if (remaining <= 0 || isPickingGallery) return;
+
+    setIsPickingGallery(true);
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert("Cần quyền truy cập ảnh", "Hãy cấp quyền thư viện ảnh để thêm ảnh sản phẩm.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsMultipleSelection: true,
+        selectionLimit: remaining,
+        quality: 0.8,
+        base64: true,
+      });
+      if (result.canceled) return;
+
+      const selected = result.assets
+        .filter((asset) => Boolean(asset.base64))
+        .map((asset) => `data:image/jpeg;base64,${asset.base64}`);
+
+      if (!selected.length) {
+        Alert.alert("Không thể đọc ảnh", "Vui lòng chọn lại ảnh từ thư viện.");
+        return;
+      }
+
+      setGalleryImages((current) => [...current, ...selected].slice(0, MAX_GALLERY_IMAGES));
+    } catch (cause) {
+      Alert.alert("Không thể chọn ảnh", friendlyErrorMessage(cause, "Vui lòng thử lại."));
+    } finally {
+      setIsPickingGallery(false);
+    }
+  };
+
+  const removeGalleryImage = (index: number) => {
+    if (busy) return;
+    setGalleryImages((current) => current.filter((_, imageIndex) => imageIndex !== index));
+  };
+
   const save = async () => {
-    if (!form || busy) return;
+    if (!form || !profile || busy) return;
     if (!form.displayName.trim() || !form.email.trim()) {
       Alert.alert("Thiếu thông tin", "Họ tên và email không được để trống.");
       return;
@@ -109,18 +186,53 @@ export default function ProfileScreen() {
         body: JSON.stringify({ file: `data:image/jpeg;base64,${coverBase64}`, fileName: "cover.jpg", mimeType: "image/jpeg", sourceType: "profile.cover" }),
         timeoutMs: 120000,
       });
-      const updated = await authService.updateProfile({
+      const uploadedGallery = await Promise.all(
+        galleryImages.map(async (image, index) => {
+          if (!image.startsWith("data:image/")) return { url: image };
+          const uploaded = await apiRequest<{ url: string; uploadToken?: string }>("/api/v1/media/upload", {
+            method: "POST",
+            body: JSON.stringify({
+              file: image,
+              fileName: `gallery-${index + 1}.jpg`,
+              mimeType: "image/jpeg",
+              sourceType: "profile.gallery",
+              folder: "igen_erp/members/gallery",
+            }),
+            timeoutMs: 120000,
+          });
+          if (!uploaded.url) throw new Error("Máy chủ không trả về đường dẫn ảnh đã tải lên.");
+          if (!uploaded.uploadToken) throw new Error("Máy chủ không trả về mã xác nhận ảnh đã tải lên.");
+          return { url: uploaded.url, uploadToken: uploaded.uploadToken };
+        }),
+      );
+      const uploadedGalleryImages = uploadedGallery.map((image) => image.url);
+      const galleryUploadTokens = uploadedGallery.flatMap((image, index) =>
+        image.uploadToken ? [{ index, uploadToken: image.uploadToken }] : [],
+      );
+
+      await authService.updateProfile({
         ...form,
         displayName: form.displayName.trim(), email: form.email.trim(),
         phone: form.phone.trim(), companyName: form.companyName.trim(), industry: form.industry.trim(),
         address: form.address.trim(), targetMarket: form.targetMarket.trim(),
         ...(photo ? { photoURL: photo.url, photoUploadToken: photo.uploadToken } : {}),
         ...(cover ? { coverImage: cover.url, coverUploadToken: cover.uploadToken } : {}),
+        galleryImages: uploadedGalleryImages,
+        galleryUploadTokens,
       });
-      setProfile(updated);
-      applyProfile(updated);
+
+      const persistedProfile = await authService.getProfile();
+      const requestedGallery = galleryImagesFrom({ galleryImages: uploadedGalleryImages });
+      const persistedGallery = galleryImagesFrom(persistedProfile);
+      if (requestedGallery.some((image) => !persistedGallery.includes(image))) {
+        throw new Error("Máy chủ chưa lưu đầy đủ ảnh sản phẩm. Vui lòng thử lại.");
+      }
+
+      setProfile(persistedProfile);
+      applyProfile(persistedProfile);
       cancelEdit();
       Alert.alert("Đã lưu", "Hồ sơ cá nhân đã được cập nhật.");
+      router.replace("/(tabs)/more");
     } catch (cause) {
       Alert.alert("Không thể lưu hồ sơ", friendlyErrorMessage(cause, "Vui lòng thử lại."));
     } finally {
@@ -193,8 +305,10 @@ export default function ProfileScreen() {
   if (!profile) return <Screen><BackHeader title="Hồ sơ cá nhân" compact /><Text style={styles.empty}>Không tìm thấy hồ sơ cá nhân.</Text></Screen>;
 
   const initials = profile.displayName.split(" ").filter(Boolean).slice(-2).map((part) => part[0]).join("").toUpperCase();
-  const avatarUrl = avatarBase64 ? `data:image/jpeg;base64,${avatarBase64}` : profile.photoURL;
-  const coverUrl = coverBase64 ? `data:image/jpeg;base64,${coverBase64}` : profile.coverImage || profile.coverUrl;
+  const avatarUrl = avatarBase64 ? `data:image/jpeg;base64,${avatarBase64}` : mediaUrl(profile.photoURL);
+  const coverUrl = coverBase64 ? `data:image/jpeg;base64,${coverBase64}` : mediaUrl(profile.coverImage || profile.coverUrl);
+
+  const displayedGallery = form ? galleryImages : galleryImagesFrom(profile);
 
   return <Screen scrollViewProps={{ keyboardShouldPersistTaps: "handled" }}>
     <BackHeader title={form ? "Chỉnh sửa hồ sơ" : "Hồ sơ cá nhân"} compact
@@ -237,6 +351,68 @@ export default function ProfileScreen() {
       <Info label="Giới tính" value={profile.gender === "male" ? "Nam" : profile.gender === "female" ? "Nữ" : profile.gender === "other" ? "Khác" : undefined} />
       <Info label="Địa chỉ" value={profile.address} /><Info label="Thị trường mục tiêu" value={profile.targetMarket} />
     </Card>}
+    <Card>
+      <View style={styles.galleryHeader}>
+        <View style={styles.galleryHeading}>
+          <Text style={styles.galleryTitle}>Ảnh sản phẩm hoặc hoạt động</Text>
+          <Text style={styles.galleryHelp}>{form ? "Thêm hoặc xóa ảnh trước khi lưu" : "Tối đa 5 ảnh"}</Text>
+        </View>
+        {form ? <Text style={styles.galleryCounter}>{galleryImages.length}/{MAX_GALLERY_IMAGES}</Text> : null}
+      </View>
+      {displayedGallery.length ? (
+        <View style={styles.galleryGrid}>
+          {displayedGallery.map((image, index) => (
+            <View key={`${image}-${index}`} style={styles.galleryItem}>
+              <Image source={{ uri: mediaUrl(image) }} style={styles.galleryImage} resizeMode="cover" />
+              {form ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Xóa ảnh ${index + 1}`}
+                  disabled={busy}
+                  onPress={() => removeGalleryImage(index)}
+                  style={styles.removeGalleryButton}
+                >
+                  <Trash2 size={14} color="#FFFFFF" />
+                </Pressable>
+              ) : null}
+            </View>
+          ))}
+          {form && galleryImages.length < MAX_GALLERY_IMAGES ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Thêm ảnh sản phẩm hoặc hoạt động"
+              disabled={busy || isPickingGallery}
+              onPress={() => void pickGalleryImages()}
+              style={styles.addGalleryButton}
+            >
+              {isPickingGallery ? (
+                <ActivityIndicator size="small" color={colors.primaryDark} />
+              ) : (
+                <>
+                  <Plus size={22} color={colors.primaryDark} />
+                  <Text style={styles.addGalleryText}>Thêm ảnh</Text>
+                </>
+              )}
+            </Pressable>
+          ) : null}
+        </View>
+      ) : form ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Thêm ảnh sản phẩm hoặc hoạt động"
+          disabled={busy || isPickingGallery}
+          onPress={() => void pickGalleryImages()}
+          style={[styles.addGalleryButton, styles.addGalleryEmpty]}
+        >
+          {isPickingGallery ? <ActivityIndicator size="small" color={colors.primaryDark} /> : <>
+            <Plus size={22} color={colors.primaryDark} />
+            <Text style={styles.addGalleryText}>Thêm ảnh</Text>
+          </>}
+        </Pressable>
+      ) : (
+        <Text style={styles.galleryEmpty}>Chưa cập nhật hình ảnh.</Text>
+      )}
+    </Card>
     {!form ? <Button icon={LogOut} tone="danger" fullWidth disabled={busy} onPress={confirmSignOut}>
       {busy ? "Đang đăng xuất..." : "Đăng xuất"}
     </Button> : null}
@@ -289,6 +465,19 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", gap: spacing.sm },
   infoRow: { flexDirection: "row", justifyContent: "space-between", gap: spacing.md, paddingVertical: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   infoLabel: { flex: 1, color: colors.muted, fontSize: 12 }, infoValue: { flex: 1.5, color: colors.text, fontSize: 12, textAlign: "right" },
+  galleryHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: spacing.md, marginBottom: spacing.md },
+  galleryHeading: { flex: 1 },
+  galleryTitle: { color: colors.text, fontSize: 15, fontWeight: "800" },
+  galleryHelp: { marginTop: 2, color: colors.muted, fontSize: 11.5 },
+  galleryCounter: { color: colors.primaryDark, fontSize: 12, fontWeight: "700" },
+  galleryGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  galleryItem: { width: "31.5%", aspectRatio: 1, overflow: "hidden", borderRadius: radius.md, backgroundColor: colors.primarySoft },
+  galleryImage: { width: "100%", height: "100%" },
+  removeGalleryButton: { position: "absolute", top: 5, right: 5, width: 26, height: 26, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: "rgba(16, 37, 51, 0.72)" },
+  addGalleryButton: { width: "31.5%", aspectRatio: 1, alignItems: "center", justifyContent: "center", gap: spacing.xs, borderWidth: 1.5, borderStyle: "dashed", borderColor: colors.primary, borderRadius: radius.md, backgroundColor: colors.primarySoft },
+  addGalleryEmpty: { width: "100%", aspectRatio: undefined, minHeight: 88 },
+  addGalleryText: { color: colors.primaryDark, fontSize: 11.5, fontWeight: "700" },
+  galleryEmpty: { color: colors.muted, fontSize: 12, textAlign: "center", paddingVertical: spacing.xl },
   deleteOverlay: { flex: 1, justifyContent: "center", paddingHorizontal: spacing.lg, backgroundColor: colors.overlay },
   deleteBackdrop: { ...StyleSheet.absoluteFill },
   deleteDialog: { borderRadius: radius.xl, padding: spacing.lg, gap: spacing.sm, backgroundColor: colors.surface },
