@@ -1,6 +1,7 @@
 import { friendlyErrorMessage } from "@/utils/userFacingError";
 
 const API_URL = (process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, "");
+const DEFAULT_TIMEOUT_MS = 15000;
 
 let accessToken: string | null = null;
 let refreshPromise: Promise<string | null> | null = null;
@@ -40,32 +41,41 @@ async function parsePayload(response: Response) {
 
 async function refreshAccessToken() {
   if (refreshPromise) return refreshPromise;
-  refreshPromise = fetch(API_URL + "/api/v1/auth/refresh-token", {
-    method: "POST",
-    credentials: "include",
-    headers: { Accept: "application/json", "Content-Type": "application/json" },
-    body: "{}",
-  })
-    .then(async (response) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+  refreshPromise = (async () => {
+    try {
+      const response = await fetch(API_URL + "/api/v1/auth/refresh-token", {
+        method: "POST",
+        credentials: "include",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: "{}",
+        signal: controller.signal,
+      });
       const payload = await parsePayload(response);
       const token = typeof payload.accessToken === "string" ? payload.accessToken : null;
       if (!response.ok || !token) return null;
       accessToken = token;
       await persistAccessToken?.(token);
       return token;
-    })
-    .catch(() => null)
-    .finally(() => { refreshPromise = null; });
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timeout);
+    }
+  })().finally(() => { refreshPromise = null; });
   return refreshPromise;
 }
 
 export async function apiRequest<T>(path: string, options: RequestInit & { timeoutMs?: number } = {}, hasRetried = false): Promise<T> {
-  const { timeoutMs = 15000, ...requestOptions } = options;
+  const { timeoutMs = DEFAULT_TIMEOUT_MS, ...requestOptions } = options;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const abort = () => controller.abort();
-  options.signal?.addEventListener("abort", abort, { once: true });
+  if (options.signal?.aborted) controller.abort();
+  else options.signal?.addEventListener("abort", abort, { once: true });
   let response: Response;
+  let payload: Record<string, unknown>;
   try {
     response = await fetch(API_URL + path, {
       ...requestOptions,
@@ -78,8 +88,10 @@ export async function apiRequest<T>(path: string, options: RequestInit & { timeo
         ...options.headers,
       },
     });
-  } catch {
+    payload = await parsePayload(response);
+  } catch (cause) {
     if (controller.signal.aborted) throw new ApiError("Kết nối quá thời gian. Vui lòng kiểm tra mạng và thử lại.", 408);
+    if (cause instanceof ApiError) throw cause;
     throw new ApiError("Không thể kết nối. Hãy kiểm tra mạng rồi thử lại.", 0);
   } finally {
     clearTimeout(timeout);
@@ -91,7 +103,6 @@ export async function apiRequest<T>(path: string, options: RequestInit & { timeo
     if (refreshedToken) return apiRequest<T>(path, options, true);
   }
 
-  const payload = await parsePayload(response);
   if (!response.ok) {
     throw new ApiError(
       typeof payload.message === "string" ? payload.message : "Không thể kết nối máy chủ.",
