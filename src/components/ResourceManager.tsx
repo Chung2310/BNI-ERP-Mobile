@@ -2,7 +2,7 @@ import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useState } from "react";
 import * as DocumentPicker from "expo-document-picker";
 import { ChevronRight, File, FileText, Folder, FolderOpen, MoreVertical, Plus, Trash2, Upload, X } from "lucide-react-native";
-import { ActivityIndicator, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BackHeader } from "@/components/BackHeader";
 import { Button, Card, EmptyState, ErrorState, LoadingState, Screen } from "@/components/ui";
@@ -40,6 +40,7 @@ export function ResourceManager() {
   const [targets, setTargets] = useState<Target[]>([]);
   const [shares, setShares] = useState<ResourceShare[]>([]);
   const [search, setSearch] = useState("");
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const currentFolderMutable = !folder || (!folder.isFixed && folder.managedType !== "system" && !folder.isShared);
   const canEdit = (item: ResourceItem) => canManage && !item.isFixed && item.managedType !== "system" && !item.isShared && (user?.role === "admin" || item.creatorUid === user?.uid);
@@ -60,7 +61,10 @@ export function ResourceManager() {
   const open = async (item: ResourceItem) => {
     if (item.type === "folder") { setTrail((current) => [...current, item]); return; }
     if (!item.fileUrl) { showMessage("Tài nguyên này chưa có đường dẫn tệp."); return; }
-    try { await Linking.openURL(item.fileUrl); } catch (cause) { fail(cause); }
+    if (downloadingId) return;
+    setDownloadingId(item._id);
+    try { await resourceService.download(item); } catch (cause) { fail(cause); }
+    finally { setDownloadingId(null); }
   };
   const pickFile = async () => {
     try {
@@ -132,8 +136,8 @@ export function ResourceManager() {
     </View> : null}
     {isLoading ? <LoadingState /> : error ? <ErrorState message={error} onRetry={reload} /> : !data?.length ? <EmptyState title={trash ? "Thùng rác trống" : "Thư mục trống"} message={trash ? "Không có tài nguyên đã xóa." : "Chưa có tài nguyên trong thư mục này."} /> : <Card style={styles.list}>
       {data.map((item) => { const Icon = item.type === "folder" ? Folder : item.mimeType?.includes("pdf") ? FileText : File; return <View key={item._id} style={styles.row}>
-        <Pressable accessibilityRole="button" disabled={trash && !canEdit(item)} onPress={() => trash ? select(item) : void open(item)} style={styles.itemBody}>
-          <View style={styles.icon}><Icon color={colors.primaryDark} size={22} strokeWidth={1.9} /></View>
+        <Pressable accessibilityRole="button" disabled={(trash && !canEdit(item)) || downloadingId === item._id} onPress={() => trash ? select(item) : void open(item)} style={styles.itemBody}>
+          <View style={styles.icon}>{downloadingId === item._id ? <ActivityIndicator color={colors.primaryDark} size="small" /> : <Icon color={colors.primaryDark} size={22} strokeWidth={1.9} />}</View>
           <View style={styles.grow}><Text numberOfLines={2} style={styles.name}>{item.name}</Text><Text style={styles.meta}>{item.type === "folder" ? "Thư mục" : formatSize(item.size)}{item.isShared ? " · Được chia sẻ" : ""}{item.createdAt ? ` · ${new Date(item.createdAt).toLocaleDateString("vi-VN")}` : ""}</Text></View>
         </Pressable>
         {canEdit(item) ? <Pressable accessibilityLabel={`Tùy chọn ${item.name}`} accessibilityRole="button" onPress={() => select(item)} style={styles.more}><MoreVertical color={colors.muted} size={20} /></Pressable> : item.type === "folder" && !trash ? <ChevronRight color={colors.muted} size={18} /> : null}

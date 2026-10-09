@@ -1,0 +1,84 @@
+name: Android test APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - production
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-test-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: "1"
+  NODE_VERSION: "22"
+  EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL || 'https://staging-bni.igentechnology.net' }}
+  ANDROID_GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 || vars.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
+
+jobs:
+  build:
+    name: Build installable debug APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint and typecheck
+        run: |
+          npm run lint
+          npm run typecheck
+
+      - name: Restore Firebase configuration
+        shell: bash
+        run: |
+          if [ -z "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" ]; then
+            echo "::error title=Missing Firebase variable::Add ANDROID_GOOGLE_SERVICES_JSON_BASE64 under BNI-ERP-Mobile Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+          if [[ "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" == \{* ]]; then
+            printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" > google-services.json
+          elif ! printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > google-services.json; then
+            echo "::error title=Invalid Firebase variable::ANDROID_GOOGLE_SERVICES_JSON_BASE64 is neither valid Base64 nor raw JSON."
+            exit 1
+          fi
+
+          if ! node -e "const c=require('./google-services.json'); const ok=c.client?.some(x=>x.client_info?.android_client_info?.package_name==='com.igen.connect'); if(!ok) process.exit(1)"; then
+            echo "::error title=Wrong Firebase app::google-services.json does not contain Android package com.igen.connect."
+            exit 1
+          fi
+
+      - name: Generate Android native project
+        run: npx expo prebuild --platform android --clean --no-install
+
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew app:assembleDebug --no-daemon --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: igen-connect-test-${{ github.run_number }}
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0

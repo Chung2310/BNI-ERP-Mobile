@@ -3,6 +3,7 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "@/context/AuthContext";
 import { ChatUnreadCountProvider } from "@/context/ChatUnreadCountProvider";
+import { NotificationProvider } from "@/context/NotificationContext";
 import { AppAlertHost } from "@/components/AppAlert";
 import { colors } from "@/theme/tokens";
 
@@ -10,7 +11,8 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <ChatUnreadCountProvider>
+        <NotificationProvider>
+          <ChatUnreadCountProvider>
           <StatusBar style="dark" />
           <Stack screenOptions={{ headerShown: false, orientation: "portrait", contentStyle: { backgroundColor: colors.background } }}>
             <Stack.Screen name="index" />
@@ -41,8 +43,9 @@ export default function RootLayout() {
             <Stack.Screen name="admin/users" />
             <Stack.Screen name="admin/roles" />
           </Stack>
-          <AppAlertHost />
-        </ChatUnreadCountProvider>
+            <AppAlertHost />
+          </ChatUnreadCountProvider>
+        </NotificationProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

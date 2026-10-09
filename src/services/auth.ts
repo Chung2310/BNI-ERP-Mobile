@@ -2,6 +2,7 @@ import * as SecureStore from "expo-secure-store";
 import * as LocalAuthentication from "expo-local-authentication";
 import { apiRequest, setApiAccessToken, setApiTokenPersister } from "@/services/api";
 import { galleryImagesFrom } from "@/utils/media";
+import { unregisterCurrentDeviceFromPush } from "@/services/pushNotifications";
 import type { UserProfile } from "@/types";
 
 const ACCESS_TOKEN_KEY = "igen_access_token";
@@ -115,6 +116,7 @@ export const authService = {
 
   async logout() {
     try {
+      await unregisterCurrentDeviceFromPush().catch(() => undefined);
       await apiRequest("/api/v1/auth/logout", { method: "POST" });
     } finally {
       await clearLocalSession();
