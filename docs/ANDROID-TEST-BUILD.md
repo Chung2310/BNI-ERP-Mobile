@@ -28,7 +28,7 @@ Paste the clipboard value into `ANDROID_GOOGLE_SERVICES_JSON_BASE64`. The workfl
 
 ## Build and install
 
-The workflow runs automatically on pushes to `main` and `feature/personal-profile-gallery-menu`. To run it manually, open **Actions → Android test APK → Run workflow**.
+The workflow runs automatically only when changes are pushed or merged into `production`. To run it manually, open **Actions → Android test APK → Run workflow**.
 
 After it succeeds:
 
