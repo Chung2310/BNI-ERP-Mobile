@@ -412,7 +412,7 @@ export default function ChatRoomScreen() {
   const pickFile = async (replacePending?: PendingAttachment) => {
     const stagedAssets: UploadAsset[] = [];
     try {
-      const result = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: !replacePending, copyToCacheDirectory: Platform.OS === 'web' });
+      const result = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: !replacePending, copyToCacheDirectory: true });
       if (result.canceled) return;
       const assets: UploadAsset[] = [];
       for (const asset of result.assets) {
