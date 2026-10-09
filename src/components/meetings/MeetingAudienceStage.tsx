@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Crown, Fingerprint, Presentation } from "lucide-react-native";
 import { Avatar, Card } from "@/components/ui";
 import { ProfileSlideCanvas } from "@/components/meetings/ProfileSlideCanvas";
