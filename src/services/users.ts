@@ -1,8 +1,17 @@
 import { apiRequest } from "@/services/api";
+import { galleryImagesFrom } from "@/utils/media";
 import type { UserProfile, UserRole } from "@/types";
 
 type ApiUser = Omit<UserProfile, "uid"> & { _id?: string; uid?: string; isActive?: boolean };
-const normalize = (user: ApiUser): UserProfile & { isActive?: boolean } => ({ ...user, uid: user.uid || user._id || "" });
+const normalize = (user: ApiUser): UserProfile & { isActive?: boolean } => {
+  const raw = user as Record<string, unknown>;
+  const gallery = galleryImagesFrom(raw);
+  return {
+    ...user,
+    uid: user.uid || user._id || "",
+    ...(gallery.length > 0 ? { galleryImages: gallery } : {}),
+  };
+};
 export type UserDirectoryPage = {
   items: UserProfile[];
   total: number;
@@ -46,6 +55,15 @@ export const userService = {
     }
   },
   get: async (id: string): Promise<UserProfile> => {
+    try {
+      const res = await apiRequest<any>(`/api/v1/crud/users/${encodeURIComponent(id)}`);
+      const rawUser = res?.data || res;
+      if (rawUser && (rawUser.uid || rawUser._id)) {
+        return normalize(rawUser);
+      }
+    } catch {
+      // Fall back to searching cached/live directory
+    }
     const users = await userService.directory();
     const user = users.find((item: UserProfile) => item.uid === id);
     if (!user) throw new Error("Không tìm thấy thành viên trong đơn vị của bạn.");

@@ -1,226 +1,308 @@
-import { Redirect, router } from "expo-router";
-import { ChevronRight, FolderOpen, Settings, ShieldCheck, UserCog } from "lucide-react-native";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { BackHeader } from "@/components/BackHeader";
-import { Avatar, Screen } from "@/components/ui";
+import { router, useFocusEffect } from "expo-router";
+import {
+  BriefcaseBusiness,
+  Building2,
+  Cake,
+  LogOut,
+  MapPin,
+  Mail,
+  Pencil,
+  Phone,
+  Settings,
+  Target,
+  UserRound,
+  type LucideIcon,
+} from "lucide-react-native";
+import { useCallback, useState } from "react";
+import { Image, StyleSheet, Text, View } from "react-native";
+import { Alert } from "@/components/AppAlert";
+import { AppHeader, Avatar, Button, Card, Screen } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
+import { galleryImagesFrom, mediaUrl } from "@/utils/media";
 import { colors, radius, spacing } from "@/theme/tokens";
-import { canAccessSystem, hasPermission } from "@/utils/permissions";
+import type { UserProfile } from "@/types";
 
-export default function MoreScreen() {
-  const { user, isLoading } = useAuth();
-  const canManageUsers = hasPermission(user, "access:read", "access:manage");
-  const canManageRoles = hasPermission(user, "access:read", "access:manage");
+const roleLabels: Record<UserProfile["role"], string> = {
+  user: "Thành viên",
+  teacher: "Giảng viên",
+  manager: "Quản lý",
+  branch_owner: "Chủ tịch Chapter",
+  admin: "Quản trị viên",
+};
 
-  if (isLoading) return null;
-  if (!canAccessSystem(user)) return <Redirect href="/(tabs)" />;
+function profileInitials(displayName?: string) {
+  return (displayName || "Người dùng")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0])
+    .slice(-2)
+    .join("")
+    .toUpperCase();
+}
+
+function formatBirthDate(value?: string) {
+  if (!value) return undefined;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("vi-VN");
+}
+
+function genderLabel(gender?: UserProfile["gender"]) {
+  if (gender === "male") return "Nam";
+  if (gender === "female") return "Nữ";
+  if (gender === "other") return "Khác";
+  return undefined;
+}
+
+function companyLabel(user: UserProfile) {
+  if (user.companyName) return user.companyName;
+  if (typeof user.company === "string") return user.company;
+  return user.company?.name;
+}
+
+function InfoRow({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value?: string;
+}) {
+  return (
+    <View style={styles.infoRow}>
+      <View style={styles.infoIcon}>
+        <Icon color={colors.primaryDark} size={18} strokeWidth={1.9} />
+      </View>
+      <View style={styles.infoContent}>
+        <Text style={styles.infoLabel}>{label}</Text>
+        <Text selectable style={[styles.infoValue, !value && styles.infoEmpty]}>
+          {value || "Chưa cập nhật"}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+export default function PersonalScreen() {
+  const { user, signOut, refreshProfile } = useAuth();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const userId = user?.uid;
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId) return undefined;
+      void refreshProfile().catch(() => undefined);
+      return undefined;
+    }, [refreshProfile, userId]),
+  );
+
+  const displayedProfile = user;
+  if (!displayedProfile) return null;
+
+  const role = roleLabels[displayedProfile.role];
+  const branch = displayedProfile.branchName || displayedProfile.companyCode;
+  const galleryImages = galleryImagesFrom(displayedProfile);
+
+  const confirmSignOut = () => {
+    if (isSigningOut) return;
+
+    Alert.alert("Đăng xuất?", "Bạn có chắc muốn đăng xuất khỏi tài khoản này?", [
+      { text: "Hủy", style: "cancel" },
+      {
+        text: "Đăng xuất",
+        style: "destructive",
+        onPress: () => {
+          setIsSigningOut(true);
+          void signOut()
+            .catch(() => undefined)
+            .finally(() => router.replace("/login"));
+        },
+      },
+    ]);
+  };
 
   return (
     <Screen style={styles.screen}>
-      {/* Header Quản trị hệ thống có nút Back quay về */}
-      <View style={styles.headerContainer}>
-        <BackHeader
-          title="Quản trị hệ thống"
-          compact
-          onBack={() => router.navigate("/(tabs)")}
-        />
-      </View>
+      <AppHeader title="Cá nhân" subtitle="Thông tin tài khoản của bạn" />
 
-      {/* Thẻ hồ sơ người dùng thu gọn, gọn gàng */}
-      <View style={styles.profileContainer}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Xem hồ sơ cá nhân"
-          onPress={() => router.push("/profile")}
-          style={({ pressed }) => [styles.profileCard, pressed && styles.profilePressed]}
+      <Card style={styles.heroCard}>
+        <Avatar initials={profileInitials(displayedProfile.displayName)} url={displayedProfile.photoURL} size={78} />
+        <Text numberOfLines={1} style={styles.name}>{displayedProfile.displayName}</Text>
+        <Text numberOfLines={1} style={styles.role}>{role}</Text>
+        {branch ? <Text numberOfLines={1} style={styles.branch}>{branch}</Text> : null}
+      </Card>
+
+      <View style={styles.actions}>
+        <Button
+          icon={Pencil}
+          style={styles.actionButton}
+          onPress={() => router.push({ pathname: "/profile", params: { edit: "profile" } })}
         >
-          <Avatar
-            initials={(user?.displayName || "Admin")
-              .split(" ")
-              .filter(Boolean)
-              .map((part) => part[0])
-              .slice(-2)
-              .join("")
-              .toUpperCase()}
-            size={40}
-            url={user?.photoURL}
-          />
-          <View style={styles.profileInfo}>
-            <Text numberOfLines={1} style={styles.profileName}>
-              {user?.displayName || "Quản trị viên"}
-            </Text>
-            <Text numberOfLines={1} style={styles.profileMeta}>
-              {user?.role || "Quản trị"} · {user?.companyCode || user?.branchName || "iGen Connect"}
-            </Text>
-          </View>
-          <ChevronRight color={colors.muted} size={18} />
-        </Pressable>
-      </View>
-
-      {/* Danh sách thẻ chức năng hệ thống - Giảm kích thước, gọn gàng và thân thiện */}
-      <View style={styles.grid}>
-        {canManageUsers ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Quản trị user"
-            onPress={() => router.push("/admin/users")}
-            style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
-          >
-            <View style={styles.tileIconBox}>
-              <UserCog color={colors.primaryDark} size={20} strokeWidth={2} />
-            </View>
-            <Text numberOfLines={1} style={styles.tileTitle}>Quản trị user</Text>
-            <Text numberOfLines={1} style={styles.tileSubtitle}>Tài khoản & chi nhánh</Text>
-          </Pressable>
-        ) : null}
-
-        {canManageRoles ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Phân quyền"
-            onPress={() => router.push("/admin/roles")}
-            style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
-          >
-            <View style={styles.tileIconBox}>
-              <ShieldCheck color="#15966A" size={20} strokeWidth={2} />
-            </View>
-            <Text numberOfLines={1} style={styles.tileTitle}>Phân quyền</Text>
-            <Text numberOfLines={1} style={styles.tileSubtitle}>Vai trò & quyền hạn</Text>
-          </Pressable>
-        ) : null}
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Tài nguyên"
-          onPress={() => router.push("/resources")}
-          style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
-        >
-          <View style={styles.tileIconBox}>
-            <FolderOpen color="#D98A15" size={20} strokeWidth={2} />
-          </View>
-          <Text numberOfLines={1} style={styles.tileTitle}>Tài nguyên</Text>
-          <Text numberOfLines={1} style={styles.tileSubtitle}>File & Google Drive</Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Cài đặt hệ thống"
+          Chỉnh sửa hồ sơ
+        </Button>
+        <Button
+          icon={Settings}
+          tone="secondary"
+          style={styles.actionButton}
           onPress={() => router.push("/settings")}
-          style={({ pressed }) => [
-            styles.tile,
-            styles.fullWidthTile,
-            pressed && styles.tilePressed,
-          ]}
         >
-          <View style={styles.tileRowContent}>
-            <View style={[styles.tileIconBox, styles.rowIconBox]}>
-              <Settings color="#4B5E6B" size={20} strokeWidth={2} />
-            </View>
-            <View style={styles.tileRowText}>
-              <Text numberOfLines={1} style={styles.tileTitle}>Cài đặt hệ thống</Text>
-              <Text numberOfLines={1} style={styles.tileSubtitle}>Hồ sơ cá nhân & bảo mật sinh trắc học</Text>
-            </View>
-            <ChevronRight color={colors.muted} size={18} />
-          </View>
-        </Pressable>
+          Cài đặt
+        </Button>
       </View>
+
+      <Text style={styles.sectionTitle}>Thông tin cá nhân</Text>
+      <Card style={styles.infoCard}>
+        <InfoRow icon={Mail} label="Email" value={displayedProfile.email} />
+        <InfoRow icon={Phone} label="Số điện thoại" value={displayedProfile.phone || displayedProfile.phoneNumber} />
+        <InfoRow icon={Cake} label="Ngày sinh" value={formatBirthDate(displayedProfile.birthDate)} />
+        <InfoRow icon={UserRound} label="Giới tính" value={genderLabel(displayedProfile.gender)} />
+        <InfoRow icon={MapPin} label="Địa chỉ" value={displayedProfile.address} />
+      </Card>
+
+      <Text style={styles.sectionTitle}>Thông tin công việc</Text>
+      <Card style={styles.infoCard}>
+        <InfoRow icon={Building2} label="Công ty" value={companyLabel(displayedProfile)} />
+        <InfoRow icon={BriefcaseBusiness} label="Lĩnh vực" value={displayedProfile.industry} />
+        <InfoRow icon={Target} label="Thị trường mục tiêu" value={displayedProfile.targetMarket} />
+      </Card>
+
+      <Text style={styles.sectionTitle}>Ảnh sản phẩm hoặc hoạt động</Text>
+      <Card style={styles.galleryCard}>
+        {galleryImages.length ? (
+          <View style={styles.galleryGrid}>
+            {galleryImages.map((image, index) => (
+              <View key={`${image}-${index}`} style={styles.galleryItem}>
+                <Image
+                  accessibilityLabel={`Ảnh sản phẩm hoặc hoạt động ${index + 1}`}
+                  source={{ uri: mediaUrl(image) }}
+                  style={styles.galleryImage}
+                  resizeMode="cover"
+                />
+              </View>
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.galleryEmpty}>Chưa cập nhật hình ảnh.</Text>
+        )}
+      </Card>
+
+      <Button
+        icon={LogOut}
+        tone="danger"
+        fullWidth
+        disabled={isSigningOut}
+        style={styles.signOutButton}
+        onPress={confirmSignOut}
+      >
+        {isSigningOut ? "Đang đăng xuất..." : "Đăng xuất"}
+      </Button>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
-    paddingHorizontal: 0,
-    backgroundColor: colors.surface,
-  },
-  headerContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.xs,
-  },
-  profileContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xs,
-  },
-  profileCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F8FAFC",
-    borderWidth: 1,
-    borderColor: "#EAEFF3",
-    borderRadius: radius.md,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.md,
   },
-  profilePressed: {
-    opacity: 0.75,
+  heroCard: {
+    alignItems: "center",
+    paddingVertical: spacing.xl,
+    borderRadius: radius.xl,
   },
-  profileInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  profileName: {
+  name: {
+    marginTop: spacing.md,
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "700",
+    fontSize: 20,
+    fontWeight: "800",
   },
-  profileMeta: {
-    color: colors.muted,
-    fontSize: 11.5,
-  },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    gap: spacing.sm,
-  },
-  tile: {
-    width: "48.5%",
-    minHeight: 82,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: "#EAEFF3",
-    borderRadius: radius.md,
-    padding: spacing.sm,
-    justifyContent: "center",
-  },
-  tilePressed: {
-    opacity: 0.75,
-    backgroundColor: "#F8FAFC",
-  },
-  tileIconBox: {
-    alignItems: "flex-start",
-    justifyContent: "center",
-    marginBottom: 6,
-  },
-  rowIconBox: {
-    marginBottom: 0,
-    marginRight: 4,
-  },
-  tileTitle: {
-    color: colors.text,
+  role: {
+    marginTop: spacing.xs,
+    color: colors.primaryDark,
     fontSize: 13,
     fontWeight: "700",
   },
-  tileSubtitle: {
+  branch: {
+    marginTop: 2,
     color: colors.muted,
-    fontSize: 10.5,
-    marginTop: 1,
+    fontSize: 12,
   },
-  fullWidthTile: {
-    width: "100%",
-    minHeight: 52,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-  },
-  tileRowContent: {
+  actions: {
     flexDirection: "row",
-    alignItems: "center",
     gap: spacing.sm,
   },
-  tileRowText: {
+  actionButton: {
     flex: 1,
+  },
+  sectionTitle: {
+    marginTop: spacing.sm,
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  infoCard: {
+    paddingVertical: spacing.xs,
+  },
+  infoRow: {
+    minHeight: 58,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  infoIcon: {
+    width: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.md,
+    backgroundColor: colors.primarySoft,
+  },
+  infoContent: {
+    flex: 1,
+    gap: 2,
+  },
+  infoLabel: {
+    color: colors.muted,
+    fontSize: 11.5,
+  },
+  infoValue: {
+    color: colors.text,
+    fontSize: 13.5,
+    fontWeight: "600",
+    lineHeight: 19,
+  },
+  infoEmpty: {
+    color: colors.muted,
+    fontWeight: "400",
+  },
+  galleryCard: {
+    gap: spacing.md,
+  },
+  galleryGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  galleryItem: {
+    width: "31.5%",
+    aspectRatio: 1,
+    overflow: "hidden",
+    borderRadius: radius.md,
+    backgroundColor: colors.primarySoft,
+  },
+  galleryImage: {
+    width: "100%",
+    height: "100%",
+  },
+  galleryEmpty: {
+    color: colors.muted,
+    fontSize: 12,
+    textAlign: "center",
+    paddingVertical: spacing.lg,
+  },
+  signOutButton: {
+    marginTop: spacing.md,
   },
 });

@@ -7,14 +7,12 @@ import {
   DuotoneCalendarIcon,
   DuotoneChatIcon,
   DuotoneCreateMeetingIcon,
-  DuotoneFolderIcon,
   DuotoneSettingsIcon,
-  DuotoneShieldIcon,
   DuotoneTrophyIcon,
 } from '@/components/icons/DuotoneActionIcons';
 import type { UserProfile } from '@/types';
 import { colors, radius, spacing } from '@/theme/tokens';
-import { canAccessSystem, canCreateMeeting } from '@/utils/permissions';
+import { canCreateMeeting } from '@/utils/permissions';
 
 interface QuickActionDef {
   icon: ComponentType<{ color?: string; size?: number; strokeWidth?: number }>;
@@ -48,7 +46,6 @@ export function DashboardQuickActions({
   liveMeetingId?: string;
 }) {
   const showCreateMeeting = canCreateMeeting(user);
-  const showSystem = canAccessSystem(user);
 
   const actions: QuickActionDef[] = [];
 
@@ -100,27 +97,12 @@ export function DashboardQuickActions({
       color: '#00AECA',
     },
     {
-      icon: DuotoneFolderIcon,
-      title: 'Tài nguyên',
-      href: '/resources',
-      color: '#00AECA',
-    },
-    {
       icon: DuotoneSettingsIcon,
       title: 'Cài đặt',
       href: '/settings',
       color: '#00AECA',
     }
   );
-
-  if (showSystem) {
-    actions.push({
-      icon: DuotoneShieldIcon,
-      title: 'Quản trị hệ thống',
-      href: '/(tabs)/more',
-      color: '#00AECA',
-    });
-  }
 
   return (
     <View style={styles.container}>

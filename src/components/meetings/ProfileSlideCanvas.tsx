@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
+import { galleryImagesFrom, mediaUrl } from "@/utils/media";
 import type { ProfileSlide } from "@/services/meeting";
 
 const WIDTH = 1920;
@@ -12,8 +13,8 @@ export function ProfileSlideCanvas({ slide, width }: { slide: ProfileSlide; widt
   const px = (value: number) => value * scale;
   const box = (x: number, y: number, w: number, h: number) => ({ position: "absolute" as const, left: px(x), top: px(y), width: px(w), height: px(h) });
   const label = (size: number, color = "#FFFFFF") => ({ fontSize: px(size), lineHeight: px(size * 1.28), fontWeight: "800" as const, color, textAlign: "center" as const, includeFontPadding: false });
-  const photo = slide.photoURL && !photoFailed ? { uri: slide.photoURL } : require("../../../assets/meeting-slide/default-pfp.jpg");
-  const gallery = (slide.galleryImages || []).filter(Boolean).slice(0, 5);
+  const photo = slide.photoURL && !photoFailed ? { uri: mediaUrl(slide.photoURL) } : require("../../../assets/meeting-slide/default-pfp.jpg");
+  const gallery = galleryImagesFrom(slide).slice(0, 5);
 
   return <View style={[styles.canvas, { width, height: width * HEIGHT / WIDTH }]}>
     <Image source={require("../../../assets/meeting-slide/background.jpeg")} style={[box(0, 0, WIDTH, HEIGHT), styles.background]} resizeMode="stretch" />
@@ -43,7 +44,7 @@ export function ProfileSlideCanvas({ slide, width }: { slide: ProfileSlide; widt
       {gallery.map((url, index) => {
         const gap = 18;
         const cellWidth = (1120 - gap * (gallery.length - 1)) / gallery.length;
-        return <Image key={`${url}-${index}`} source={{ uri: url }} style={[box(710 + index * (cellWidth + gap), 504, cellWidth, 235), styles.galleryImage]} resizeMode="contain" />;
+        return <Image key={`${url}-${index}`} source={{ uri: mediaUrl(url) }} style={[box(710 + index * (cellWidth + gap), 504, cellWidth, 235), styles.galleryImage]} resizeMode="contain" />;
       })}
     </> : null}
 
