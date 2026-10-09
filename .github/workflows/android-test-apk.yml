@@ -51,9 +51,22 @@ jobs:
       - name: Restore Firebase configuration
         shell: bash
         run: |
-          : "${EXPO_PUBLIC_API_URL:?Missing EXPO_PUBLIC_API_URL variable}"
-          : "${ANDROID_GOOGLE_SERVICES_JSON_BASE64:?Missing ANDROID_GOOGLE_SERVICES_JSON_BASE64 variable or secret}"
-          printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > google-services.json
+          if [ -z "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" ]; then
+            echo "::error title=Missing Firebase variable::Add ANDROID_GOOGLE_SERVICES_JSON_BASE64 under BNI-ERP-Mobile Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+          if [[ "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" == \{* ]]; then
+            printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" > google-services.json
+          elif ! printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > google-services.json; then
+            echo "::error title=Invalid Firebase variable::ANDROID_GOOGLE_SERVICES_JSON_BASE64 is neither valid Base64 nor raw JSON."
+            exit 1
+          fi
+
+          if ! node -e "const c=require('./google-services.json'); const ok=c.client?.some(x=>x.client_info?.android_client_info?.package_name==='vn.igen.connect'); if(!ok) process.exit(1)"; then
+            echo "::error title=Wrong Firebase app::google-services.json does not contain Android package vn.igen.connect."
+            exit 1
+          fi
 
       - name: Generate Android native project
         run: npx expo prebuild --platform android --clean --no-install
