@@ -17,7 +17,7 @@ concurrency:
 env:
   CI: "1"
   NODE_VERSION: "22"
-  EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
+  EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL || 'https://staging-bni.igentechnology.net' }}
   ANDROID_GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 || vars.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
 
 jobs:
