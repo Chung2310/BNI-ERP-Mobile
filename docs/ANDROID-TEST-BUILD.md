@@ -16,7 +16,7 @@ Create this repository variable (the workflow also accepts a secret with the sam
 
 | Variable | Value |
 | --- | --- |
-| `ANDROID_GOOGLE_SERVICES_JSON_BASE64` | Base64 of Firebase `google-services.json` for package `vn.igen.connect`. |
+| `ANDROID_GOOGLE_SERVICES_JSON_BASE64` | Base64 of Firebase `google-services.json` for package `com.igen.connect`. |
 
 Convert the Firebase file to Base64 in PowerShell:
 

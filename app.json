@@ -13,7 +13,7 @@
       "bundleIdentifier": "vn.igen.connect"
     },
     "android": {
-      "package": "vn.igen.connect",
+      "package": "com.igen.connect",
       "googleServicesFile": "./google-services.json",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
