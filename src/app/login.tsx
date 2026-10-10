@@ -37,10 +37,7 @@ export default function LoginScreen() {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const passwordInputRef = useRef<TextInput>(null);
-
-  useEffect(() => {
-    authService.canUseBiometricLogin().then(setCanUseBiometrics).catch(() => setCanUseBiometrics(false));
-  }, []);
+  const autoBiometricAttempted = useRef(false);
 
   useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
@@ -103,6 +100,19 @@ export default function LoginScreen() {
       setSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    if (autoBiometricAttempted.current) return;
+    autoBiometricAttempted.current = true;
+    void authService.canUseBiometricLogin()
+      .then((available) => {
+        setCanUseBiometrics(available);
+        if (available) void submitBiometrics();
+      })
+      .catch(() => setCanUseBiometrics(false));
+  // Chỉ tự động hỏi một lần khi mở màn đăng nhập.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <ImageBackground

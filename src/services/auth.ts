@@ -175,5 +175,10 @@ export const authService = {
     await SecureStore.setItemAsync(BIOMETRIC_KEY, String(enabled));
   },
 
+  async authenticateForCheckIn() {
+    if ((await SecureStore.getItemAsync(BIOMETRIC_KEY)) !== "true") return;
+    await authenticateWithBiometrics("Xác nhận check-in bằng Face ID/vân tay");
+  },
+
   hasUsableBiometrics,
 };

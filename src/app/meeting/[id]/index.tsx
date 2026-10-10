@@ -31,6 +31,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { useRevealSearch } from "@/hooks/useRevealSearch";
 import { meetingService, meetingVersion, type Meeting } from "@/services/meeting";
+import { authService } from "@/services/auth";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 import { hasPermission } from "@/utils/permissions";
 import { meetingCheckInAvailability } from "@/utils/meetingCheckIn";
@@ -81,6 +82,7 @@ export default function MeetingDetailScreen() {
     setCheckInBusy(true);
     setCheckInError("");
     try {
+      await authService.authenticateForCheckIn();
       const permission = await Location.requestForegroundPermissionsAsync();
       if (!permission.granted) throw new Error("Cần cho phép truy cập vị trí để check-in.");
       const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
