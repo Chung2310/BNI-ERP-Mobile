@@ -1,6 +1,6 @@
 import { Alert } from "@/components/AppAlert";
+import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useEffect, useState } from "react";
-import * as LocalAuthentication from "expo-local-authentication";
 import {  StyleSheet, Switch, Text, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { Card, Screen } from "@/components/ui";
@@ -21,23 +21,15 @@ export default function SettingsScreen() {
     setIsSaving(true);
     try {
       if (enabled) {
-        const [hasHardware, isEnrolled] = await Promise.all([
-          LocalAuthentication.hasHardwareAsync(),
-          LocalAuthentication.isEnrolledAsync(),
-        ]);
-        if (!hasHardware || !isEnrolled) {
+        if (!(await authService.hasUsableBiometrics())) {
           Alert.alert("Chưa thể bật sinh trắc học", "Thiết bị chưa hỗ trợ hoặc chưa cài đặt vân tay/Face ID.");
           return;
         }
-        const result = await LocalAuthentication.authenticateAsync({
-          promptMessage: "Xác nhận bật đăng nhập sinh trắc học",
-          cancelLabel: "Hủy",
-          fallbackLabel: "Dùng mật mã thiết bị",
-        });
-        if (!result.success) return;
       }
       await authService.setBiometricEnabled(enabled);
       setBiometricEnabled(enabled);
+    } catch (cause) {
+      Alert.alert("Không thể cập nhật", friendlyErrorMessage(cause, "Không thể cập nhật đăng nhập sinh trắc học."));
     } finally {
       setIsSaving(false);
     }

@@ -1,6 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 import * as LocalAuthentication from "expo-local-authentication";
-import { apiRequest, setApiAccessToken, setApiTokenPersister } from "@/services/api";
+import { apiRequest, getApiAccessToken, setApiAccessToken, setApiTokenPersister } from "@/services/api";
 import { galleryImagesFrom } from "@/utils/media";
 import { unregisterCurrentDeviceFromPush } from "@/services/pushNotifications";
 import type { UserProfile } from "@/types";
@@ -9,6 +9,33 @@ const ACCESS_TOKEN_KEY = "igen_access_token";
 const PROFILE_KEY = "igen_user_profile";
 const DEVICE_KEY = "igen_device_id";
 const BIOMETRIC_KEY = "igen_biometric_enabled";
+
+async function hasUsableBiometrics() {
+  if (!(await SecureStore.canUseBiometricAuthentication())) return false;
+  const [hasHardware, isEnrolled] = await Promise.all([
+    LocalAuthentication.hasHardwareAsync(),
+    LocalAuthentication.isEnrolledAsync(),
+  ]);
+  return hasHardware && isEnrolled;
+}
+
+async function authenticateWithBiometrics(promptMessage: string) {
+  if (!(await hasUsableBiometrics())) {
+    throw new Error("Thiết bị chưa hỗ trợ hoặc chưa cài đặt Face ID/vân tay.");
+  }
+  const result = await LocalAuthentication.authenticateAsync({
+    promptMessage,
+    cancelLabel: "Hủy",
+    fallbackLabel: "Dùng tài khoản",
+    disableDeviceFallback: true,
+    biometricsSecurityLevel: "strong",
+  });
+  if (!result.success) {
+    throw new Error(result.error === "user_cancel"
+      ? "Đã hủy xác thực sinh trắc học."
+      : "Không xác thực được Face ID/vân tay. Vui lòng thử lại.");
+  }
+}
 
 type LoginResponse = { accessToken: string; user: Omit<UserProfile, "uid"> & { _id?: string; uid?: string } };
 
@@ -83,20 +110,21 @@ export const authService = {
       SecureStore.getItemAsync(ACCESS_TOKEN_KEY),
       SecureStore.getItemAsync(PROFILE_KEY),
     ]);
-    return enabled === "true" && Boolean(token && profile);
+    return enabled === "true" && Boolean(token && profile) && await hasUsableBiometrics();
   },
 
   async loginWithBiometrics() {
     if (!(await this.canUseBiometricLogin())) throw new Error("Chưa thiết lập đăng nhập sinh trắc học.");
-    const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: "Đăng nhập iGen Connect",
-      cancelLabel: "Hủy",
-      fallbackLabel: "Dùng tài khoản",
-    });
-    if (!result.success) throw new Error("Không xác thực được. Vui lòng thử lại hoặc dùng tài khoản.");
+    await authenticateWithBiometrics("Đăng nhập iGen Connect");
     const session = await this.restore({ bypassBiometricGate: true });
     if (!session) throw new Error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại bằng tài khoản.");
-    return session;
+    try {
+      const user = await this.getProfile();
+      return { token: getApiAccessToken() || session.token, user };
+    } catch (error) {
+      await clearLocalSession();
+      throw error;
+    }
   },
 
   async login(identifier: string, password: string) {
@@ -143,6 +171,9 @@ export const authService = {
   },
 
   async setBiometricEnabled(enabled: boolean) {
+    if (enabled) await authenticateWithBiometrics("Xác nhận bật đăng nhập bằng Face ID/vân tay");
     await SecureStore.setItemAsync(BIOMETRIC_KEY, String(enabled));
   },
+
+  hasUsableBiometrics,
 };

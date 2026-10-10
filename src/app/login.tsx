@@ -39,7 +39,7 @@ export default function LoginScreen() {
   const passwordInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
-    authService.canUseBiometricLogin().then(setCanUseBiometrics);
+    authService.canUseBiometricLogin().then(setCanUseBiometrics).catch(() => setCanUseBiometrics(false));
   }, []);
 
   useEffect(() => {
@@ -98,6 +98,7 @@ export default function LoginScreen() {
       router.replace("/(tabs)");
     } catch (cause) {
       setError(friendlyErrorMessage(cause, "Không thể xác thực sinh trắc học."));
+      setIsSheetVisible(true);
     } finally {
       setSubmitting(false);
     }
@@ -133,6 +134,18 @@ export default function LoginScreen() {
           >
             Đăng nhập
           </Button>
+          {canUseBiometrics ? (
+            <Button
+              icon={Fingerprint}
+              tone="secondary"
+              fullWidth
+              disabled={submitting}
+              onPress={submitBiometrics}
+              style={styles.quickBiometricButton}
+            >
+              Face ID / Vân tay
+            </Button>
+          ) : null}
         </View>
       </SafeAreaView>
 
@@ -317,6 +330,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.55,
     shadowRadius: 16,
     elevation: 6,
+  },
+  quickBiometricButton: {
+    minHeight: 48,
+    marginTop: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: "rgba(255, 255, 255, 0.92)",
   },
   modalOverlay: {
     flex: 1,
