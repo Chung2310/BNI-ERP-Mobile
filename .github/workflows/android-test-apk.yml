@@ -21,7 +21,7 @@ env:
   # stable React Native networking implementation until the SDK fix lands.
   EXPO_PUBLIC_USE_RN_FETCH: "1"
   EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL || 'https://staging-bni.igentechnology.net' }}
-  ANDROID_GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 || vars.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
+  ANDROID_GOOGLE_SERVICES_JSON: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON || vars.ANDROID_GOOGLE_SERVICES_JSON || secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 || vars.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
 
 jobs:
   build:
@@ -54,15 +54,13 @@ jobs:
       - name: Restore Firebase configuration
         shell: bash
         run: |
-          if [ -z "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" ]; then
-            echo "::error title=Missing Firebase variable::Add ANDROID_GOOGLE_SERVICES_JSON_BASE64 under BNI-ERP-Mobile Settings > Secrets and variables > Actions."
+          if [ -z "$ANDROID_GOOGLE_SERVICES_JSON" ]; then
+            echo "::error title=Missing Firebase variable::Add ANDROID_GOOGLE_SERVICES_JSON (raw JSON) under Settings > Secrets and variables > Actions."
             exit 1
           fi
 
-          if [[ "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" == \{* ]]; then
-            printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" > google-services.json
-          elif ! printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > google-services.json; then
-            echo "::error title=Invalid Firebase variable::ANDROID_GOOGLE_SERVICES_JSON_BASE64 is neither valid Base64 nor raw JSON."
+          if ! node -e "const fs=require('fs'); const value=process.env.ANDROID_GOOGLE_SERVICES_JSON.trim(); let config; let format='raw JSON'; try { config=JSON.parse(value); } catch { format='Base64'; try { config=JSON.parse(Buffer.from(value, 'base64').toString('utf8')); } catch { process.exit(1); } } fs.writeFileSync('google-services.json', JSON.stringify(config)); console.log('Firebase configuration restored from ' + format + '.');"; then
+            echo "::error title=Invalid Firebase variable::Firebase configuration is neither valid raw JSON nor Base64-encoded JSON."
             exit 1
           fi
 
