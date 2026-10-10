@@ -62,9 +62,19 @@ async function performDevicePushRegistration(providedToken?: string): Promise<st
     // This is the provider-native token: FCM on Android and APNs on iOS.
     // The backend sends directly to those providers; Expo Push Service is not used.
     const nativeToken = await Notifications.getDevicePushTokenAsync();
-    token = nativeToken.data;
+    if (Platform.OS === "android" && nativeToken.type !== "android") {
+      throw new Error("Firebase trả về sai loại token cho thiết bị Android.");
+    }
+    if (typeof nativeToken.data !== "string") {
+      throw new Error("Firebase không trả về FCM token hợp lệ.");
+    }
+    token = nativeToken.data.trim();
   }
   if (!token) return null;
+  token = token.trim();
+  if (token.length < 20 || token.length > 4096 || /\s/.test(token)) {
+    throw new Error("FCM token trên thiết bị không hợp lệ.");
+  }
   const previousToken = await SecureStore.getItemAsync(PUSH_TOKEN_KEY);
   const legacyExpoToken = await SecureStore.getItemAsync(LEGACY_EXPO_PUSH_TOKEN_KEY);
 
@@ -72,9 +82,8 @@ async function performDevicePushRegistration(providedToken?: string): Promise<st
     method: "POST",
     body: JSON.stringify({
       token,
-      platform: Platform.OS,
-      provider: Platform.OS === "android" ? "fcm" : "apns",
-      deviceName: Device.deviceName || Device.modelName || undefined,
+      platform: Platform.OS === "android" ? "android" : "ios",
+      provider: "fcm",
     }),
   });
 
