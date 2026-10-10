@@ -1,4 +1,4 @@
-import { router } from "expo-router";
+import { router, type Href } from "expo-router";
 import { io, type Socket } from "socket.io-client";
 import { AppState, Platform } from "react-native";
 import {
@@ -33,6 +33,11 @@ const NotificationContext = createContext<NotificationState | null>(null);
 function notificationIdFromResponse(response: NotificationResponse) {
   const value = response.notification.request.content.data?.notificationId;
   return typeof value === "string" ? value : undefined;
+}
+
+function routeFromResponse(response: NotificationResponse) {
+  const value = response.notification.request.content.data?.route;
+  return typeof value === "string" && value.startsWith("/") ? value : undefined;
 }
 
 export function NotificationProvider({ children }: PropsWithChildren) {
@@ -171,8 +176,9 @@ export function NotificationProvider({ children }: PropsWithChildren) {
   const handleResponse = useCallback((response: NotificationResponse | null) => {
     if (!response || handledResponseId.current === response.notification.request.identifier) return;
     handledResponseId.current = response.notification.request.identifier;
+    const route = routeFromResponse(response);
     const notificationId = notificationIdFromResponse(response);
-    if (notificationId) {
+    if (notificationId && !route?.startsWith("/chat/")) {
       void notificationService.markRead(notificationId)
         .then(() => {
           setUnreadCount((current) => Math.max(0, current - 1));
@@ -180,7 +186,7 @@ export function NotificationProvider({ children }: PropsWithChildren) {
         })
         .catch(() => undefined);
     }
-    router.push("/notifications");
+    router.push((route || "/notifications") as Href);
   }, []);
 
   useEffect(() => {
