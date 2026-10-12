@@ -79,10 +79,10 @@ export function InteractionManager({
 
   const [question, setQuestion] = useState(initial.session?.question || "");
   const [duration, setDuration] = useState(String(initial.session?.durationSeconds || 60));
-  const [requireName, setRequireName] = useState(initial.session?.requireName ?? true);
-  const [showNames, setShowNames] = useState(initial.session?.showNames ?? true);
-  const [moderation, setModeration] = useState(initial.session?.moderationEnabled ?? true);
-  const [multiple, setMultiple] = useState(initial.session?.allowMultipleResponses ?? false);
+  const [requireName, setRequireName] = useState(initial.session?.requireName ?? false);
+  const [showNames, setShowNames] = useState(initial.session?.showNames ?? false);
+  const [moderation, setModeration] = useState(initial.session?.moderationEnabled ?? false);
+  const [multiple, setMultiple] = useState(initial.session?.allowMultipleResponses ?? true);
   const [showSettings, setShowSettings] = useState(false);
   const [previewQuestionId, setPreviewQuestionId] = useState(
     initial.session?.activeQuestionId || initial.session?.questions[0]?.id || ""
@@ -276,13 +276,13 @@ export function InteractionManager({
             <View style={s.iconBox}>
               <MessageCircle color={colors.primaryDark} size={18} />
             </View>
-            <View>
+            <View style={s.cardHeaderText}>
               <Text style={s.heading}>Câu hỏi tương tác</Text>
               <Text style={s.metaSubtitle}>Khảo sát và thu thập ý kiến người tham dự</Text>
             </View>
           </View>
           {state.session ? (
-            <Badge tone={state.session.status === "open" ? "primary" : state.session.status === "closed" ? "danger" : "default"}>
+            <Badge style={s.cardHeaderBadge} tone={state.session.status === "open" ? "primary" : state.session.status === "closed" ? "danger" : "default"}>
               {state.session.status === "open" ? "ĐANG MỞ" : state.session.status === "closed" ? "ĐÃ ĐÓNG" : "BẢN NHÁP"}
             </Badge>
           ) : null}
@@ -604,7 +604,7 @@ export function InteractionManager({
             <View style={s.iconBox}>
               <MessageSquare color={colors.primaryDark} size={18} />
             </View>
-            <View>
+            <View style={s.cardHeaderText}>
               <Text style={s.heading}>Phản hồi từ người tham dự</Text>
               <Text style={s.metaSubtitle}>
                 {state.session?.moderationEnabled
@@ -613,7 +613,7 @@ export function InteractionManager({
               </Text>
             </View>
           </View>
-          <Badge tone={responses.length > 0 ? "primary" : "default"}>
+          <Badge style={s.cardHeaderBadge} tone={responses.length > 0 ? "primary" : "default"}>
             {responses.length} PHẢN HỒI
           </Badge>
         </View>
@@ -853,12 +853,11 @@ const s = StyleSheet.create({
   },
 
   cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
     gap: spacing.sm,
     marginBottom: spacing.md,
   },
+  cardHeaderText: { flex: 1, minWidth: 0 },
+  cardHeaderBadge: { alignSelf: "flex-end" },
   iconBox: {
     width: 36,
     height: 36,

@@ -123,16 +123,6 @@ export type ProfileSlide = {
 };
 export type SlideDeck = { slides: ProfileSlide[]; version: number };
 export type MeetingLiveSnapshot = { meeting: Meeting; slides: ProfileSlide[]; serverNow: number };
-export type MeetingDisplaySnapshot = {
-  meetingId: string;
-  isOpen: boolean;
-  lastSeenAt: string | null;
-  expiresAt: string | null;
-  serverNow: string;
-  meeting: Pick<Meeting, "title" | "status" | "presentation" | "currentIndex" | "speakerStartedAt" | "speechesCompletedAt" | "elapsedSeconds" | "speakers">;
-  slides: ProfileSlide[];
-  version: number;
-};
 export type MeetingLiveState = { meeting: Meeting; serverNow: number };
 
 export type MeetingInteractionStatus = "draft" | "open" | "closed";
@@ -239,7 +229,6 @@ export const meetingService = {
   history: () => apiRequest<{ data: Meeting[] }>("/api/v1/meetings?history=all").then(unwrap),
   get: (id: string) => apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}`).then(unwrap),
   slides: (id: string) => apiRequest<{ data: SlideDeck }>(`/api/v1/meetings/${encodeURIComponent(id)}/slides`).then(unwrap),
-  presentationDisplay: (id: string, signal?: AbortSignal) => apiRequest<{ data: MeetingDisplaySnapshot }>(`/api/v1/meetings/${encodeURIComponent(id)}/presentation-display`, { signal }).then(unwrap),
   live: (id: string) => apiRequest<{ data: MeetingLiveSnapshot }>(`/api/v1/meetings/${encodeURIComponent(id)}/live`).then(unwrap),
   liveState: (id: string) => apiRequest<{ data: MeetingLiveState }>(`/api/v1/meetings/${encodeURIComponent(id)}/live/state`).then(unwrap),
   presentation: (id: string, speakerId: string, version: number) =>

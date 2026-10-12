@@ -7,7 +7,6 @@ import {
   CalendarClock,
   ChevronRight,
   Clock3,
-  Eye,
   Gift,
   MapPin,
   MessageCircle,
@@ -201,7 +200,6 @@ export default function MeetingDetailScreen() {
 
       <SectionTitle>Quy trình cuộc họp</SectionTitle>
       <Card style={styles.processCard}>
-        {!manage ? <ProcessRow icon={Eye} label="Theo dõi cuộc họp" detail="Xem nội dung đang trình chiếu trực tiếp" onPress={() => router.push({ pathname: "/meeting/[id]/watch", params: { id } })} /> : null}
         <ProcessRow icon={MapPin} label="Check-in" detail={`${meeting.speakers.length} người đã điểm danh`} onPress={() => router.push({ pathname: "/meeting/[id]/attendees", params: { id } })} />
         <ProcessRow icon={Gift} label="Vòng quay may mắn" detail="Kết quả vòng quay may mắn" onPress={() => router.push({ pathname: "/meeting/[id]/game-results", params: { id } })} />
         {manage ? <ProcessRow icon={MessageCircle} label="Thu ý kiến" detail="Tạo câu hỏi, hiển thị QR và xem phản hồi" onPress={() => router.push({ pathname: "/meeting/[id]/interaction", params: { id } })} /> : null}
