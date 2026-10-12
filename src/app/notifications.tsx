@@ -14,7 +14,7 @@ const notificationIcons = { kho: Package, task: BriefcaseBusiness, training: Gra
 export default function NotificationsScreen() {
   const [type, setType] = useState<NotificationItem["type"] | undefined>();
   const { data, setData, error, isLoading, reload } = useAsyncData(() => notificationService.list({ type }), type || "all");
-  const { markRead: markReadRealtime, markAllRead, revision } = useNotifications();
+  const { markRead: markReadRealtime, markAllRead, revision, isRealtimeConnected, pushError } = useNotifications();
 
   useEffect(() => {
     if (revision > 0) void reload();
@@ -29,6 +29,8 @@ export default function NotificationsScreen() {
   return (
     <Screen>
       <BackHeader title="Thông báo" subtitle={`${data?.unreadCount || 0} mục chưa đọc`} compact />
+      {pushError ? <Card style={styles.diagnostic}><Text style={styles.diagnosticTitle}>Thông báo nền chưa hoạt động</Text><Text style={styles.diagnosticText}>{pushError}</Text></Card> : null}
+      {!isRealtimeConnected ? <Text style={styles.realtimeWarning}>Đang kết nối lại thông báo realtime…</Text> : null}
       <View style={styles.filters}>{filters.map(([value, label]) => <Pressable key={label} onPress={() => setType(value)} style={[styles.filter, type === value && styles.active]}><Text numberOfLines={1} style={[styles.filterText, type === value && styles.activeText]}>{label}</Text></Pressable>)}</View>
       {(data?.unreadCount || 0) > 0 ? <Button icon={CheckCheck} tone="secondary" onPress={markAll}>Đánh dấu tất cả đã đọc</Button> : null}
       {isLoading ? <LoadingState /> : error ? <ErrorState message={error} onRetry={reload} /> : !data?.data.length ? <EmptyState title="Không có thông báo" message="Các cập nhật mới sẽ xuất hiện tại đây." /> : <Card style={styles.list}>{data.data.map((item) => { const Icon = notificationIcons[item.type] || Bell; return <Pressable key={item._id} onPress={() => markRead(item)} style={styles.item}><View style={styles.icon}><Icon color={colors.primaryDark} size={20} /></View><View style={styles.grow}><Text style={styles.title}>{item.title}</Text><Text style={styles.meta}>{item.body}</Text><Text style={styles.time}>{new Date(item.createdAt).toLocaleString("vi-VN")}</Text></View>{!item.read ? <View style={styles.unread} /> : null}</Pressable>; })}</Card>}
@@ -37,6 +39,10 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
+  diagnostic: { gap: spacing.xs, borderColor: "#F2C66D", backgroundColor: "#FFF8E6", padding: spacing.md },
+  diagnosticTitle: { color: "#8A5A00", fontSize: 13, fontWeight: "900" },
+  diagnosticText: { color: "#76500A", fontSize: 11, lineHeight: 17 },
+  realtimeWarning: { color: colors.muted, fontSize: 11, textAlign: "center" },
   filters: { flexDirection: "row", gap: 4, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: "#EDF3F5", padding: 4 },
   filter: { flex: 1, minWidth: 0, alignItems: "center", borderRadius: radius.sm, paddingVertical: spacing.sm },
   active: { backgroundColor: colors.brandBlue },

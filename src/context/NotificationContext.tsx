@@ -1,6 +1,6 @@
-import { router } from "expo-router";
+import { router, type Href } from "expo-router";
 import { io, type Socket } from "socket.io-client";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 import {
   createContext,
   useCallback,
@@ -22,6 +22,7 @@ type NotificationState = {
   unreadCount: number;
   revision: number;
   isRealtimeConnected: boolean;
+  pushError: string | null;
   refreshUnreadCount(): Promise<void>;
   markRead(item: NotificationItem): Promise<void>;
   markAllRead(): Promise<void>;
@@ -34,11 +35,17 @@ function notificationIdFromResponse(response: NotificationResponse) {
   return typeof value === "string" ? value : undefined;
 }
 
+function routeFromResponse(response: NotificationResponse) {
+  const value = response.notification.request.content.data?.route;
+  return typeof value === "string" && value.startsWith("/") ? value : undefined;
+}
+
 export function NotificationProvider({ children }: PropsWithChildren) {
   const { token } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
   const [revision, setRevision] = useState(0);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
   const handledResponseId = useRef<string | null>(null);
   const visibleUnreadCount = token ? unreadCount : 0;
 
@@ -87,27 +94,80 @@ export function NotificationProvider({ children }: PropsWithChildren) {
       return undefined;
     }
 
-    void notificationService.list({ page: 1, limit: 1 })
-      .then((result) => setUnreadCount(result.unreadCount))
-      .catch(() => undefined);
-    void registerCurrentDeviceForPush().catch(() => undefined);
+    let active = true;
+    let registering = false;
+    let retryCount = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const registerPush = async () => {
+      if (!active || registering || AppState.currentState !== "active") return;
+      registering = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      try {
+        const registeredToken = await registerCurrentDeviceForPush();
+        if (!active) return;
+        if (!registeredToken) {
+          setPushError("Thiết bị chưa đăng ký được FCM. Hãy kiểm tra quyền thông báo và cài lại APK mới nhất.");
+          return;
+        }
+        retryCount = 0;
+        setPushError(null);
+      } catch (error) {
+        if (!active) return;
+        const message = error instanceof Error ? error.message : "Không rõ nguyên nhân";
+        setPushError(`Không đăng ký được thông báo nền: ${message}`);
+        retryTimer = setTimeout(
+          () => void registerPush(),
+          Math.min(300_000, 30_000 * 2 ** Math.min(retryCount++, 4)),
+        );
+      } finally {
+        registering = false;
+      }
+    };
+
+    const initialTimer = setTimeout(() => {
+      void refreshUnreadCount().catch(() => undefined);
+      void registerPush();
+    }, 0);
 
     const socket: Socket = io(apiConfig.baseUrl, {
       auth: { token: getApiAccessToken() || token },
       transports: ["websocket", "polling"],
       reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1_000,
+      reconnectionDelayMax: 10_000,
     });
-    socket.on("connect", () => setIsRealtimeConnected(true));
+    socket.on("connect", () => {
+      setIsRealtimeConnected(true);
+      void refreshUnreadCount().catch(() => undefined);
+      void registerPush();
+    });
     socket.on("disconnect", () => setIsRealtimeConnected(false));
+    socket.on("connect_error", () => setIsRealtimeConnected(false));
     socket.io.on("reconnect_attempt", () => {
       socket.auth = { token: getApiAccessToken() || token };
     });
-    socket.on("new_notification", (item: NotificationItem) => {
-      if (!item.read) setUnreadCount((current) => current + 1);
+    socket.on("new_notification", () => {
+      void refreshUnreadCount().catch(() => undefined);
       setRevision((current) => current + 1);
     });
 
+    const appStateSubscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        if (!socket.connected) socket.connect();
+        void refreshUnreadCount().catch(() => undefined);
+        void registerPush();
+      } else if (retryTimer) {
+        clearTimeout(retryTimer);
+      }
+    });
+
     return () => {
+      active = false;
+      clearTimeout(initialTimer);
+      if (retryTimer) clearTimeout(retryTimer);
+      appStateSubscription.remove();
       socket.disconnect();
       setIsRealtimeConnected(false);
     };
@@ -116,8 +176,9 @@ export function NotificationProvider({ children }: PropsWithChildren) {
   const handleResponse = useCallback((response: NotificationResponse | null) => {
     if (!response || handledResponseId.current === response.notification.request.identifier) return;
     handledResponseId.current = response.notification.request.identifier;
+    const route = routeFromResponse(response);
     const notificationId = notificationIdFromResponse(response);
-    if (notificationId) {
+    if (notificationId && !route?.startsWith("/chat/")) {
       void notificationService.markRead(notificationId)
         .then(() => {
           setUnreadCount((current) => Math.max(0, current - 1));
@@ -125,37 +186,47 @@ export function NotificationProvider({ children }: PropsWithChildren) {
         })
         .catch(() => undefined);
     }
-    router.push("/notifications");
+    router.push((route || "/notifications") as Href);
   }, []);
 
   useEffect(() => {
     if (!token || Platform.OS === "web") return undefined;
     let active = true;
     let responseSubscription: { remove(): void } | undefined;
+    let receivedSubscription: { remove(): void } | undefined;
     let tokenSubscription: { remove(): void } | undefined;
     void getPushNotificationsModule().then((Notifications) => {
       if (!active || !Notifications) return;
       responseSubscription = Notifications.addNotificationResponseReceivedListener(handleResponse);
+      receivedSubscription = Notifications.addNotificationReceivedListener(() => {
+        void refreshUnreadCount().catch(() => undefined);
+        setRevision((current) => current + 1);
+      });
       void Notifications.getLastNotificationResponseAsync().then(handleResponse).catch(() => undefined);
-      tokenSubscription = Notifications.addPushTokenListener(() => {
-        void registerCurrentDeviceForPush().catch(() => undefined);
+      tokenSubscription = Notifications.addPushTokenListener((nativeToken) => {
+        if (typeof nativeToken.data !== "string") return;
+        // Do not call getDevicePushTokenAsync() inside this listener because
+        // obtaining a token can trigger the listener again on Android.
+        void registerCurrentDeviceForPush(nativeToken.data).catch(() => undefined);
       });
     }).catch(() => undefined);
     return () => {
       active = false;
       responseSubscription?.remove();
+      receivedSubscription?.remove();
       tokenSubscription?.remove();
     };
-  }, [handleResponse, token]);
+  }, [handleResponse, refreshUnreadCount, token]);
 
   const value = useMemo(() => ({
     unreadCount: visibleUnreadCount,
     revision,
     isRealtimeConnected: Boolean(token && isRealtimeConnected),
+    pushError,
     refreshUnreadCount,
     markRead,
     markAllRead,
-  }), [isRealtimeConnected, markAllRead, markRead, refreshUnreadCount, revision, token, visibleUnreadCount]);
+  }), [isRealtimeConnected, markAllRead, markRead, pushError, refreshUnreadCount, revision, token, visibleUnreadCount]);
 
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;
 }

@@ -8,6 +8,7 @@ import { apiRequest } from "@/services/api";
 const PUSH_TOKEN_KEY = "igen_native_push_token";
 const LEGACY_EXPO_PUSH_TOKEN_KEY = "igen_expo_push_token";
 const ANDROID_CHANNEL_ID = "default";
+let registrationPromise: Promise<string | null> | null = null;
 
 export async function getPushNotificationsModule() {
   if (Platform.OS === "web" || isRunningInExpoGo()) return null;
@@ -30,12 +31,12 @@ function showOpenNotificationSettingsPrompt() {
   );
 }
 
-export async function registerCurrentDeviceForPush(): Promise<string | null> {
+async function performDevicePushRegistration(providedToken?: string): Promise<string | null> {
   if (Platform.OS === "web" || !Device.isDevice) return null;
   const Notifications = await getPushNotificationsModule();
   if (!Notifications) return null;
 
-  if (Platform.OS === "android") {
+  if (!providedToken && Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
       name: "Thông báo iGen Connect",
       importance: Notifications.AndroidImportance.HIGH,
@@ -45,21 +46,35 @@ export async function registerCurrentDeviceForPush(): Promise<string | null> {
     });
   }
 
-  const currentPermission = await Notifications.getPermissionsAsync();
-  if (!currentPermission.granted && !currentPermission.canAskAgain) {
-    showOpenNotificationSettingsPrompt();
-    return null;
+  let token = providedToken;
+  if (!token) {
+    const currentPermission = await Notifications.getPermissionsAsync();
+    if (!currentPermission.granted && !currentPermission.canAskAgain) {
+      showOpenNotificationSettingsPrompt();
+      return null;
+    }
+
+    const permission = currentPermission.granted
+      ? currentPermission
+      : await Notifications.requestPermissionsAsync();
+    if (!permission.granted) return null;
+
+    // This is the provider-native token: FCM on Android and APNs on iOS.
+    // The backend sends directly to those providers; Expo Push Service is not used.
+    const nativeToken = await Notifications.getDevicePushTokenAsync();
+    if (Platform.OS === "android" && nativeToken.type !== "android") {
+      throw new Error("Firebase trả về sai loại token cho thiết bị Android.");
+    }
+    if (typeof nativeToken.data !== "string") {
+      throw new Error("Firebase không trả về FCM token hợp lệ.");
+    }
+    token = nativeToken.data.trim();
   }
-
-  const permission = currentPermission.granted
-    ? currentPermission
-    : await Notifications.requestPermissionsAsync();
-  if (!permission.granted) return null;
-
-  // This is the provider-native token: FCM on Android and APNs on iOS.
-  // The backend sends directly to those providers; Expo Push Service is not used.
-  const nativeToken = await Notifications.getDevicePushTokenAsync();
-  const token = nativeToken.data;
+  if (!token) return null;
+  token = token.trim();
+  if (token.length < 20 || token.length > 4096 || /\s/.test(token)) {
+    throw new Error("FCM token trên thiết bị không hợp lệ.");
+  }
   const previousToken = await SecureStore.getItemAsync(PUSH_TOKEN_KEY);
   const legacyExpoToken = await SecureStore.getItemAsync(LEGACY_EXPO_PUSH_TOKEN_KEY);
 
@@ -67,9 +82,8 @@ export async function registerCurrentDeviceForPush(): Promise<string | null> {
     method: "POST",
     body: JSON.stringify({
       token,
-      platform: Platform.OS,
-      provider: Platform.OS === "android" ? "fcm" : "apns",
-      deviceName: Device.deviceName || Device.modelName || undefined,
+      platform: Platform.OS === "android" ? "android" : "ios",
+      provider: "fcm",
     }),
   });
 
@@ -86,6 +100,13 @@ export async function registerCurrentDeviceForPush(): Promise<string | null> {
   await SecureStore.setItemAsync(PUSH_TOKEN_KEY, token);
   await SecureStore.deleteItemAsync(LEGACY_EXPO_PUSH_TOKEN_KEY);
   return token;
+}
+
+export function registerCurrentDeviceForPush(nativeToken?: string): Promise<string | null> {
+  if (registrationPromise) return registrationPromise;
+  registrationPromise = performDevicePushRegistration(nativeToken)
+    .finally(() => { registrationPromise = null; });
+  return registrationPromise;
 }
 
 export async function unregisterCurrentDeviceFromPush(): Promise<void> {

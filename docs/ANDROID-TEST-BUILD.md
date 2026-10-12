@@ -12,11 +12,13 @@ Create this repository variable:
 | --- | --- |
 | `EXPO_PUBLIC_API_URL` | The API URL reachable from the test device, such as `https://api.example.com`. |
 
-Create this repository variable (the workflow also accepts a secret with the same name):
+Create this repository secret or variable:
 
 | Variable | Value |
 | --- | --- |
-| `ANDROID_GOOGLE_SERVICES_JSON_BASE64` | Base64 of Firebase `google-services.json` for package `com.igen.connect`. |
+| `ANDROID_GOOGLE_SERVICES_JSON` | The complete raw JSON from Firebase `google-services.json` for package `com.igen.connect`. |
+
+Paste the JSON exactly as downloaded from Firebase. Leading/trailing whitespace is accepted. The legacy variable `ANDROID_GOOGLE_SERVICES_JSON_BASE64` remains supported and can contain either raw JSON or Base64 during migration.
 
 Convert the Firebase file to Base64 in PowerShell:
 
@@ -24,7 +26,7 @@ Convert the Firebase file to Base64 in PowerShell:
 [Convert]::ToBase64String([IO.File]::ReadAllBytes("google-services.json")) | Set-Clipboard
 ```
 
-Paste the clipboard value into `ANDROID_GOOGLE_SERVICES_JSON_BASE64`. The workflow reconstructs the file only on the temporary runner.
+If GitHub rejects the raw JSON for your chosen variable type, paste the clipboard value into the legacy `ANDROID_GOOGLE_SERVICES_JSON_BASE64` variable. The workflow reconstructs the file only on the temporary runner.
 
 ## Build and install
 
