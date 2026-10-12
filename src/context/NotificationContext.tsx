@@ -107,7 +107,9 @@ export function NotificationProvider({ children }: PropsWithChildren) {
         const registeredToken = await registerCurrentDeviceForPush();
         if (!active) return;
         if (!registeredToken) {
-          setPushError("Thiết bị chưa đăng ký được FCM. Hãy kiểm tra quyền thông báo và cài lại APK mới nhất.");
+          setPushError(Platform.OS === "ios"
+            ? "Thiết bị chưa đăng ký được APNs. Hãy kiểm tra quyền thông báo và cài lại bản build iOS mới nhất."
+            : "Thiết bị chưa đăng ký được FCM. Hãy kiểm tra quyền thông báo và cài lại APK mới nhất.");
           return;
         }
         retryCount = 0;

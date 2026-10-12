@@ -1,7 +1,7 @@
 import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useEffect, useRef, useState } from "react";
 import { router } from "expo-router";
-import { Eye, EyeOff, Fingerprint, X } from "lucide-react-native";
+import { Eye, EyeOff, Fingerprint, ScanFace, X } from "lucide-react-native";
 import {
   Image,
   ImageBackground,
@@ -21,7 +21,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
-import { authService } from "@/services/auth";
+import { authService, type BiometricMethod } from "@/services/auth";
 import { colors, radius, spacing } from "@/theme/tokens";
 
 export default function LoginScreen() {
@@ -32,7 +32,7 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [canUseBiometrics, setCanUseBiometrics] = useState(false);
+  const [biometricMethod, setBiometricMethod] = useState<BiometricMethod | null>(null);
   const [isSheetVisible, setIsSheetVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
@@ -104,12 +104,12 @@ export default function LoginScreen() {
   useEffect(() => {
     if (autoBiometricAttempted.current) return;
     autoBiometricAttempted.current = true;
-    void authService.canUseBiometricLogin()
-      .then((available) => {
-        setCanUseBiometrics(available);
-        if (available) void submitBiometrics();
+    void authService.getBiometricLoginMethod()
+      .then((method) => {
+        setBiometricMethod(method);
+        if (method) void submitBiometrics();
       })
-      .catch(() => setCanUseBiometrics(false));
+      .catch(() => setBiometricMethod(null));
   // Chỉ tự động hỏi một lần khi mở màn đăng nhập.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -144,16 +144,16 @@ export default function LoginScreen() {
           >
             Đăng nhập
           </Button>
-          {canUseBiometrics ? (
+          {biometricMethod ? (
             <Button
-              icon={Fingerprint}
+              icon={biometricMethod === "face" ? ScanFace : Fingerprint}
               tone="secondary"
               fullWidth
               disabled={submitting}
               onPress={submitBiometrics}
               style={styles.quickBiometricButton}
             >
-              Face ID / Vân tay
+              {biometricMethod === "face" ? "Đăng nhập bằng Face ID" : "Đăng nhập bằng vân tay"}
             </Button>
           ) : null}
         </View>
@@ -280,16 +280,16 @@ export default function LoginScreen() {
                     {submitting ? "Đang đăng nhập..." : "Đăng nhập"}
                   </Button>
 
-                  {canUseBiometrics ? (
+                  {biometricMethod ? (
                     <Button
-                      icon={Fingerprint}
+                      icon={biometricMethod === "face" ? ScanFace : Fingerprint}
                       tone="secondary"
                       fullWidth
                       disabled={submitting}
                       onPress={submitBiometrics}
                       style={styles.biometricButton}
                     >
-                      Đăng nhập bằng vân tay / Face ID
+                      {biometricMethod === "face" ? "Đăng nhập bằng Face ID" : "Đăng nhập bằng vân tay"}
                     </Button>
                   ) : null}
 

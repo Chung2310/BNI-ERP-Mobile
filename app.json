@@ -41,13 +41,13 @@
         "expo-secure-store",
         {
           "configureAndroidBackup": true,
-          "faceIDPermission": "Cho phép iGen Connect sử dụng Face ID để đăng nhập."
+          "faceIDPermission": "Cho phép iGen Connect sử dụng Face ID để đăng nhập và check-in."
         }
       ],
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "Cho phép iGen Connect sử dụng Face ID để đăng nhập."
+          "faceIDPermission": "Cho phép iGen Connect sử dụng Face ID để đăng nhập và check-in."
         }
       ],
       [
@@ -84,7 +84,8 @@
         "expo-notifications",
         {
           "color": "#00AECA",
-          "defaultChannel": "default"
+          "defaultChannel": "default",
+          "enableBackgroundRemoteNotifications": true
         }
       ],
       "expo-asset",
