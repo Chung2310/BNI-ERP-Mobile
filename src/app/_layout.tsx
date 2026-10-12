@@ -5,6 +5,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { ChatUnreadCountProvider } from "@/context/ChatUnreadCountProvider";
 import { NotificationProvider } from "@/context/NotificationContext";
 import { AppAlertHost } from "@/components/AppAlert";
+import { PostLoginCheckInPrompt } from "@/components/PostLoginCheckInPrompt";
 import { colors } from "@/theme/tokens";
 
 export default function RootLayout() {
@@ -44,6 +45,7 @@ export default function RootLayout() {
             <Stack.Screen name="admin/roles" />
           </Stack>
             <AppAlertHost />
+            <PostLoginCheckInPrompt />
           </ChatUnreadCountProvider>
         </NotificationProvider>
       </AuthProvider>

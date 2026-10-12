@@ -10,6 +10,15 @@ const LEGACY_EXPO_PUSH_TOKEN_KEY = "igen_expo_push_token";
 const ANDROID_CHANNEL_ID = "default";
 let registrationPromise: Promise<string | null> | null = null;
 
+type PushPlatform = "android" | "ios";
+type PushProvider = "fcm" | "apns";
+
+function getPushRegistrationMetadata(): { platform: PushPlatform; provider: PushProvider } {
+  return Platform.OS === "android"
+    ? { platform: "android", provider: "fcm" }
+    : { platform: "ios", provider: "apns" };
+}
+
 export async function getPushNotificationsModule() {
   if (Platform.OS === "web" || isRunningInExpoGo()) return null;
   return import("expo-notifications");
@@ -49,15 +58,27 @@ async function performDevicePushRegistration(providedToken?: string): Promise<st
   let token = providedToken;
   if (!token) {
     const currentPermission = await Notifications.getPermissionsAsync();
-    if (!currentPermission.granted && !currentPermission.canAskAgain) {
+    const hasCurrentPermission = currentPermission.granted || (
+      Platform.OS === "ios" && (
+        currentPermission.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL ||
+        currentPermission.ios?.status === Notifications.IosAuthorizationStatus.EPHEMERAL
+      )
+    );
+    if (!hasCurrentPermission && !currentPermission.canAskAgain) {
       showOpenNotificationSettingsPrompt();
       return null;
     }
 
-    const permission = currentPermission.granted
+    const permission = hasCurrentPermission
       ? currentPermission
       : await Notifications.requestPermissionsAsync();
-    if (!permission.granted) return null;
+    const hasPermission = permission.granted || (
+      Platform.OS === "ios" && (
+        permission.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL ||
+        permission.ios?.status === Notifications.IosAuthorizationStatus.EPHEMERAL
+      )
+    );
+    if (!hasPermission) return null;
 
     // This is the provider-native token: FCM on Android and APNs on iOS.
     // The backend sends directly to those providers; Expo Push Service is not used.
@@ -65,25 +86,29 @@ async function performDevicePushRegistration(providedToken?: string): Promise<st
     if (Platform.OS === "android" && nativeToken.type !== "android") {
       throw new Error("Firebase trả về sai loại token cho thiết bị Android.");
     }
+    if (Platform.OS === "ios" && nativeToken.type !== "ios") {
+      throw new Error("APNs trả về sai loại token cho thiết bị iOS.");
+    }
     if (typeof nativeToken.data !== "string") {
-      throw new Error("Firebase không trả về FCM token hợp lệ.");
+      throw new Error("Dịch vụ push không trả về token hợp lệ.");
     }
     token = nativeToken.data.trim();
   }
   if (!token) return null;
   token = token.trim();
   if (token.length < 20 || token.length > 4096 || /\s/.test(token)) {
-    throw new Error("FCM token trên thiết bị không hợp lệ.");
+    throw new Error("Push token trên thiết bị không hợp lệ.");
   }
   const previousToken = await SecureStore.getItemAsync(PUSH_TOKEN_KEY);
   const legacyExpoToken = await SecureStore.getItemAsync(LEGACY_EXPO_PUSH_TOKEN_KEY);
+  const registration = getPushRegistrationMetadata();
 
   await apiRequest("/api/v1/push/mobile/subscribe", {
     method: "POST",
     body: JSON.stringify({
       token,
-      platform: Platform.OS === "android" ? "android" : "ios",
-      provider: "fcm",
+      platform: registration.platform,
+      provider: registration.provider,
     }),
   });
 
