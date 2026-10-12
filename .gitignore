@@ -30,7 +30,12 @@ yarn-error.*
 # macOS
 .DS_Store
 *.pem
-/google-services.json
+
+# Firebase / Google Services
+google-services.json
+google-service.json
+*google-service*.json
+GoogleService-Info.plist
 *-firebase-adminsdk-*.json
 firebase-service-account*.json
 
