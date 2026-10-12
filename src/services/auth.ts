@@ -15,10 +15,7 @@ export type BiometricMethod = "fingerprint" | "face";
 
 export type BiometricCapabilities = Record<BiometricMethod, boolean>;
 
-const biometricLabel = (method: BiometricMethod) => method === "face" ? "Face ID" : "vân tay";
-
 async function getBiometricCapabilities(): Promise<BiometricCapabilities> {
-  if (!(await SecureStore.canUseBiometricAuthentication())) return { fingerprint: false, face: false };
   const [hasHardware, isEnrolled, supportedTypes] = await Promise.all([
     LocalAuthentication.hasHardwareAsync(),
     LocalAuthentication.isEnrolledAsync(),
@@ -36,34 +33,31 @@ async function hasUsableBiometrics(method?: BiometricMethod) {
   return method ? capabilities[method] : capabilities.fingerprint || capabilities.face;
 }
 
-async function getStoredBiometricMethod(): Promise<BiometricMethod | null> {
-  const storedMethod = await SecureStore.getItemAsync(BIOMETRIC_METHOD_KEY);
-  if (storedMethod === "fingerprint" || storedMethod === "face") return storedMethod;
-
-  // Migrate the previous single biometric switch without making existing users configure it again.
-  if ((await SecureStore.getItemAsync(BIOMETRIC_KEY)) !== "true") return null;
-  const capabilities = await getBiometricCapabilities();
-  const migratedMethod = capabilities.face && !capabilities.fingerprint ? "face" : "fingerprint";
-  if (!capabilities[migratedMethod]) return null;
-  await SecureStore.setItemAsync(BIOMETRIC_METHOD_KEY, migratedMethod);
-  return migratedMethod;
+async function getStoredBiometricEnabled() {
+  const [enabled, legacyMethod] = await Promise.all([
+    SecureStore.getItemAsync(BIOMETRIC_KEY),
+    SecureStore.getItemAsync(BIOMETRIC_METHOD_KEY),
+  ]);
+  // A selected method from the previous version means biometrics were enabled.
+  return enabled === "true" || legacyMethod === "fingerprint" || legacyMethod === "face";
 }
 
-async function authenticateWithBiometrics(promptMessage: string, method: BiometricMethod) {
-  if (!(await hasUsableBiometrics(method))) {
-    throw new Error(`Thiết bị chưa hỗ trợ hoặc chưa cài đặt ${biometricLabel(method)}.`);
+async function authenticateWithBiometrics(promptMessage: string) {
+  if (!(await hasUsableBiometrics())) {
+    throw new Error("Thiết bị chưa hỗ trợ hoặc chưa cài đặt sinh trắc học.");
   }
   const result = await LocalAuthentication.authenticateAsync({
     promptMessage,
     cancelLabel: "Hủy",
     fallbackLabel: "Dùng tài khoản",
     disableDeviceFallback: true,
-    biometricsSecurityLevel: "strong",
+    // Android Class 2 enables camera-based face recognition while still allowing fingerprints.
+    biometricsSecurityLevel: "weak",
   });
   if (!result.success) {
     throw new Error(result.error === "user_cancel"
       ? "Đã hủy xác thực sinh trắc học."
-      : `Không xác thực được ${biometricLabel(method)}. Vui lòng thử lại.`);
+      : "Không xác thực được sinh trắc học. Vui lòng thử lại.");
   }
 }
 
@@ -124,35 +118,29 @@ export const authService = {
   },
 
   async restore(options: { bypassBiometricGate?: boolean } = {}) {
-    const [token, rawProfile, biometricMethod] = await Promise.all([
+    const [token, rawProfile, biometricEnabled] = await Promise.all([
       SecureStore.getItemAsync(ACCESS_TOKEN_KEY),
       SecureStore.getItemAsync(PROFILE_KEY),
-      getStoredBiometricMethod(),
+      getStoredBiometricEnabled(),
     ]);
     if (!token || !rawProfile) return null;
-    if (biometricMethod && !options.bypassBiometricGate) return null;
+    if (biometricEnabled && !options.bypassBiometricGate) return null;
     setApiAccessToken(token);
     return { token, user: JSON.parse(rawProfile) as UserProfile };
   },
 
   async canUseBiometricLogin() {
-    return Boolean(await this.getBiometricLoginMethod());
-  },
-
-  async getBiometricLoginMethod(): Promise<BiometricMethod | null> {
-    const [method, token, profile] = await Promise.all([
-      getStoredBiometricMethod(),
+    const [enabled, token, profile] = await Promise.all([
+      getStoredBiometricEnabled(),
       SecureStore.getItemAsync(ACCESS_TOKEN_KEY),
       SecureStore.getItemAsync(PROFILE_KEY),
     ]);
-    if (!method || !token || !profile || !(await hasUsableBiometrics(method))) return null;
-    return method;
+    return enabled && Boolean(token && profile) && await hasUsableBiometrics();
   },
 
   async loginWithBiometrics() {
-    const method = await this.getBiometricLoginMethod();
-    if (!method) throw new Error("Chưa thiết lập đăng nhập sinh trắc học.");
-    await authenticateWithBiometrics(`Đăng nhập iGen Connect bằng ${biometricLabel(method)}`, method);
+    if (!(await this.canUseBiometricLogin())) throw new Error("Chưa thiết lập đăng nhập sinh trắc học.");
+    await authenticateWithBiometrics("Đăng nhập iGen Connect bằng sinh trắc học");
     const session = await this.restore({ bypassBiometricGate: true });
     if (!session) throw new Error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại bằng tài khoản.");
     try {
@@ -204,37 +192,20 @@ export const authService = {
   },
 
   async isBiometricEnabled() {
-    return Boolean(await getStoredBiometricMethod());
-  },
-
-  async getBiometricMethod() {
-    return getStoredBiometricMethod();
-  },
-
-  async setBiometricMethod(method: BiometricMethod | null) {
-    if (method) {
-      await authenticateWithBiometrics(`Xác nhận bật đăng nhập/check-in bằng ${biometricLabel(method)}`, method);
-      await SecureStore.setItemAsync(BIOMETRIC_METHOD_KEY, method);
-      await SecureStore.setItemAsync(BIOMETRIC_KEY, "true");
-      return;
-    }
-    await Promise.all([
-      SecureStore.deleteItemAsync(BIOMETRIC_METHOD_KEY),
-      SecureStore.setItemAsync(BIOMETRIC_KEY, "false"),
-    ]);
+    return getStoredBiometricEnabled();
   },
 
   async setBiometricEnabled(enabled: boolean) {
-    if (!enabled) return this.setBiometricMethod(null);
-    const capabilities = await getBiometricCapabilities();
-    const method: BiometricMethod = capabilities.face && !capabilities.fingerprint ? "face" : "fingerprint";
-    return this.setBiometricMethod(method);
+    if (enabled) await authenticateWithBiometrics("Xác nhận bật đăng nhập/check-in bằng sinh trắc học");
+    await Promise.all([
+      SecureStore.setItemAsync(BIOMETRIC_KEY, String(enabled)),
+      SecureStore.deleteItemAsync(BIOMETRIC_METHOD_KEY),
+    ]);
   },
 
   async authenticateForCheckIn() {
-    const method = await getStoredBiometricMethod();
-    if (!method) return;
-    await authenticateWithBiometrics(`Xác nhận check-in bằng ${biometricLabel(method)}`, method);
+    if (!(await getStoredBiometricEnabled())) return;
+    await authenticateWithBiometrics("Xác nhận check-in bằng sinh trắc học");
   },
 
   hasUsableBiometrics,
