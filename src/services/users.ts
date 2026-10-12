@@ -22,6 +22,19 @@ export type UserDirectoryPage = {
 
 let fallbackDirectory: UserProfile[] | null = null;
 
+const matchesDirectorySearch = (user: UserProfile, search: string) => {
+  const normalizeSearch = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
+  const fields = [user.displayName, user.email, user.phone, user.phoneNumber, user.companyName, user.industry];
+  return normalizeSearch(fields.filter(Boolean).join(" ")).includes(normalizeSearch(search.trim()));
+};
+
+const fallbackPage = (users: UserProfile[], page: number, limit: number, search: string): UserDirectoryPage => {
+  const matching = search.trim() ? users.filter((user) => matchesDirectorySearch(user, search)) : users;
+  const start = (page - 1) * limit;
+  const items = matching.slice(start, start + limit);
+  return { items, total: matching.length, page, limit, hasMore: start + items.length < matching.length };
+};
+
 export const userService = {
   colleagues: (): Promise<UserProfile[]> =>
     apiRequest<any>("/api/v1/auth/users/colleagues").then((payload) => {
@@ -48,15 +61,19 @@ export const userService = {
       const raw = Array.isArray(payload?.data) ? payload.data : [];
       const items = (raw as ApiUser[]).map(normalize);
       const total = Number(payload?.total) || items.length;
+      // Older servers search `name` instead of the stored `displayName` and return zero.
+      if (search.trim() && total === 0) {
+        try {
+          fallbackDirectory = await userService.directory();
+          return fallbackPage(fallbackDirectory, page, limit, search);
+        } catch {
+          // Keep the server result if the full directory is unavailable.
+        }
+      }
       return { items, total, page: Number(payload?.page) || page, limit: Number(payload?.limit) || limit, hasMore: page * limit < total };
     } catch {
-      if (!fallbackDirectory || page === 1) fallbackDirectory = await userService.colleagues();
-      const matching = search.trim() ? fallbackDirectory.filter((user) =>
-        `${user.displayName || ""} ${user.email || ""}`.toLocaleLowerCase("vi").includes(search.trim().toLocaleLowerCase("vi")),
-      ) : fallbackDirectory;
-      const start = (page - 1) * limit;
-      const items = matching.slice(start, start + limit);
-      return { items, total: matching.length, page, limit, hasMore: start + items.length < matching.length };
+      if (!fallbackDirectory || page === 1) fallbackDirectory = await userService.directory();
+      return fallbackPage(fallbackDirectory, page, limit, search);
     }
   },
   get: async (id: string): Promise<UserProfile> => {
