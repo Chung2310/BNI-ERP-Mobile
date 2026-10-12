@@ -20,6 +20,7 @@ import {
   SectionTitle,
 } from "@/components/ui";
 import { DashboardQuickActions } from "@/components/DashboardQuickActions";
+import { isChapterGuest } from "@/utils/guest";
 import { useAuth } from "@/context/AuthContext";
 import { useNotifications } from "@/context/NotificationContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
@@ -228,8 +229,13 @@ function LiveWaveform() {
 }
 
 export default function HomeScreen() {
+  return <MemberHomeScreen />;
+}
+
+function MemberHomeScreen() {
   const { user } = useAuth();
-  const { unreadCount } = useNotifications();
+  const guest = isChapterGuest(user);
+  const { unreadCount, refreshChapterNotifications } = useNotifications();
   const [currentTime, setCurrentTime] = useState(() => new Date());
 
   // Trạng thái thu gọn/mở rộng các mục lịch họp
@@ -286,23 +292,25 @@ export default function HomeScreen() {
     return `${startDay} thg ${startMonth} - ${endDay} thg ${endMonth}`;
   }, []);
 
-  const { data, setData, error, isLoading, reload } = useAsyncData(() => meetingService.list());
+  const { data, setData, error, isLoading, reload } = useAsyncData(() => guest ? Promise.resolve([]) : meetingService.list(), String(guest));
   const hasFocused = useRef(false);
   useFocusEffect(
     useCallback(() => {
+      void refreshChapterNotifications().catch(() => undefined);
       if (hasFocused.current) {
         void reload();
       } else {
         hasFocused.current = true;
       }
-    }, [reload]),
+    }, [refreshChapterNotifications, reload]),
   );
 
   useEffect(() => {
+    if (guest) return;
     return subscribeMeetingChanges((change) => {
       setData((current) => applyMeetingChange(current, change));
     });
-  }, [setData]);
+  }, [guest, setData]);
 
   const meetings = useMemo(() => data || [], [data]);
 
@@ -367,12 +375,13 @@ export default function HomeScreen() {
   }, [displayName]);
 
   const userRoleTitle = useMemo(() => {
+    if (guest) return "Chưa gia nhập Chapter";
     if (user?.role === "admin") return "Quản trị viên";
     if (user?.role === "manager") return "Quản lý";
     if (user?.role === "branch_owner") return "Chủ chi nhánh";
     if (user?.role === "teacher") return "Giảng viên";
     return "Thành viên";
-  }, [user?.role]);
+  }, [guest, user?.role]);
 
   return (
     <Screen>

@@ -1,4 +1,5 @@
 import { router, type Href } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import { io, type Socket } from "socket.io-client";
 import { AppState, Platform } from "react-native";
 import {
@@ -14,18 +15,24 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { apiConfig, getApiAccessToken } from "@/services/api";
 import { notificationService, type NotificationItem } from "@/services/notifications";
+import { getChapterNotifications, type ChapterNotification } from "@/services/chapterNotifications";
 import { getPushNotificationsModule, registerCurrentDeviceForPush, updateAppBadge } from "@/services/pushNotifications";
+import { isChapterGuest } from "@/utils/guest";
 
 type NotificationResponse = import("expo-notifications").NotificationResponse;
 
 type NotificationState = {
   unreadCount: number;
+  chapterNotifications: ChapterNotification[];
   revision: number;
   isRealtimeConnected: boolean;
   pushError: string | null;
   refreshUnreadCount(): Promise<void>;
+  refreshChapterNotifications(): Promise<void>;
   markRead(item: NotificationItem): Promise<void>;
   markAllRead(): Promise<void>;
+  markChapterRead(id: string): void;
+  markAllChapterRead(): void;
 };
 
 const NotificationContext = createContext<NotificationState | null>(null);
@@ -41,13 +48,73 @@ function routeFromResponse(response: NotificationResponse) {
 }
 
 export function NotificationProvider({ children }: PropsWithChildren) {
-  const { token } = useAuth();
+  const { token: sessionToken, user } = useAuth();
+  const userId = user?.uid;
+  const token = isChapterGuest(user) ? null : sessionToken;
   const [unreadCount, setUnreadCount] = useState(0);
+  const [chapterItems, setChapterItems] = useState<ChapterNotification[]>([]);
+  const [chapterItemsOwner, setChapterItemsOwner] = useState<string | null>(null);
+  const [chapterReadIds, setChapterReadIds] = useState<string[]>([]);
+  const [chapterReadOwner, setChapterReadOwner] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
   const [pushError, setPushError] = useState<string | null>(null);
   const handledResponseId = useRef<string | null>(null);
-  const visibleUnreadCount = token ? unreadCount : 0;
+  const chapterNotifications = useMemo(() => {
+    if (!userId || chapterItemsOwner !== userId) return [];
+    const readIds = new Set(chapterReadOwner === userId ? chapterReadIds : []);
+    return chapterItems.map((item) => ({ ...item, read: readIds.has(item._id) }));
+  }, [chapterItems, chapterItemsOwner, chapterReadIds, chapterReadOwner, userId]);
+  const visibleUnreadCount = (token ? unreadCount : 0) + chapterNotifications.filter((item) => !item.read).length;
+
+  useEffect(() => {
+    if (!sessionToken || !user?.uid) return;
+    const uid = user.uid;
+    let active = true;
+    void SecureStore.getItemAsync(`chapter-notice-read-${uid}`)
+      .then((raw) => {
+        if (!active) return;
+        const parsed: unknown = raw ? JSON.parse(raw) : [];
+        setChapterReadIds(Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : []);
+      })
+      .catch(() => { if (active) setChapterReadIds([]); })
+      .finally(() => { if (active) setChapterReadOwner(uid); });
+    return () => { active = false; };
+  }, [sessionToken, user?.uid]);
+
+  useEffect(() => {
+    if (!user?.uid || chapterReadOwner !== user.uid) return;
+    void SecureStore.setItemAsync(`chapter-notice-read-${user.uid}`, JSON.stringify(chapterReadIds)).catch(() => undefined);
+  }, [chapterReadIds, chapterReadOwner, user?.uid]);
+
+  const refreshChapterNotifications = useCallback(async () => {
+    if (!sessionToken || !user?.uid) {
+      setChapterItems([]);
+      setChapterItemsOwner(null);
+      return;
+    }
+    const items = await getChapterNotifications(user);
+    setChapterItems(items);
+    setChapterItemsOwner(user.uid);
+  }, [sessionToken, user]);
+
+  useEffect(() => {
+    const initialTimer = setTimeout(() => void refreshChapterNotifications().catch(() => undefined), 0);
+    if (!sessionToken || !userId) return () => clearTimeout(initialTimer);
+    const timer = setInterval(() => void refreshChapterNotifications().catch(() => undefined), 60_000);
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void refreshChapterNotifications().catch(() => undefined);
+    });
+    return () => { clearTimeout(initialTimer); clearInterval(timer); subscription.remove(); };
+  }, [refreshChapterNotifications, sessionToken, userId]);
+
+  const markChapterRead = useCallback((id: string) => {
+    setChapterReadIds((current) => current.includes(id) ? current : [...current, id]);
+  }, []);
+
+  const markAllChapterRead = useCallback(() => {
+    setChapterReadIds((current) => [...new Set([...current, ...chapterNotifications.map((item) => item._id)])]);
+  }, [chapterNotifications]);
 
   useEffect(() => {
     void getPushNotificationsModule().then((Notifications) => {
@@ -220,13 +287,17 @@ export function NotificationProvider({ children }: PropsWithChildren) {
 
   const value = useMemo(() => ({
     unreadCount: visibleUnreadCount,
+    chapterNotifications,
     revision,
     isRealtimeConnected: Boolean(token && isRealtimeConnected),
     pushError,
     refreshUnreadCount,
+    refreshChapterNotifications,
     markRead,
     markAllRead,
-  }), [isRealtimeConnected, markAllRead, markRead, pushError, refreshUnreadCount, revision, token, visibleUnreadCount]);
+    markChapterRead,
+    markAllChapterRead,
+  }), [chapterNotifications, isRealtimeConnected, markAllChapterRead, markAllRead, markChapterRead, markRead, pushError, refreshChapterNotifications, refreshUnreadCount, revision, token, visibleUnreadCount]);
 
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;
 }

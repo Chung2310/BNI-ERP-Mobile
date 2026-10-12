@@ -40,18 +40,23 @@ export const userService = {
       return userService.colleagues();
     }
   },
-  directoryPage: async (page = 1, limit = 20): Promise<UserDirectoryPage> => {
+  directoryPage: async (page = 1, limit = 20, search = ""): Promise<UserDirectoryPage> => {
     try {
-      const payload = await apiRequest<any>(`/api/v1/crud/users?page=${page}&limit=${limit}&sort=displayName`);
+      const params = new URLSearchParams({ page: String(page), limit: String(limit), sort: "displayName" });
+      if (search.trim()) params.set("search", search.trim());
+      const payload = await apiRequest<any>(`/api/v1/crud/users?${params.toString()}`);
       const raw = Array.isArray(payload?.data) ? payload.data : [];
       const items = (raw as ApiUser[]).map(normalize);
       const total = Number(payload?.total) || items.length;
       return { items, total, page: Number(payload?.page) || page, limit: Number(payload?.limit) || limit, hasMore: page * limit < total };
     } catch {
-      if (!fallbackDirectory) fallbackDirectory = await userService.colleagues();
+      if (!fallbackDirectory || page === 1) fallbackDirectory = await userService.colleagues();
+      const matching = search.trim() ? fallbackDirectory.filter((user) =>
+        `${user.displayName || ""} ${user.email || ""}`.toLocaleLowerCase("vi").includes(search.trim().toLocaleLowerCase("vi")),
+      ) : fallbackDirectory;
       const start = (page - 1) * limit;
-      const items = fallbackDirectory.slice(start, start + limit);
-      return { items, total: fallbackDirectory.length, page, limit, hasMore: start + items.length < fallbackDirectory.length };
+      const items = matching.slice(start, start + limit);
+      return { items, total: matching.length, page, limit, hasMore: start + items.length < matching.length };
     }
   },
   get: async (id: string): Promise<UserProfile> => {

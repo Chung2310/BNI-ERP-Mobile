@@ -14,13 +14,15 @@ import {
   type LucideIcon,
 } from "lucide-react-native";
 import { useCallback, useState } from "react";
-import { Image, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { Alert } from "@/components/AppAlert";
-import { AppHeader, Avatar, Button, Card, Screen } from "@/components/ui";
+import { BackHeader } from "@/components/BackHeader";
+import { Avatar, Button, Card, Screen } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { galleryImagesFrom, mediaUrl } from "@/utils/media";
-import { colors, radius, spacing } from "@/theme/tokens";
+import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 import type { UserProfile } from "@/types";
+import { isChapterGuest } from "@/utils/guest";
 
 const roleLabels: Record<UserProfile["role"], string> = {
   user: "Thành viên",
@@ -99,7 +101,7 @@ export default function PersonalScreen() {
   const displayedProfile = user;
   if (!displayedProfile) return null;
 
-  const role = roleLabels[displayedProfile.role];
+  const role = isChapterGuest(displayedProfile) ? "Khách mời" : roleLabels[displayedProfile.role];
   const branch = displayedProfile.branchName || displayedProfile.companyCode;
   const galleryImages = galleryImagesFrom(displayedProfile);
 
@@ -123,7 +125,16 @@ export default function PersonalScreen() {
 
   return (
     <Screen style={styles.screen}>
-      <AppHeader title="Cá nhân" subtitle="Thông tin tài khoản của bạn" />
+      <BackHeader title="Cá nhân" subtitle="Thông tin tài khoản của bạn" compact
+        action={<View style={styles.headerActions}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Chỉnh sửa hồ sơ" hitSlop={4} onPress={() => router.push({ pathname: "/profile", params: { edit: "profile" } })} style={styles.headerButton}>
+            <Pencil size={20} color={colors.primaryDark} strokeWidth={2.1} />
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Cài đặt" hitSlop={4} onPress={() => router.push("/settings")} style={styles.headerButton}>
+            <Settings size={21} color={colors.primaryDark} strokeWidth={2.1} />
+          </Pressable>
+        </View>}
+      />
 
       <Card style={styles.heroCard}>
         <Avatar initials={profileInitials(displayedProfile.displayName)} url={displayedProfile.photoURL} size={78} />
@@ -131,24 +142,6 @@ export default function PersonalScreen() {
         <Text numberOfLines={1} style={styles.role}>{role}</Text>
         {branch ? <Text numberOfLines={1} style={styles.branch}>{branch}</Text> : null}
       </Card>
-
-      <View style={styles.actions}>
-        <Button
-          icon={Pencil}
-          style={styles.actionButton}
-          onPress={() => router.push({ pathname: "/profile", params: { edit: "profile" } })}
-        >
-          Chỉnh sửa hồ sơ
-        </Button>
-        <Button
-          icon={Settings}
-          tone="secondary"
-          style={styles.actionButton}
-          onPress={() => router.push("/settings")}
-        >
-          Cài đặt
-        </Button>
-      </View>
 
       <Text style={styles.sectionTitle}>Thông tin cá nhân</Text>
       <Card style={styles.infoCard}>
@@ -204,6 +197,8 @@ const styles = StyleSheet.create({
   screen: {
     paddingHorizontal: spacing.md,
   },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  headerButton: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center" },
   heroCard: {
     alignItems: "center",
     paddingVertical: spacing.xl,
@@ -225,13 +220,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
     color: colors.muted,
     fontSize: 12,
-  },
-  actions: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  actionButton: {
-    flex: 1,
   },
   sectionTitle: {
     marginTop: spacing.sm,

@@ -4,6 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import { Camera, ChevronRight, LockKeyhole, LogOut, Pencil, Plus, Settings, Trash2, X } from "lucide-react-native";
 import { ActivityIndicator, Image, ImageBackground, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Alert } from "@/components/AppAlert";
 import { BackHeader } from "@/components/BackHeader";
 import { BirthDateField } from "@/components/BirthDateField";
@@ -45,6 +46,7 @@ function Info({ label, value }: { label: string; value?: string }) {
 }
 
 export default function ProfileScreen() {
+  const insets = useSafeAreaInsets();
   const { edit } = useLocalSearchParams<{ edit?: string }>();
   const { user, refreshProfile, applyProfile, signOut, deleteAccount } = useAuth();
   const shouldEditOnOpen = edit === "profile" || edit === "gallery";
@@ -310,7 +312,8 @@ export default function ProfileScreen() {
 
   const displayedGallery = form ? galleryImages : galleryImagesFrom(profile);
 
-  return <Screen scrollViewProps={{ keyboardShouldPersistTaps: "handled" }}>
+  return <View style={styles.profileScreen}>
+  <Screen scrollViewProps={{ keyboardShouldPersistTaps: "handled", contentContainerStyle: styles.profileContent }}>
     <BackHeader title={form ? "Chỉnh sửa hồ sơ" : "Hồ sơ cá nhân"} compact
       onBack={form ? cancelEdit : undefined}
       action={!form ? <View style={styles.headerActions}>
@@ -324,7 +327,7 @@ export default function ProfileScreen() {
         {form ? <View style={styles.coverBadge}><Camera size={14} color="#FFFFFF" /><Text style={styles.coverBadgeText}>Đổi ảnh bìa</Text></View> : null}
       </Pressable>
       <Pressable disabled={!form || busy} accessibilityRole="button" accessibilityLabel="Đổi ảnh đại diện" onPress={() => void pickPhoto("avatar")} style={styles.avatarWrap}>
-        <Avatar initials={initials} url={avatarUrl} size={84} />
+        <Avatar initials={initials} url={avatarUrl} size={form ? 84 : 68} />
         {form ? <View style={styles.cameraBadge}><Camera size={16} color="#FFFFFF" /></View> : null}
       </Pressable>
       <Text style={styles.name}>{profile.displayName}</Text>
@@ -343,7 +346,6 @@ export default function ProfileScreen() {
         <Field label="Địa chỉ" value={form.address} onChangeText={(address) => setForm({ ...form, address })} />
         <Field label="Thị trường mục tiêu" value={form.targetMarket} multiline onChangeText={(targetMarket) => setForm({ ...form, targetMarket })} />
       </Card>
-      <View style={styles.actions}><Button tone="secondary" style={styles.flex} disabled={busy} onPress={cancelEdit}>Hủy</Button><Button style={styles.flex} disabled={busy} onPress={() => void save()}>{busy ? "Đang lưu..." : "Lưu thay đổi"}</Button></View>
     </> : <Card>
       <Info label="Email" value={profile.email} /><Info label="Số điện thoại" value={profile.phone} />
       <Info label="Công ty" value={profile.companyName || profile.companyCode} /><Info label="Lĩnh vực" value={profile.industry} />
@@ -413,9 +415,10 @@ export default function ProfileScreen() {
         <Text style={styles.galleryEmpty}>Chưa cập nhật hình ảnh.</Text>
       )}
     </Card>
-    {!form ? <Button icon={LogOut} tone="danger" fullWidth disabled={busy} onPress={confirmSignOut}>
-      {busy ? "Đang đăng xuất..." : "Đăng xuất"}
-    </Button> : null}
+    {form ? <View style={styles.actions}>
+      <Button tone="secondary" style={styles.flex} disabled={busy} onPress={cancelEdit}>Hủy</Button>
+      <Button style={styles.flex} disabled={busy} onPress={() => void save()}>{busy ? "Đang lưu..." : "Lưu thay đổi"}</Button>
+    </View> : null}
     <Modal visible={accountPanel !== null} transparent animationType="fade" onRequestClose={closeAccountPanel}>
       <View style={styles.deleteOverlay}>
         <Pressable accessibilityLabel="Đóng cài đặt tài khoản" disabled={busy} onPress={closeAccountPanel} style={styles.deleteBackdrop} />
@@ -440,19 +443,28 @@ export default function ProfileScreen() {
         </View>
       </View>
     </Modal>
-  </Screen>;
+  </Screen>
+  {!form ? <View style={[styles.logoutDock, { paddingBottom: Math.max(insets.bottom, spacing.sm) + spacing.sm }]}>
+    <Button icon={LogOut} tone="danger" fullWidth disabled={busy} onPress={confirmSignOut}>
+      {busy ? "Đang đăng xuất..." : "Đăng xuất"}
+    </Button>
+  </View> : null}
+  </View>;
 }
 
 const styles = StyleSheet.create({
+  profileScreen: { flex: 1, backgroundColor: colors.background },
+  profileContent: { gap: 8, paddingBottom: spacing.sm },
+  logoutDock: { paddingHorizontal: spacing.sm, paddingTop: spacing.sm, backgroundColor: colors.background },
   flex: { flex: 1 }, empty: { color: colors.muted, padding: spacing.lg },
   headerActions: { flexDirection: "row", alignItems: "center" },
   headerButton: { width: touchTarget, height: touchTarget, alignItems: "center", justifyContent: "center" },
   profileCard: { alignItems: "center", overflow: "hidden", paddingTop: 0 },
   coverPress: { width: "120%" },
-  cover: { width: "100%", height: 100, backgroundColor: colors.primarySoft },
+  cover: { width: "100%", height: 72, backgroundColor: colors.primarySoft },
   coverBadge: { position: "absolute", right: spacing.xl, bottom: spacing.sm, flexDirection: "row", alignItems: "center", gap: spacing.xs, backgroundColor: colors.primaryDark, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
   coverBadgeText: { color: "#FFFFFF", fontSize: 11, fontWeight: "700" },
-  avatarWrap: { marginTop: -40, borderRadius: radius.pill },
+  avatarWrap: { marginTop: -32, borderRadius: radius.pill },
   cameraBadge: { position: "absolute", right: -2, bottom: 0, width: 28, height: 28, borderRadius: 14, backgroundColor: colors.primaryDark, alignItems: "center", justifyContent: "center" },
   name: { marginTop: spacing.sm, color: colors.text, fontSize: 19, fontWeight: "800" },
   muted: { marginTop: spacing.xs, color: colors.muted, fontSize: 12 },
@@ -463,9 +475,9 @@ const styles = StyleSheet.create({
   genderOption: { paddingHorizontal: spacing.md, minHeight: 36, justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.background },
   genderActive: { backgroundColor: colors.primarySoft }, genderText: { color: colors.muted, fontSize: 12 }, genderTextActive: { color: colors.primaryDark, fontWeight: "700" },
   actions: { flexDirection: "row", gap: spacing.sm },
-  infoRow: { flexDirection: "row", justifyContent: "space-between", gap: spacing.md, paddingVertical: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  infoRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing.md, paddingVertical: 5, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   infoLabel: { flex: 1, color: colors.muted, fontSize: 12 }, infoValue: { flex: 1.5, color: colors.text, fontSize: 12, textAlign: "right" },
-  galleryHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: spacing.md, marginBottom: spacing.md },
+  galleryHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: spacing.md, marginBottom: spacing.sm },
   galleryHeading: { flex: 1 },
   galleryTitle: { color: colors.text, fontSize: 15, fontWeight: "800" },
   galleryHelp: { marginTop: 2, color: colors.muted, fontSize: 11.5 },
@@ -477,7 +489,7 @@ const styles = StyleSheet.create({
   addGalleryButton: { width: "31.5%", aspectRatio: 1, alignItems: "center", justifyContent: "center", gap: spacing.xs, borderWidth: 1.5, borderStyle: "dashed", borderColor: colors.primary, borderRadius: radius.md, backgroundColor: colors.primarySoft },
   addGalleryEmpty: { width: "100%", aspectRatio: undefined, minHeight: 88 },
   addGalleryText: { color: colors.primaryDark, fontSize: 11.5, fontWeight: "700" },
-  galleryEmpty: { color: colors.muted, fontSize: 12, textAlign: "center", paddingVertical: spacing.xl },
+  galleryEmpty: { color: colors.muted, fontSize: 12, textAlign: "center", paddingVertical: spacing.md },
   deleteOverlay: { flex: 1, justifyContent: "center", paddingHorizontal: spacing.lg, backgroundColor: colors.overlay },
   deleteBackdrop: { ...StyleSheet.absoluteFill },
   deleteDialog: { borderRadius: radius.xl, padding: spacing.lg, gap: spacing.sm, backgroundColor: colors.surface },

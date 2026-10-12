@@ -6,7 +6,7 @@ type AuthState = {
   isLoading: boolean;
   token: string | null;
   user: UserProfile | null;
-  signIn(identifier: string, password: string): Promise<void>;
+  signIn(identifier: string, password: string): Promise<UserProfile>;
   signInWithBiometrics(): Promise<void>;
   signOut(): Promise<void>;
   deleteAccount(password: string): Promise<void>;
@@ -34,6 +34,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const session = await authService.login(identifier, password);
     setToken(session.token);
     setUser(session.user);
+    return session.user;
   }, []);
 
   const signOut = useCallback(async () => {

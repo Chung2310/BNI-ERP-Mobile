@@ -11,7 +11,7 @@ const queue: AlertRequest[] = [];
 let notify: (() => void) | null = null;
 
 function safeMessage(message?: string) {
-  return message ? friendlyErrorMessage(message) : "";
+  return message ? friendlyErrorMessage(message, undefined, true) : "";
 }
 
 export const Alert = {
