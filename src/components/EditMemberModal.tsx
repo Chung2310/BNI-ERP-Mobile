@@ -84,7 +84,7 @@ function EditMemberContent({ member, onClose, onUpdated }: Omit<Props, "visible"
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingGallery, setUploadingGallery] = useState(false);
-  const [imageSourceTarget, setImageSourceTarget] = useState<"avatar" | "gallery" | null>(null);
+  const [imageSourceTarget, setImageSourceTarget] = useState<"avatar" | "cover" | "gallery" | null>(null);
 
   const [name, setName] = useState(member.displayName || "");
   const [company, setCompany] = useState(initialCompany);
@@ -111,20 +111,22 @@ function EditMemberContent({ member, onClose, onUpdated }: Omit<Props, "visible"
     }
   };
 
-  const pickCover = async () => {
+  const pickCover = async (source: ImageSource) => {
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const permission = source === "camera" ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert("Quyền truy cập", "Vui lòng cấp quyền thư viện ảnh để chọn ảnh bìa.");
+        Alert.alert("Quyền truy cập", `Vui lòng cấp quyền ${source === "camera" ? "camera" : "thư viện ảnh"} để chọn ảnh bìa.`);
         return;
       }
-      const res = await ImagePicker.launchImageLibraryAsync({
+      const res = await (source === "camera" ? ImagePicker.launchCameraAsync({
+        mediaTypes: ["images"], allowsEditing: true, aspect: [16, 9], quality: 0.85, base64: true,
+      }) : ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
         allowsEditing: true,
         aspect: [16, 9],
         quality: 0.85,
         base64: true,
-      });
+      }));
       if (res.canceled || !res.assets[0]) return;
       const asset = res.assets[0];
       setUploadingCover(true);
@@ -210,7 +212,7 @@ function EditMemberContent({ member, onClose, onUpdated }: Omit<Props, "visible"
     }
   };
 
-  const chooseImageSource = (target: "avatar" | "gallery") => {
+  const chooseImageSource = (target: "avatar" | "cover" | "gallery") => {
     setImageSourceTarget(target);
   };
 
@@ -218,6 +220,7 @@ function EditMemberContent({ member, onClose, onUpdated }: Omit<Props, "visible"
     const target = imageSourceTarget;
     setImageSourceTarget(null);
     if (target === "avatar") void pickAvatar(source);
+    if (target === "cover") void pickCover(source);
     if (target === "gallery") void pickGallery(source);
   };
 
@@ -302,7 +305,7 @@ function EditMemberContent({ member, onClose, onUpdated }: Omit<Props, "visible"
               {/* Nút tải ảnh bìa */}
               <Pressable
                 accessibilityRole="button"
-                onPress={pickCover}
+                onPress={() => chooseImageSource("cover")}
                 disabled={uploadingCover}
                 style={styles.uploadCoverBtn}
               >

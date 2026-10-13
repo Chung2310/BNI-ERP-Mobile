@@ -236,7 +236,10 @@ export default function HomeScreen() {
 function MemberHomeScreen() {
   const { user } = useAuth();
   const guest = isChapterGuest(user);
-  const { unreadCount, refreshChapterNotifications } = useNotifications();
+  const { unreadCount, chapterNotifications, refreshChapterNotifications } = useNotifications();
+  const pendingChapterApplications = user?.role === 'admin'
+    ? chapterNotifications.filter((item) => item._id.startsWith('chapter-application:')).length
+    : 0;
   const [currentTime, setCurrentTime] = useState(() => new Date());
 
   // Trạng thái thu gọn/mở rộng các mục lịch họp
@@ -518,7 +521,7 @@ function MemberHomeScreen() {
           ) : null}
 
           <SectionTitle>Tiện ích</SectionTitle>
-          <DashboardQuickActions user={user} />
+          <DashboardQuickActions user={user} pendingChapterApplications={pendingChapterApplications} />
 
           {/* Phần Danh sách cuộc họp (Thay thế lịch cũ theo mẫu ảnh 1) */}
           <View style={styles.scheduleSectionHeader}>

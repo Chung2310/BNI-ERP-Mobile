@@ -1,6 +1,5 @@
 import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useEffect, useState } from "react";
-import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import { Camera, ChevronRight, LockKeyhole, LogOut, Pencil, Plus, Settings, Trash2, X } from "lucide-react-native";
 import { ActivityIndicator, Image, ImageBackground, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
@@ -13,6 +12,7 @@ import { useAuth } from "@/context/AuthContext";
 import { apiRequest } from "@/services/api";
 import { authService } from "@/services/auth";
 import { galleryImagesFrom, mediaUrl } from "@/utils/media";
+import { chooseImageSource, pickImages, type ImageSource } from "@/utils/imageSource";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 import type { UserProfile } from "@/types";
 
@@ -52,8 +52,8 @@ export default function ProfileScreen() {
   const shouldEditOnOpen = edit === "profile" || edit === "gallery";
   const [profile, setProfile] = useState<UserProfile | null>(user);
   const [form, setForm] = useState<Form | null>(() => shouldEditOnOpen && user ? toForm(user) : null);
-  const [avatarBase64, setAvatarBase64] = useState<string | null>(null);
-  const [coverBase64, setCoverBase64] = useState<string | null>(null);
+  const [pendingPhoto, setPendingPhoto] = useState<{ target: "avatar" | "cover"; uri: string } | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
   const [galleryImages, setGalleryImages] = useState<string[]>(() =>
     shouldEditOnOpen && user ? galleryImagesFrom(user) : [],
   );
@@ -73,8 +73,6 @@ export default function ProfileScreen() {
         setProfile(freshProfile);
         if (shouldEditOnOpen) {
           setForm(toForm(freshProfile));
-          setAvatarBase64(null);
-          setCoverBase64(null);
           setGalleryImages(galleryImagesFrom(freshProfile));
         }
       } catch {
@@ -90,52 +88,70 @@ export default function ProfileScreen() {
   const startEdit = () => {
     if (!profile) return;
     setForm(toForm(profile));
-    setAvatarBase64(null);
-    setCoverBase64(null);
     setGalleryImages(galleryImagesFrom(profile));
   };
 
   const cancelEdit = () => {
+    if (busy || photoBusy) return;
     setForm(null);
-    setAvatarBase64(null);
-    setCoverBase64(null);
     setGalleryImages([]);
   };
 
-  const pickPhoto = async (target: "avatar" | "cover") => {
+  const pickPhoto = async (target: "avatar" | "cover", source: ImageSource) => {
+    if (!profile || busy || photoBusy) return;
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert("Cần quyền truy cập ảnh", "Hãy cấp quyền thư viện ảnh để đổi ảnh hồ sơ.");
-        return;
-      }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"], allowsEditing: true, aspect: target === "avatar" ? [1, 1] : [16, 9], quality: 0.8, base64: true,
+      const result = await pickImages(source, {
+        mediaTypes: ["images"], allowsEditing: true, aspect: target === "avatar" ? [1, 1] : [16, 9], quality: profile.companyCode ? 0.8 : 0.6, base64: true,
       });
-      if (!result.canceled && result.assets[0]?.base64) {
-        if (target === "avatar") setAvatarBase64(result.assets[0].base64);
-        else setCoverBase64(result.assets[0].base64);
+      if (result.canceled || !result.assets[0]) return;
+      const asset = result.assets[0];
+      if (!asset.base64) {
+        throw new Error("Không đọc được dữ liệu ảnh. Vui lòng chọn lại.");
       }
+      setPhotoBusy(true);
+      setPendingPhoto({ target, uri: asset.uri });
+      let photoUrl: string;
+      if (!profile.companyCode) {
+        photoUrl = await authService.uploadSelfProfileImage(asset.base64, target, asset);
+      } else {
+        const uploaded = await apiRequest<{ url: string; uploadToken?: string }>("/api/v1/media/upload", {
+          method: "POST",
+          body: JSON.stringify({
+            file: `data:image/jpeg;base64,${asset.base64}`,
+            fileName: target === "avatar" ? "avatar.jpg" : "cover.jpg",
+            mimeType: "image/jpeg",
+            sourceType: target === "avatar" ? "profile.avatar" : "profile.cover",
+          }),
+          timeoutMs: 120000,
+        });
+        if (!uploaded.url || !uploaded.uploadToken) throw new Error("Máy chủ chưa trả về ảnh đã tải lên.");
+        const saved = await authService.updateProfile(target === "avatar"
+          ? { photoURL: uploaded.url, photoUploadToken: uploaded.uploadToken }
+          : { coverImage: uploaded.url, coverUploadToken: uploaded.uploadToken });
+        photoUrl = target === "avatar" ? saved.photoURL || uploaded.url : saved.coverImage || uploaded.url;
+      }
+      const persistedProfile = await authService.getProfile();
+      const persistedUrl = target === "avatar" ? persistedProfile.photoURL : persistedProfile.coverImage;
+      if (persistedUrl !== photoUrl) throw new Error("Máy chủ chưa lưu ảnh. Vui lòng thử lại.");
+      setProfile(persistedProfile);
+      applyProfile(persistedProfile);
     } catch (cause) {
-      Alert.alert("Không thể chọn ảnh", friendlyErrorMessage(cause, "Vui lòng thử lại."));
+      Alert.alert("Không thể lưu ảnh", friendlyErrorMessage(cause, "Vui lòng thử lại."));
+    } finally {
+      setPendingPhoto(null);
+      setPhotoBusy(false);
     }
   };
 
-  const pickGalleryImages = async () => {
+  const pickGalleryImages = async (source: ImageSource) => {
     const remaining = MAX_GALLERY_IMAGES - galleryImages.length;
     if (remaining <= 0 || isPickingGallery) return;
 
     setIsPickingGallery(true);
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert("Cần quyền truy cập ảnh", "Hãy cấp quyền thư viện ảnh để thêm ảnh sản phẩm.");
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
+      const result = await pickImages(source, {
         mediaTypes: ["images"],
-        allowsMultipleSelection: true,
+        allowsMultipleSelection: source === "library",
         selectionLimit: remaining,
         quality: 0.8,
         base64: true,
@@ -165,7 +181,7 @@ export default function ProfileScreen() {
   };
 
   const save = async () => {
-    if (!form || !profile || busy) return;
+    if (!form || !profile || busy || photoBusy) return;
     if (!form.displayName.trim() || !form.email.trim()) {
       Alert.alert("Thiếu thông tin", "Họ tên và email không được để trống.");
       return;
@@ -176,18 +192,6 @@ export default function ProfileScreen() {
     }
     setBusy(true);
     try {
-      let photo: { url: string; uploadToken?: string } | null = null;
-      if (avatarBase64) photo = await apiRequest<{ url: string; uploadToken?: string }>("/api/v1/media/upload", {
-        method: "POST",
-        body: JSON.stringify({ file: `data:image/jpeg;base64,${avatarBase64}`, fileName: "avatar.jpg", mimeType: "image/jpeg", sourceType: "profile.avatar" }),
-        timeoutMs: 120000,
-      });
-      let cover: { url: string; uploadToken?: string } | null = null;
-      if (coverBase64) cover = await apiRequest<{ url: string; uploadToken?: string }>("/api/v1/media/upload", {
-        method: "POST",
-        body: JSON.stringify({ file: `data:image/jpeg;base64,${coverBase64}`, fileName: "cover.jpg", mimeType: "image/jpeg", sourceType: "profile.cover" }),
-        timeoutMs: 120000,
-      });
       const uploadedGallery = await Promise.all(
         galleryImages.map(async (image, index) => {
           if (!image.startsWith("data:image/")) return { url: image };
@@ -217,8 +221,6 @@ export default function ProfileScreen() {
         displayName: form.displayName.trim(), email: form.email.trim(),
         phone: form.phone.trim(), companyName: form.companyName.trim(), industry: form.industry.trim(),
         address: form.address.trim(), targetMarket: form.targetMarket.trim(),
-        ...(photo ? { photoURL: photo.url, photoUploadToken: photo.uploadToken } : {}),
-        ...(cover ? { coverImage: cover.url, coverUploadToken: cover.uploadToken } : {}),
         galleryImages: uploadedGalleryImages,
         galleryUploadTokens,
       });
@@ -232,7 +234,8 @@ export default function ProfileScreen() {
 
       setProfile(persistedProfile);
       applyProfile(persistedProfile);
-      cancelEdit();
+      setForm(null);
+      setGalleryImages([]);
       Alert.alert("Đã lưu", "Hồ sơ cá nhân đã được cập nhật.");
       router.replace("/(tabs)/more");
     } catch (cause) {
@@ -307,8 +310,8 @@ export default function ProfileScreen() {
   if (!profile) return <Screen><BackHeader title="Hồ sơ cá nhân" compact /><Text style={styles.empty}>Không tìm thấy hồ sơ cá nhân.</Text></Screen>;
 
   const initials = profile.displayName.split(" ").filter(Boolean).slice(-2).map((part) => part[0]).join("").toUpperCase();
-  const avatarUrl = avatarBase64 ? `data:image/jpeg;base64,${avatarBase64}` : mediaUrl(profile.photoURL);
-  const coverUrl = coverBase64 ? `data:image/jpeg;base64,${coverBase64}` : mediaUrl(profile.coverImage || profile.coverUrl);
+  const avatarUrl = pendingPhoto?.target === "avatar" ? pendingPhoto.uri : mediaUrl(profile.photoURL);
+  const coverUrl = pendingPhoto?.target === "cover" ? pendingPhoto.uri : mediaUrl(profile.coverImage || profile.coverUrl);
 
   const displayedGallery = form ? galleryImages : galleryImagesFrom(profile);
 
@@ -322,17 +325,18 @@ export default function ProfileScreen() {
       </View> : null}
     />
     <Card style={styles.profileCard}>
-      <Pressable disabled={!form || busy} accessibilityRole="button" accessibilityLabel="Đổi ảnh bìa" onPress={() => void pickPhoto("cover")} style={styles.coverPress}>
+      <Pressable disabled={!form || busy || photoBusy} accessibilityRole="button" accessibilityLabel="Đổi ảnh bìa" onPress={() => chooseImageSource((source) => void pickPhoto("cover", source))} style={styles.coverPress}>
         {coverUrl ? <ImageBackground source={{ uri: coverUrl }} style={styles.cover} /> : <View style={styles.cover} />}
-        {form ? <View style={styles.coverBadge}><Camera size={14} color="#FFFFFF" /><Text style={styles.coverBadgeText}>Đổi ảnh bìa</Text></View> : null}
+        {form ? <View style={styles.coverBadge}>{photoBusy && pendingPhoto?.target === "cover" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Camera size={14} color="#FFFFFF" />}<Text style={styles.coverBadgeText}>{photoBusy && pendingPhoto?.target === "cover" ? "Đang lưu ảnh..." : "Đổi ảnh bìa"}</Text></View> : null}
       </Pressable>
-      <Pressable disabled={!form || busy} accessibilityRole="button" accessibilityLabel="Đổi ảnh đại diện" onPress={() => void pickPhoto("avatar")} style={styles.avatarWrap}>
+      <Pressable disabled={!form || busy || photoBusy} accessibilityRole="button" accessibilityLabel="Đổi ảnh đại diện" onPress={() => chooseImageSource((source) => void pickPhoto("avatar", source))} style={styles.avatarWrap}>
         <Avatar initials={initials} url={avatarUrl} size={form ? 84 : 68} />
-        {form ? <View style={styles.cameraBadge}><Camera size={16} color="#FFFFFF" /></View> : null}
+        {form ? <View style={styles.cameraBadge}>{photoBusy && pendingPhoto?.target === "avatar" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Camera size={16} color="#FFFFFF" />}</View> : null}
       </Pressable>
       <Text style={styles.name}>{profile.displayName}</Text>
       <Text style={styles.muted}>{profile.industry || profile.companyName || profile.role}</Text>
     </Card>
+    {form ? <Text style={styles.photoSaveHint}>Ảnh đại diện và ảnh bìa được lưu ngay sau khi chọn.</Text> : null}
     {form ? <>
       <Card>
         <Field label="Họ tên" value={form.displayName} onChangeText={(displayName) => setForm({ ...form, displayName })} />
@@ -384,7 +388,7 @@ export default function ProfileScreen() {
               accessibilityRole="button"
               accessibilityLabel="Thêm ảnh sản phẩm hoặc hoạt động"
               disabled={busy || isPickingGallery}
-              onPress={() => void pickGalleryImages()}
+              onPress={() => chooseImageSource((source) => void pickGalleryImages(source))}
               style={styles.addGalleryButton}
             >
               {isPickingGallery ? (
@@ -403,7 +407,7 @@ export default function ProfileScreen() {
           accessibilityRole="button"
           accessibilityLabel="Thêm ảnh sản phẩm hoặc hoạt động"
           disabled={busy || isPickingGallery}
-          onPress={() => void pickGalleryImages()}
+          onPress={() => chooseImageSource((source) => void pickGalleryImages(source))}
           style={[styles.addGalleryButton, styles.addGalleryEmpty]}
         >
           {isPickingGallery ? <ActivityIndicator size="small" color={colors.primaryDark} /> : <>
@@ -416,8 +420,8 @@ export default function ProfileScreen() {
       )}
     </Card>
     {form ? <View style={styles.actions}>
-      <Button tone="secondary" style={styles.flex} disabled={busy} onPress={cancelEdit}>Hủy</Button>
-      <Button style={styles.flex} disabled={busy} onPress={() => void save()}>{busy ? "Đang lưu..." : "Lưu thay đổi"}</Button>
+      <Button tone="secondary" style={styles.flex} disabled={busy || photoBusy} onPress={cancelEdit}>Hủy</Button>
+      <Button style={styles.flex} disabled={busy || photoBusy} onPress={() => void save()}>{busy ? "Đang lưu..." : "Lưu thay đổi"}</Button>
     </View> : null}
     <Modal visible={accountPanel !== null} transparent animationType="fade" onRequestClose={closeAccountPanel}>
       <View style={styles.deleteOverlay}>
@@ -453,6 +457,7 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  photoSaveHint: { color: colors.muted, fontSize: 12, marginHorizontal: spacing.sm },
   profileScreen: { flex: 1, backgroundColor: colors.background },
   profileContent: { gap: 8 },
   logoutDock: { paddingHorizontal: spacing.sm, paddingTop: spacing.sm, backgroundColor: colors.background },

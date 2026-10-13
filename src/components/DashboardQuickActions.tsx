@@ -33,7 +33,9 @@ function ActionItem({ icon, title, href, unreadCount = 0, locked = false }: Quic
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={unreadCount > 0 ? `${title}, ${unreadCount} tin nhắn chưa đọc` : title}
+      accessibilityLabel={unreadCount > 0
+        ? `${title}, ${unreadCount} ${icon === 'chapter' ? 'đơn xin gia nhập chưa xử lý' : 'tin nhắn chưa đọc'}`
+        : title}
       style={({ pressed }) => [styles.item, pressed && styles.pressed]}
       onPress={() => locked ? Alert.alert(title, 'Tính năng sẽ mở khi bạn gia nhập Chapter.') : router.push(href)}
     >
@@ -59,9 +61,11 @@ function ActionItem({ icon, title, href, unreadCount = 0, locked = false }: Quic
 
 export function DashboardQuickActions({
   user,
+  pendingChapterApplications = 0,
 }: {
   user: UserProfile | null;
   liveMeetingId?: string;
+  pendingChapterApplications?: number;
 }) {
   const showCreateMeeting = canCreateMeeting(user);
   const guest = isChapterGuest(user);
@@ -89,6 +93,7 @@ export function DashboardQuickActions({
       icon: 'chapter',
       title: 'Chapter',
       href: guest ? '/(tabs)/chapters' : '/chapter',
+      unreadCount: user.role === 'admin' ? pendingChapterApplications : 0,
     });
   }
 

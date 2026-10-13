@@ -7,10 +7,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Alert } from "@/components/AppAlert";
 import { Button } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
-import { authService } from "@/services/auth";
+import { authService, MAX_SELF_PROFILE_IMAGE_BASE64_LENGTH } from "@/services/auth";
 import { colors, radius, spacing } from "@/theme/tokens";
 import type { UserProfile } from "@/types";
 import { friendlyErrorMessage } from "@/utils/userFacingError";
+import { chooseImageSource, pickImages, type ImageSource } from "@/utils/imageSource";
 
 type Registration = { displayName: string; email: string; phone: string; companyName: string; industry: string; password: string };
 type Field = keyof Registration;
@@ -24,10 +25,9 @@ const fields: { key: Field; label: string; placeholder: string; maxLength: numbe
 ];
 const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const phonePattern = /^(0|\+84|84)[35789][0-9]{8}$/;
-const avatarTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 export default function RegisterScreen() {
-  const { signIn, refreshProfile, applyProfile } = useAuth();
+  const { activateSession } = useAuth();
   const [form, setForm] = useState<Registration>({ displayName: "", email: "", phone: "", companyName: "", industry: "", password: "" });
   const [avatar, setAvatar] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [error, setError] = useState("");
@@ -38,16 +38,14 @@ export default function RegisterScreen() {
     else router.replace("/login");
   };
 
-  const pickAvatar = async () => {
+  const pickAvatar = async (source: ImageSource) => {
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, aspect: [1, 1], quality: 0.8 });
+      const result = await pickImages(source, { mediaTypes: ["images"], allowsEditing: true, aspect: [1, 1], quality: 0.6, base64: true });
       if (result.canceled || !result.assets[0]) return;
       const selected = result.assets[0];
-      const sourceName = (selected.fileName || selected.uri).split(/[?#]/)[0].toLowerCase();
-      const mimeType = selected.mimeType || selected.file?.type || (sourceName.endsWith(".png") ? "image/png" : sourceName.endsWith(".webp") ? "image/webp" : sourceName.endsWith(".jpg") || sourceName.endsWith(".jpeg") ? "image/jpeg" : "");
-      if (!avatarTypes.has(mimeType)) return setError("Vui lòng chọn ảnh JPG, PNG hoặc WebP.");
-      if (selected.fileSize && selected.fileSize > 5 * 1024 * 1024) return setError("Ảnh đại diện không được vượt quá 5 MB.");
-      setAvatar({ ...selected, mimeType });
+      if (!selected.base64) return setError("Không đọc được dữ liệu ảnh đại diện. Vui lòng chọn lại.");
+      if (selected.base64.length > MAX_SELF_PROFILE_IMAGE_BASE64_LENGTH) return setError("Ảnh đại diện không được vượt quá 5 MB.");
+      setAvatar(selected);
       setError("");
     } catch (cause) {
       setError(friendlyErrorMessage(cause, "Không thể chọn ảnh đại diện."));
@@ -74,25 +72,27 @@ export default function RegisterScreen() {
       setSubmitting(false);
       return;
     }
-    let signedInUser: UserProfile;
+    let session: Awaited<ReturnType<typeof authService.login>>;
     try {
-      signedInUser = await signIn(data.email, data.password);
+      session = await authService.login(data.email, data.password);
     } catch {
       setError("Tài khoản đã được tạo. Vui lòng quay lại đăng nhập.");
       setSubmitting(false);
       return;
     }
+    let signedInUser: UserProfile = session.user;
     let avatarError = "";
     if (avatar) {
       try {
-        const photoURL = await authService.uploadRegistrationAvatar(avatar);
-        applyProfile({ ...signedInUser, photoURL });
-        await refreshProfile().catch(() => undefined);
+        const photoURL = await authService.uploadSelfProfileImage(avatar.base64 || "", "avatar", avatar);
+        signedInUser = { ...signedInUser, photoURL };
+        await authService.cacheProfile(signedInUser);
       } catch (cause) {
         avatarError = friendlyErrorMessage(cause, "Chưa tải được ảnh đại diện. Vui lòng thử lại trong mục Cá nhân.");
       }
     }
     setSubmitting(false);
+    activateSession(session.token, signedInUser);
     router.replace("/(tabs)");
     if (avatarError) Alert.alert("Tài khoản đã được tạo", avatarError);
   };
@@ -122,7 +122,7 @@ export default function RegisterScreen() {
           {fields.map((field) => renderField(field))}
           <View style={styles.avatarField}>
             <Text style={styles.label}>Ảnh đại diện (tùy chọn)</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel={avatar ? "Đổi ảnh đại diện" : "Tải ảnh đại diện lên"} onPress={() => void pickAvatar()} style={styles.avatarPicker}>
+            <Pressable accessibilityRole="button" accessibilityLabel={avatar ? "Đổi ảnh đại diện" : "Tải ảnh đại diện lên"} onPress={() => chooseImageSource((source) => void pickAvatar(source))} style={styles.avatarPicker}>
               {avatar ? <Image source={{ uri: avatar.uri }} style={styles.avatarPreview} /> : <ImagePlus size={27} color={colors.brandBlue} strokeWidth={1.8} />}
             </Pressable>
           </View>

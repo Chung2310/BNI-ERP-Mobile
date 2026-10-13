@@ -1,7 +1,7 @@
 import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useState } from "react";
 import * as DocumentPicker from "expo-document-picker";
-import { ChevronRight, File, FileText, Folder, FolderOpen, MoreVertical, Plus, Trash2, Upload, X } from "lucide-react-native";
+import { Camera, ChevronRight, File, FileText, Folder, FolderOpen, MoreVertical, Plus, Trash2, Upload, X } from "lucide-react-native";
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BackHeader } from "@/components/BackHeader";
@@ -14,6 +14,7 @@ import { userService } from "@/services/users";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 import type { UserProfile } from "@/types";
 import { hasPermission } from "@/utils/permissions";
+import { pickImages } from "@/utils/imageSource";
 
 type Dialog = "actions" | "create" | "rename" | "move" | "share" | "confirm" | "message" | null;
 type Target = { id: string; type: "user" | "room"; name: string };
@@ -75,6 +76,18 @@ export function ResourceManager() {
         const uploaded = await resourceService.uploadFile(asset);
         await resourceService.createFile(asset.name, uploaded.url, folder?._id || null, asset.mimeType, asset.size);
       }, "Đã tải tệp lên.");
+    } catch (cause) { fail(cause); }
+  };
+  const captureImage = async () => {
+    try {
+      const result = await pickImages("camera", { mediaTypes: ["images"], quality: 0.85 });
+      if (result.canceled || !result.assets[0]) return;
+      const asset = result.assets[0];
+      const name = asset.fileName || `anh-${Date.now()}.jpg`;
+      await run(async () => {
+        const uploaded = await resourceService.uploadFile({ uri: asset.uri, name, mimeType: asset.mimeType || "image/jpeg", size: asset.fileSize });
+        await resourceService.createFile(name, uploaded.url, folder?._id || null, asset.mimeType || "image/jpeg", asset.fileSize);
+      }, "Đã tải ảnh lên.");
     } catch (cause) { fail(cause); }
   };
   const prepareMove = async () => {
@@ -169,6 +182,7 @@ export function ResourceManager() {
       <Pressable accessibilityLabel="Đóng menu thêm tài nguyên" style={styles.createBackdrop} onPress={() => setCreateMenuOpen(false)} />
       <View style={[styles.createMenu, { bottom: insets.bottom + spacing.xl }]}>
         <Pressable accessibilityRole="button" onPress={() => { setCreateMenuOpen(false); void pickFile(); }} style={styles.createOption}><Upload color="#FFFFFF" size={20} /><Text style={styles.createOptionText}>Tải lên</Text></Pressable>
+        <Pressable accessibilityRole="button" onPress={() => { setCreateMenuOpen(false); void captureImage(); }} style={styles.createOption}><Camera color="#FFFFFF" size={20} /><Text style={styles.createOptionText}>Chụp ảnh</Text></Pressable>
         <Pressable accessibilityRole="button" onPress={() => { setCreateMenuOpen(false); setName(""); setDialog("create"); }} style={styles.createOption}><Folder color="#FFFFFF" size={20} /><Text style={styles.createOptionText}>Tạo thư mục</Text></Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Đóng menu" onPress={() => setCreateMenuOpen(false)} style={styles.createClose}><X color={colors.primaryDark} size={24} strokeWidth={2.5} /></Pressable>
       </View>
