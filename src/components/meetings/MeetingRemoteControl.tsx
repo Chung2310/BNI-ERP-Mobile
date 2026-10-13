@@ -1,8 +1,9 @@
 import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { Alert } from "@/components/AppAlert";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { router, useFocusEffect } from "expo-router";
 import { io } from "socket.io-client";
+import QRCode from "react-native-qrcode-svg";
 import {
   Modal,
   Pressable,
@@ -43,7 +44,6 @@ import { buildActiveMemberRankings } from "@/components/ActiveMemberRanking";
 import { ProfileSlideCanvas } from "@/components/meetings/ProfileSlideCanvas";
 import { MeetingWheelPreview, MeetingWinnersList } from "@/components/meetings/MeetingWheelPreview";
 import { MeetingDrawRemote } from "@/components/meetings/MeetingDrawRemote";
-import { InteractionManager } from "@/components/meetings/InteractionManager";
 import { ResponseWordCloud } from "@/components/meetings/ResponseWordCloud";
 import { Avatar, Badge, Card, EmptyState, ErrorState, LoadingState, Screen } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
@@ -61,6 +61,7 @@ import { userService } from "@/services/users";
 import { apiConfig } from "@/services/api";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 import { hasPermission } from "@/utils/permissions";
+import type { UserProfile } from "@/types";
 
 const views: { value: PresentationView; label: string; icon: LucideIcon }[] = [
   { value: "checkin", label: "QR Check-in", icon: QrCode },
@@ -108,6 +109,9 @@ export function MeetingRemoteControl({
   const canManage = hasPermission(user, "meetings:manage", "access:manage");
   const [snapshot, setSnapshot] = useState<MeetingLiveSnapshot | null>(null);
   const [interactionPreview, setInteractionPreview] = useState<MeetingInteraction | null>(null);
+  const [drawUsers, setDrawUsers] = useState<UserProfile[]>([]);
+  const [drawUsersLoading, setDrawUsersLoading] = useState(true);
+  const [drawUsersError, setDrawUsersError] = useState("");
   const snapshotRef = useRef<MeetingLiveSnapshot | null>(null);
   const activeRef = useRef(false);
   const pollingRef = useRef(false);
@@ -182,6 +186,17 @@ export function MeetingRemoteControl({
     [applySnapshot, id]
   );
 
+  const refreshDrawUsers = useCallback(async () => {
+    try {
+      setDrawUsers(await userService.directory());
+      setDrawUsersError("");
+    } catch (cause) {
+      setDrawUsersError(friendlyErrorMessage(cause, "Không tải được danh sách thành viên."));
+    } finally {
+      setDrawUsersLoading(false);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       activeRef.current = true;
@@ -247,9 +262,12 @@ export function MeetingRemoteControl({
   const setView = (nextView: PresentationView) => {
     setViewOverride(nextView);
     void run((meeting) =>
-      meetingService.presentationState(id, { view: nextView }, meetingVersion(meeting))
+      meetingService.presentationState(id, nextView === "audienceResponses" && meeting.presentation?.view !== "audienceResponses" ? { view: nextView, audienceResponsePanel: "questions" } : { view: nextView }, meetingVersion(meeting))
     );
   };
+
+  const setAudienceResponsePanel = (panel: "questions" | "prepare" | "qr" | "results") =>
+    run((meeting) => meetingService.presentationState(id, { view: "audienceResponses", audienceResponsePanel: panel }, meetingVersion(meeting)));
 
   const confirmFinish = () =>
     Alert.alert(
@@ -265,8 +283,26 @@ export function MeetingRemoteControl({
   const currentSpeaker = meeting?.speakers[meeting.currentIndex];
   const view: PresentationView =
     viewOverride || meeting?.presentation?.view || "checkin";
+  useEffect(() => {
+    if (view !== "luckyDraw") return;
+    let active = true;
+    void userService.directory()
+      .then((users) => {
+        if (!active) return;
+        setDrawUsers(users);
+        setDrawUsersError("");
+      })
+      .catch((cause) => {
+        if (active) setDrawUsersError(friendlyErrorMessage(cause, "Không tải được danh sách thành viên."));
+      })
+      .finally(() => {
+        if (active) setDrawUsersLoading(false);
+      });
+    return () => { active = false; };
+  }, [view]);
   const closed = meeting?.status === "ended" || meeting?.status === "cancelled";
   const disabled = !canManage || closed || busy || Boolean(syncError);
+  const speakerSwitchDisabled = disabled || Boolean(meeting?.presentation?.autoAdvance);
 
   // Bộ lọc khách đã check-in
   const filteredSpeakers = (() => {
@@ -360,7 +396,14 @@ export function MeetingRemoteControl({
       <>
         {/* Khung Stage Preview màn hình chiếu */}
         <View style={styles.previewCard}>
-          <StagePreview snapshot={snapshot} now={now} interaction={interactionPreview} />
+          <StagePreview
+            snapshot={snapshot}
+            now={now}
+            interaction={interactionPreview}
+            drawUsers={drawUsers}
+            drawUsersLoading={drawUsersLoading}
+            drawUsersError={drawUsersError}
+          />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Đồng bộ màn chiếu"
@@ -532,7 +575,7 @@ export function MeetingRemoteControl({
 
                           <Pressable
                             accessibilityLabel={`Chiếu slide của ${person.name}`}
-                            disabled={disabled}
+                            disabled={speakerSwitchDisabled}
                             onPress={() =>
                               void run((current) =>
                                 meetingService.presentation(
@@ -545,7 +588,7 @@ export function MeetingRemoteControl({
                             style={[
                               styles.actionIconBtn,
                               styles.actionIconBtnPresent,
-                              disabled && styles.disabled,
+                              speakerSwitchDisabled && styles.disabled,
                             ]}
                           >
                             <Play color="#FFFFFF" size={15} />
@@ -629,14 +672,14 @@ export function MeetingRemoteControl({
                     <SpeakerAction
                       icon={SkipBack}
                       accessibilityLabel="Người phát biểu trước"
-                      disabled={disabled || meeting.currentIndex <= 0}
+                      disabled={speakerSwitchDisabled || meeting.currentIndex <= 0}
                       onPress={() => control("previous")}
                     />
                     <SpeakerAction
                       icon={SkipForward}
                       accessibilityLabel="Người phát biểu tiếp theo"
                       primary
-                      disabled={disabled}
+                      disabled={speakerSwitchDisabled}
                       onPress={() => control("next")}
                     />
                     <SpeakerAction
@@ -677,8 +720,8 @@ export function MeetingRemoteControl({
                           <Pressable
                             accessibilityRole="button"
                             accessibilityLabel={`Chiếu slide của ${person.name}`}
-                            accessibilityState={{ disabled, selected: isCurrent }}
-                            disabled={disabled}
+                            accessibilityState={{ disabled: speakerSwitchDisabled, selected: isCurrent }}
+                            disabled={speakerSwitchDisabled}
                             onPress={() =>
                               void run((current) =>
                                 meetingService.presentation(
@@ -688,7 +731,7 @@ export function MeetingRemoteControl({
                                 )
                               )
                             }
-                            style={styles.personMain}
+                            style={[styles.personMain, speakerSwitchDisabled && styles.disabled]}
                           >
                             <Text style={styles.personIndex}>{index + 1}</Text>
                             <Text
@@ -737,7 +780,19 @@ export function MeetingRemoteControl({
 
           {/* 3. CHẾ ĐỘ QUAY THƯỞNG */}
           {view === "luckyDraw" ? (
-            <MeetingDrawRemote id={id} meeting={meeting} disabled={disabled} onRefresh={() => void refresh(true)} />
+            <MeetingDrawRemote
+              id={id}
+              meeting={meeting}
+              users={drawUsers}
+              loadingUsers={drawUsersLoading}
+              usersError={drawUsersError}
+              onRefreshUsers={async () => {
+                setDrawUsersLoading(true);
+                await refreshDrawUsers();
+              }}
+              disabled={disabled}
+              onRefresh={() => refresh(true)}
+            />
           ) : null}
 
           {/* 4. CHẾ ĐỘ CÂU TRẢ LỜI / THU Ý KIẾN */}
@@ -745,6 +800,10 @@ export function MeetingRemoteControl({
             <RemoteInteractionPanel
               id={id}
               canManage={canManage && !closed}
+              interaction={interactionPreview}
+              panel={meeting.presentation?.audienceResponsePanel || "questions"}
+              now={now}
+              onPanelChange={setAudienceResponsePanel}
               onUpdate={setInteractionPreview}
             />
           ) : null}
@@ -930,38 +989,179 @@ export function MeetingRemoteControl({
 function RemoteInteractionPanel({
   id,
   canManage,
+  interaction,
+  panel,
+  now,
+  onPanelChange,
   onUpdate,
 }: {
   id: string;
   canManage: boolean;
+  interaction: MeetingInteraction | null;
+  panel: "questions" | "prepare" | "qr" | "results";
+  now: number;
+  onPanelChange: (panel: "questions" | "prepare" | "qr" | "results") => Promise<boolean>;
   onUpdate: (next: MeetingInteraction) => void;
 }) {
+  const selected = panel === "results" ? "results" : panel === "questions" ? "questions" : "qr";
+  const [durationDraft, setDurationDraft] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const { data, error, isLoading, reload } = useAsyncData(
     () => meetingService.interaction(id),
     id
   );
-  if (isLoading && !data)
+  const current = interaction || data;
+  const session = current?.session;
+  const duration = durationDraft ?? String(session?.durationSeconds ?? 60);
+  if (isLoading && !current)
     return (
       <Card style={styles.section}>
         <LoadingState />
       </Card>
     );
-  if (error && !data)
+  if (error && !current)
     return (
       <Card style={styles.section}>
         <ErrorState message={error} onRetry={reload} />
       </Card>
     );
-  if (!data) return null;
+  if (!current) return null;
+
+  const participationUrl = session?.participationUrl
+    ? session.participationUrl.startsWith("http")
+      ? session.participationUrl
+      : `${apiConfig.baseUrl}${session.participationUrl.startsWith("/") ? "" : "/"}${session.participationUrl}`
+    : "";
+
+  const closesAt = session?.closesAt ? Date.parse(session.closesAt) : NaN;
+  const accepting = session?.status === "open" && Number.isFinite(closesAt) && now < closesAt;
+  const expired = Boolean(session?.openedAt && Number.isFinite(closesAt) && now >= closesAt);
+  const remaining = accepting ? Math.max(0, Math.ceil((closesAt - now) / 1000)) : 0;
+
+  const toggleResponses = async () => {
+    if (!session || !canManage || busy) return;
+    const seconds = Number(duration);
+    if (!accepting && (!Number.isInteger(seconds) || seconds < 1 || seconds > 3600)) {
+      Alert.alert("Thời gian không hợp lệ", "Thời gian phải từ 1 đến 3600 giây.");
+      return;
+    }
+    setBusy(true);
+    try {
+      if (!accepting) {
+        if (!await onPanelChange("prepare")) return;
+        if (seconds !== session.durationSeconds) {
+          const question = session.questions.find((item) => item.id === session.activeQuestionId) || session.questions[0];
+          if (!question) throw new Error("Chưa có câu hỏi để nhận câu trả lời.");
+          await meetingService.saveInteraction(id, {
+            question: question.text,
+            type: question.type || "text",
+            ...(question.type === "single_choice" ? { options: question.options || [] } : {}),
+            durationSeconds: seconds,
+            requireName: session.requireName,
+            showNames: session.showNames,
+            moderationEnabled: session.moderationEnabled,
+            allowMultipleResponses: session.allowMultipleResponses,
+          });
+        }
+      }
+      const next = await meetingService.setInteractionStatus(id, accepting ? "closed" : "open");
+      onUpdate(next);
+      if (!accepting && !await onPanelChange("qr")) return;
+      setDurationDraft(null);
+    } catch (cause) {
+      Alert.alert("Không thể cập nhật", friendlyErrorMessage(cause, "Vui lòng thử lại."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <InteractionManager
-      key={data.session?.id || id}
-      meetingId={id}
-      initial={data}
-      canManage={canManage}
-      embedded
-      onStateChange={onUpdate}
-    />
+    <Card style={styles.section}>
+      <Text style={styles.sectionHeading}>Thu ý kiến</Text>
+      <View style={styles.compactGrid}>
+        <CompactAction
+          icon={MessageCircle}
+          label="Câu hỏi"
+          accessibilityLabel="Xem các câu hỏi đã thiết lập"
+          columns={3}
+          primary={selected === "questions"}
+          disabled={busy || !canManage}
+          onPress={() => void onPanelChange("questions")}
+        />
+        <CompactAction
+          icon={QrCode}
+          label="QR trả lời"
+          accessibilityLabel="Hiển thị màn QR trả lời trên màn chiếu"
+          columns={3}
+          primary={selected === "qr"}
+          disabled={busy || !canManage}
+          onPress={() => void onPanelChange(accepting ? "qr" : "prepare")}
+        />
+        <CompactAction
+          icon={MessageCircle}
+          label="Xem kết quả"
+          accessibilityLabel="Hiển thị kết quả thu ý kiến trên màn chiếu"
+          columns={3}
+          primary={selected === "results"}
+          disabled={busy || !canManage}
+          onPress={() => void onPanelChange("results")}
+        />
+      </View>
+      {session && selected === "qr" && !accepting ? (
+        <View style={styles.responseDurationRow}>
+          <Text style={styles.muted}>Thời gian nhận câu trả lời (giây)</Text>
+          <TextInput
+            accessibilityLabel="Thời gian nhận câu trả lời tính bằng giây"
+            value={duration}
+            onChangeText={setDurationDraft}
+            keyboardType="number-pad"
+            editable={canManage && !busy}
+            style={styles.responseDurationInput}
+          />
+        </View>
+      ) : null}
+      {session && canManage && selected === "qr" ? (
+        <CompactAction
+          icon={accepting ? CircleStop : Play}
+          label={accepting ? "Đóng nhận câu trả lời" : "Nhận câu trả lời"}
+          accessibilityLabel={accepting ? "Đóng nhận câu trả lời" : "Bắt đầu nhận câu trả lời và hiện QR trên màn chiếu"}
+          columns={2}
+          disabled={busy}
+          onPress={() => void toggleResponses()}
+        />
+      ) : null}
+      {!session ? (
+        <Text style={styles.muted}>Chưa có câu hỏi. Tạo câu hỏi trong mục Thu ý kiến của cuộc họp.</Text>
+      ) : selected === "questions" ? (
+        <View style={styles.responseQuestionList}>
+          {session.questions.map((question) => (
+            <View key={question.id} style={styles.responseQuestionRow}>
+              <Text style={styles.responseQuestionOrder}>{question.order}</Text>
+              <Text style={styles.responseQuestionText}>{question.text}</Text>
+            </View>
+          ))}
+        </View>
+      ) : selected === "qr" ? (
+        accepting && participationUrl ? (
+          <View style={styles.responseQrSection}>
+            <View style={styles.responseQrFrame}>
+              <QRCode value={participationUrl} size={208} quietZone={8} />
+            </View>
+            <Text style={styles.muted}>Còn {String(Math.floor(remaining / 60)).padStart(2, "0")}:{String(remaining % 60).padStart(2, "0")}</Text>
+            <Text selectable style={styles.responseUrl}>{participationUrl}</Text>
+          </View>
+        ) : (
+          <Text style={styles.muted}>{expired ? "Hết thời gian nhận câu trả lời" : session.openedAt ? "Đã dừng nhận câu trả lời" : "Đang chuẩn bị câu hỏi"}</Text>
+        )
+      ) : session.questions.length ? (
+        <ResponseWordCloud
+          questions={session.questions}
+          responses={current.allResponses || current.responses}
+        />
+      ) : (
+        <Text style={styles.muted}>Chưa có kết quả trả lời.</Text>
+      )}
+    </Card>
   );
 }
 
@@ -969,10 +1169,16 @@ function StagePreview({
   snapshot,
   now,
   interaction,
+  drawUsers,
+  drawUsersLoading,
+  drawUsersError,
 }: {
   snapshot: MeetingLiveSnapshot;
   now: number;
   interaction: MeetingInteraction | null;
+  drawUsers: UserProfile[];
+  drawUsersLoading: boolean;
+  drawUsersError: string;
 }) {
   const { width: screenWidth } = useWindowDimensions();
   const meeting = snapshot.meeting;
@@ -1047,6 +1253,43 @@ function StagePreview({
     const question =
       session?.questions.find((item) => item.id === session.activeQuestionId) ||
       session?.questions[0];
+    const panel = meeting.presentation?.audienceResponsePanel || "questions";
+    if (panel === "questions") {
+      return (
+        <View style={styles.responseStage}>
+          <Text style={styles.responsePreviewHeading}>Câu hỏi dành cho bạn</Text>
+          {session?.questions.length ? session.questions.map((item) => (
+            <Text key={item.id} numberOfLines={2} style={styles.responsePreviewQuestion}>
+              {item.order}. {item.text}
+            </Text>
+          )) : <Text style={styles.stageCompany}>Chưa có câu hỏi</Text>}
+        </View>
+      );
+    }
+    if (panel !== "results") {
+      const closesAt = session?.closesAt ? Date.parse(session.closesAt) : NaN;
+      const accepting = session?.status === "open" && Number.isFinite(closesAt) && now < closesAt;
+      const expired = Boolean(session?.openedAt && Number.isFinite(closesAt) && now >= closesAt);
+      const remaining = accepting ? Math.max(0, Math.ceil((closesAt - now) / 1000)) : 0;
+      const url = session?.participationUrl
+        ? session.participationUrl.startsWith("http")
+          ? session.participationUrl
+          : `${apiConfig.baseUrl}${session.participationUrl.startsWith("/") ? "" : "/"}${session.participationUrl}`
+        : "";
+      return (
+        <View style={[styles.responseStage, styles.responseQrStage]}>
+          <Text style={styles.responseStageTitle}>
+            {panel === "prepare" ? "Đang chuẩn bị câu hỏi" : accepting ? "Quét QR để trả lời ý kiến" : expired ? "Hết thời gian nhận câu trả lời" : session?.openedAt ? "Đã dừng nhận câu trả lời" : "Đang chuẩn bị câu hỏi"}
+          </Text>
+          {panel === "qr" && accepting && url ? (
+            <View style={styles.responseStageQrFrame}>
+              <QRCode value={url} size={104} quietZone={3} />
+            </View>
+          ) : null}
+          {panel === "qr" && accepting ? <Text style={styles.responseStageTimer}>Còn {String(Math.floor(remaining / 60)).padStart(2, "0")}:{String(remaining % 60).padStart(2, "0")}</Text> : null}
+        </View>
+      );
+    }
     return (
       <View style={styles.responseStage}>
         {question ? (
@@ -1056,13 +1299,17 @@ function StagePreview({
             compact
           />
         ) : (
-          <Text style={styles.stageCompany}>Tạo câu hỏi trong bảng điều khiển bên dưới</Text>
+          <Text style={styles.stageCompany}>Tạo câu hỏi trong mục Thu ý kiến của cuộc họp</Text>
         )}
       </View>
     );
   }
 
-  if (view === "luckyDraw") return <MeetingWheelPreview meeting={meeting} now={now} fullscreen />;
+  if (view === "luckyDraw") {
+    if (drawUsersLoading) return <View style={styles.stage}><LoadingState label="Đang tải người tham gia quay..." /></View>;
+    if (drawUsersError) return <View style={styles.stage}><Text style={styles.stageSub}>{drawUsersError}</Text></View>;
+    return <MeetingWheelPreview meeting={meeting} now={now} users={drawUsers} fullscreen />;
+  }
   if (view === "activeMembers") return <StageRankingPreview meeting={meeting} />;
 
   return (
@@ -1329,6 +1576,12 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     padding: spacing.xs,
   },
+  responseQrStage: { alignItems: "center", gap: spacing.xs, backgroundColor: "#0F172A" },
+  responseStageTitle: { color: colors.surface, fontSize: 15, fontWeight: "800", textAlign: "center" },
+  responsePreviewHeading: { color: colors.text, fontSize: 13, fontWeight: "800", textAlign: "center" },
+  responsePreviewQuestion: { color: colors.text, fontSize: 10, fontWeight: "600", textAlign: "center" },
+  responseStageQrFrame: { padding: 4, borderRadius: radius.sm, backgroundColor: colors.surface },
+  responseStageTimer: { color: "#A5F3FC", fontSize: 12, fontWeight: "700" },
   stageName: { color: colors.text, fontSize: 15, fontWeight: "700" },
   stageCompany: { color: colors.muted, fontSize: 12 },
   stageTimerOverlay: {
@@ -1584,6 +1837,15 @@ const styles = StyleSheet.create({
 
   // Sections chung
   section: { gap: spacing.sm, padding: spacing.md },
+  responseQrSection: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.md },
+  responseQrFrame: { padding: spacing.xs, borderRadius: radius.md, backgroundColor: colors.surface },
+  responseUrl: { color: colors.primaryDark, fontSize: 11, textAlign: "center" },
+  responseDurationRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+  responseDurationInput: { minWidth: 76, minHeight: 42, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: colors.surface, color: colors.text, textAlign: "center", fontSize: 15, fontWeight: "700" },
+  responseQuestionList: { gap: spacing.xs },
+  responseQuestionRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, padding: spacing.sm, borderRadius: radius.sm, backgroundColor: colors.background },
+  responseQuestionOrder: { color: colors.primaryDark, fontSize: 13, fontWeight: "800" },
+  responseQuestionText: { flex: 1, color: colors.text, fontSize: 13, fontWeight: "600" },
   sectionHeading: { color: colors.text, fontSize: 14, fontWeight: "800" },
   summaryRow: {
     flexDirection: "row",

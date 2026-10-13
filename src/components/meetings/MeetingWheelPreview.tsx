@@ -22,7 +22,9 @@ import {
   X,
 } from "lucide-react-native";
 import { Avatar, Badge, Card } from "@/components/ui";
+import { projectedDrawParticipants } from "@/components/meetings/drawParticipants";
 import type { Meeting } from "@/services/meeting";
+import type { UserProfile } from "@/types";
 import { colors, radius, spacing } from "@/theme/tokens";
 
 const SLICE_COLORS = [
@@ -72,12 +74,14 @@ const LED_BULBS = Array.from({ length: 16 }, (_, i) => {
 export function MeetingWheelPreview({
   meeting,
   now,
+  users,
   selectedPrizeId,
   width,
   fullscreen = false,
 }: {
   meeting: Meeting;
   now: number;
+  users: UserProfile[];
   selectedPrizeId?: string;
   width?: number;
   fullscreen?: boolean;
@@ -104,16 +108,20 @@ export function MeetingWheelPreview({
   const min = meeting.luckyDraw?.numberMin || 1;
   const max = Math.max(min, meeting.luckyDraw?.numberMax || 100);
   const range = max - min + 1;
+  const projectedParticipants = useMemo(
+    () => projectedDrawParticipants(meeting, users),
+    [meeting, users]
+  );
 
   const entries = useMemo(() => {
-    if (!numeric) return meeting.speakers.map((person) => person.name);
+    if (!numeric) return projectedParticipants.map((person) => person.name);
     const count = Math.min(range, 180);
     return Array.from({ length: count }, (_, index) => {
       const from = min + Math.floor((index * range) / count);
       const to = min + Math.floor(((index + 1) * range) / count) - 1;
       return from === to ? `#${from}` : `#${from}-${to}`;
     });
-  }, [numeric, min, range, meeting.speakers]);
+  }, [numeric, min, range, projectedParticipants]);
 
   const count = entries.length;
   const targetIndex = winner
@@ -127,10 +135,10 @@ export function MeetingWheelPreview({
         )
       : Math.max(
           0,
-          meeting.speakers.findIndex(
+          projectedParticipants.findIndex(
             (person) =>
               person.id === winner.winnerId ||
-              (winner.userId && person.userId === winner.userId)
+              (winner.userId && person.id === winner.userId)
           )
         )
     : 0;
@@ -147,6 +155,7 @@ export function MeetingWheelPreview({
 
   const [rotation] = useState(() => new Animated.Value(base));
   const [dismissedWinnerId, setDismissedWinnerId] = useState<string | null>(null);
+  const winnerId = winner?.id;
 
   // Hiệu ứng quay số theo timestamps thực
   useEffect(() => {
@@ -181,14 +190,14 @@ export function MeetingWheelPreview({
 
   // Tự động ẩn banner chúc mừng sau 8 giây kể từ khi công bố kết quả
   useEffect(() => {
-    if (winner && !spinning && Number.isFinite(reveals)) {
+    if (winnerId && !spinning && Number.isFinite(reveals)) {
       const remaining = Math.max(1000, 8000 - (now - reveals));
       const timer = setTimeout(() => {
-        setDismissedWinnerId(winner.id);
+        setDismissedWinnerId(winnerId);
       }, remaining);
       return () => clearTimeout(timer);
     }
-  }, [winner?.id, spinning, reveals, now]);
+  }, [winnerId, spinning, reveals, now]);
 
   const showCelebrationBanner = Boolean(
     winner &&

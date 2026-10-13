@@ -5,6 +5,8 @@ import { router, useFocusEffect } from 'expo-router';
 import { Pin, Search, Users } from 'lucide-react-native';
 import {  Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { NewChatModal } from '@/components/NewChatModal';
+import { GuestLocked } from '@/components/GuestScreens';
+import { isChapterGuest } from '@/utils/guest';
 import { BackHeader } from '@/components/BackHeader';
 import { HeaderAddButton } from '@/components/HeaderAddButton';
 import { Avatar, Card, EmptyState, ErrorState, LoadingState, Screen } from '@/components/ui';
@@ -31,6 +33,11 @@ const formatTime = (value?: string) => {
 };
 
 export default function ChatScreen() {
+  const { user } = useAuth();
+  return isChapterGuest(user) ? <GuestLocked title="Trò chuyện" /> : <MemberChatScreen />;
+}
+
+function MemberChatScreen() {
   const { user } = useAuth();
   const [query, setQuery] = useState('');
   const [showNewChat, setShowNewChat] = useState(false);

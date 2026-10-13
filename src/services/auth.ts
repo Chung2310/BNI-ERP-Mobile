@@ -1,5 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import * as LocalAuthentication from "expo-local-authentication";
+import type { ImagePickerAsset } from "expo-image-picker";
+import { Platform } from "react-native";
 import { apiRequest, getApiAccessToken, setApiAccessToken, setApiTokenPersister } from "@/services/api";
 import { galleryImagesFrom } from "@/utils/media";
 import { unregisterCurrentDeviceFromPush } from "@/services/pushNotifications";
@@ -94,6 +96,28 @@ async function clearLocalSession() {
 }
 
 export const authService = {
+  register(data: { displayName: string; email: string; phone: string; companyName: string; industry: string; password: string }) {
+    return apiRequest("/api/v1/auth/register", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+  async uploadRegistrationAvatar(asset: ImagePickerAsset): Promise<string> {
+    const form = new FormData();
+    const name = asset.fileName || "avatar.jpg";
+    if (Platform.OS === "web" && asset.file) {
+      form.append("avatar", asset.file, name);
+    } else {
+      form.append("avatar", { uri: asset.uri, name, type: asset.mimeType || "image/jpeg" } as unknown as Blob);
+    }
+    const response = await apiRequest<{ data: { photoURL: string } }>("/api/v1/auth/profile/avatar", {
+      method: "POST",
+      body: form,
+      timeoutMs: 120000,
+    });
+    if (!response.data?.photoURL) throw new Error("Máy chủ chưa lưu ảnh đại diện. Vui lòng thử lại.");
+    return response.data.photoURL;
+  },
   async getProfile(): Promise<UserProfile> {
     const response = await apiRequest<{ user: LoginResponse["user"] }>("/api/v1/auth/me");
     const user = normalizeUser(response.user);

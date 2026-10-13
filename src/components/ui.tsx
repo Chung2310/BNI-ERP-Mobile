@@ -132,6 +132,7 @@ type ButtonProps = PressableProps & {
   tone?: ButtonTone;
   fullWidth?: boolean;
   icon?: LucideIcon;
+  iconSize?: number;
   iconColor?: string;
   textStyle?: StyleProp<TextStyle>;
 };
@@ -143,6 +144,7 @@ export function Button({
   tone = "primary",
   fullWidth,
   icon: Icon,
+  iconSize = 18,
   iconColor: customIconColor,
   textStyle,
   style,
@@ -165,7 +167,7 @@ export function Button({
       {...props}
     >
       <View style={styles.buttonContent}>
-        {Icon ? <Icon color={iconColor} size={18} strokeWidth={2.2} /> : null}
+        {Icon ? <Icon color={iconColor} size={iconSize} strokeWidth={2.2} /> : null}
         <Text style={[styles.buttonText, buttonTextToneStyles[tone], textStyle]}>{children}</Text>
       </View>
     </Pressable>
@@ -227,7 +229,7 @@ const styles = StyleSheet.create({
   badgeText_success: { color: "#15803D" },
   badgeText_default: {},
   button: { minHeight: touchTarget, alignItems: "center", justifyContent: "center", borderRadius: radius.md, paddingHorizontal: spacing.lg, borderWidth: 1 },
-  buttonContent: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
+  buttonContent: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, maxWidth: "100%" },
   button_primary: { backgroundColor: colors.brandBlue, borderColor: colors.brandBlue },
   button_secondary: { backgroundColor: colors.surface, borderColor: colors.border },
   button_danger: { backgroundColor: colors.danger, borderColor: colors.danger },

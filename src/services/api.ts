@@ -83,7 +83,7 @@ export async function apiRequest<T>(path: string, options: RequestInit & { timeo
       credentials: "include",
       headers: {
         Accept: "application/json",
-        ...(options.body ? { "Content-Type": "application/json" } : {}),
+        ...(options.body && !(options.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         ...options.headers,
       },

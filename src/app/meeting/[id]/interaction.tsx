@@ -17,5 +17,5 @@ export default function InteractionScreen() {
   if (error || !data) return <Screen><BackHeader title={title} compact /><ErrorState message={error || "Không tải được dữ liệu."} onRetry={reload} /></Screen>;
 
   const canManage = readOnly !== "1" && hasPermission(user, "meetings:manage", "access:manage");
-  return <InteractionManager key={data.session?.id || id} meetingId={id} initial={data} canManage={canManage} canControl={false} />;
+  return <InteractionManager key={data.session?.id || id} meetingId={id} initial={data} canManage={canManage} canControl={canManage} />;
 }

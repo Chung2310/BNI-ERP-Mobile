@@ -144,6 +144,12 @@ export default function LoginScreen() {
           >
             Đăng nhập
           </Button>
+          <View style={styles.registerRow}>
+            <Text style={styles.registerPrompt}>Bạn chưa có tài khoản?</Text>
+            <Pressable accessibilityRole="link" onPress={() => router.push("/register")} style={styles.registerLink}>
+              <Text style={styles.registerAction}>Tạo tài khoản ngay</Text>
+            </Pressable>
+          </View>
           {canUseBiometrics ? (
             <Button
               icon={Fingerprint}
@@ -329,6 +335,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingBottom: Platform.OS === "ios" ? spacing.sm : spacing.lg,
   },
+  registerRow: { minHeight: 44, flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: spacing.sm, marginTop: spacing.sm },
+  registerLink: { minHeight: 44, alignItems: "center", justifyContent: "center" },
+  registerPrompt: { color: "#000000", fontWeight: "400" },
+  registerAction: { color: "#FFFFFF", fontWeight: "400" },
   mainLoginButton: {
     backgroundColor: colors.brandBlue,
     minHeight: 52,
