@@ -108,7 +108,7 @@ export function NotificationProvider({ children }: PropsWithChildren) {
         if (!active) return;
         if (!registeredToken) {
           setPushError(Platform.OS === "ios"
-            ? "Thiết bị chưa đăng ký được APNs. Hãy kiểm tra quyền thông báo và cài lại bản build iOS mới nhất."
+            ? "Thiết bị chưa đăng ký được Expo Push/APNs. Hãy kiểm tra quyền thông báo, EAS project ID và cài bản iOS mới nhất."
             : "Thiết bị chưa đăng ký được FCM. Hãy kiểm tra quyền thông báo và cài lại APK mới nhất.");
           return;
         }
@@ -209,7 +209,10 @@ export function NotificationProvider({ children }: PropsWithChildren) {
         if (typeof nativeToken.data !== "string") return;
         // Do not call getDevicePushTokenAsync() inside this listener because
         // obtaining a token can trigger the listener again on Android.
-        void registerCurrentDeviceForPush(nativeToken.data).catch(() => undefined);
+        // On iOS the Expo token is project-scoped, so refresh it instead of
+        // sending the raw APNs token to the backend.
+        void registerCurrentDeviceForPush(Platform.OS === "android" ? nativeToken.data : undefined)
+          .catch(() => undefined);
       });
     }).catch(() => undefined);
     return () => {
