@@ -1,7 +1,7 @@
 import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { Alert } from "@/components/AppAlert";
 import { useMemo, useState, type ReactNode } from "react";
-import * as ImagePicker from "expo-image-picker";
+import { chooseImageSource, pickImages, type ImageSource } from "@/utils/imageSource";
 import * as Location from "expo-location";
 import { router, useLocalSearchParams } from "expo-router";
 import { ImagePlus, MapPin, Plus, Save, Trash2, Upload } from "lucide-react-native";
@@ -64,12 +64,10 @@ function EditForm({ meeting }: { meeting: Meeting }) {
     }
   };
 
-  const pickCover = async () => {
+  const pickCover = async (source: ImageSource) => {
     setError("");
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) throw new Error("Bạn cần cấp quyền thư viện ảnh.");
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: false, quality: 0.85, base64: true });
+      const result = await pickImages(source, { mediaTypes: ["images"], allowsEditing: false, quality: 0.85, base64: true });
       if (result.canceled) return;
       const asset = result.assets[0];
       if (asset.fileSize && asset.fileSize > 10 * 1024 * 1024) throw new Error("Ảnh bìa không được vượt quá 10MB.");
@@ -159,7 +157,7 @@ function EditForm({ meeting }: { meeting: Meeting }) {
 
       <FormSection title="Ảnh bìa sự kiện">
         {coverImage ? <View style={styles.coverFrame}><Image source={{ uri: coverImage }} style={styles.cover} resizeMode="cover" /></View> : <View style={styles.coverPlaceholder}><ImagePlus color={colors.primary} size={34} /><Text style={styles.help}>Chưa có ảnh bìa</Text></View>}
-        <View style={styles.columns}><View style={styles.column}><Button icon={Upload} tone="secondary" fullWidth disabled={uploading} onPress={pickCover}>{uploading ? "Đang tải…" : "Chọn ảnh"}</Button></View>{coverImage ? <View style={styles.column}><Button icon={Trash2} tone="secondary" fullWidth onPress={() => setCoverImage("")}>Xóa ảnh</Button></View> : null}</View>
+        <View style={styles.columns}><View style={styles.column}><Button icon={Upload} tone="secondary" fullWidth disabled={uploading} onPress={() => chooseImageSource((source) => void pickCover(source))}>{uploading ? "Đang tải…" : "Chọn ảnh"}</Button></View>{coverImage ? <View style={styles.column}><Button icon={Trash2} tone="secondary" fullWidth onPress={() => setCoverImage("")}>Xóa ảnh</Button></View> : null}</View>
       </FormSection>
 
       <FormSection title="Nhắc hẹn">

@@ -19,6 +19,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { KeyboardResponsiveView } from "@/components/KeyboardResponsiveView";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 import { friendlyErrorMessage } from "@/utils/userFacingError";
+import { mediaUrl } from "@/utils/media";
 
 export function Screen({
   children,
@@ -90,13 +91,15 @@ export function Avatar({
   size?: number;
   style?: StyleProp<ViewStyle>;
 }) {
-  const [imageError, setImageError] = useState(false);
+  const [failedUrl, setFailedUrl] = useState("");
+  const resolvedUrl = mediaUrl(url);
 
-  if (url && !imageError) {
+  if (resolvedUrl && resolvedUrl !== failedUrl) {
     return (
       <Image
-        source={{ uri: url }}
-        onError={() => setImageError(true)}
+        key={resolvedUrl}
+        source={{ uri: resolvedUrl }}
+        onError={() => setFailedUrl(resolvedUrl)}
         style={[
           styles.avatar,
           { width: size, height: size, borderRadius: size / 2 },
