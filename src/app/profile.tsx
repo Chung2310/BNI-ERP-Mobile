@@ -454,7 +454,7 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   profileScreen: { flex: 1, backgroundColor: colors.background },
-  profileContent: { gap: 8, paddingBottom: spacing.sm },
+  profileContent: { gap: 8 },
   logoutDock: { paddingHorizontal: spacing.sm, paddingTop: spacing.sm, backgroundColor: colors.background },
   flex: { flex: 1 }, empty: { color: colors.muted, padding: spacing.lg },
   headerActions: { flexDirection: "row", alignItems: "center" },

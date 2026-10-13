@@ -386,12 +386,14 @@ export function ResponseWordCloud({
   compact = false,
   boardMode = false,
   darkHeader = false,
+  showHeader = true,
 }: {
   questions: MeetingInteractionQuestion[];
   responses: MeetingInteractionResponse[];
   compact?: boolean;
   boardMode?: boolean;
   darkHeader?: boolean;
+  showHeader?: boolean;
 }) {
   const boardRows = useMemo(() => {
     if (!boardMode || questions.length <= 1) return null;
@@ -402,7 +404,7 @@ export function ResponseWordCloud({
 
   return (
     <View style={[styles.section, boardMode && styles.boardSection]}>
-      {!compact && !boardMode ? (
+      {!showHeader ? null : !compact && !boardMode ? (
         <View style={styles.sectionHeader}>
           <Text style={[styles.title, darkHeader && styles.darkTitle]}>Ý kiến đã ghi nhận</Text>
           <Text style={[styles.description, darkHeader && styles.darkDescription]}>

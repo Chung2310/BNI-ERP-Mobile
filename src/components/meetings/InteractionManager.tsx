@@ -1,20 +1,11 @@
 import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { Alert } from "@/components/AppAlert";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import {
-  Check,
-  ChevronDown,
-  ChevronRight,
   Clock3,
-  Eye,
-  EyeOff,
-  MessageCircle,
-  MessageSquare,
-  Play,
+  Edit2,
   Plus,
   Save,
-  Settings2,
-  Square,
   Trash2,
   X,
 } from "lucide-react-native";
@@ -28,15 +19,14 @@ import {
 } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { HeaderRefreshAction } from "@/components/HeaderRefreshAction";
-import { ResponseWordCloud } from "@/components/meetings/ResponseWordCloud";
-import { Avatar, Badge, Button, Card, EmptyState, Screen } from "@/components/ui";
+import { Badge, Button, Card, Screen } from "@/components/ui";
 import { useLiveMeetingInteraction } from "@/hooks/useLiveMeetingInteraction";
 import {
   meetingService,
   type MeetingInteraction,
   type MeetingInteractionInput,
+  type MeetingInteractionQuestion,
   type MeetingInteractionQuestionType,
-  type MeetingInteractionResponseStatus,
 } from "@/services/meeting";
 import { colors, radius, spacing } from "@/theme/tokens";
 
@@ -50,10 +40,17 @@ type Props = {
 };
 
 const message = (error: unknown) => friendlyErrorMessage(error, "Vui lòng thử lại.");
+
 const validOptions = (options: string[]) => {
   const values = options.map((option) => option.trim());
-  return values.length >= 2 && values.length <= 6 && values.every((value) => value.length > 0 && value.length <= 200) && new Set(values).size === values.length;
+  return (
+    values.length >= 2 &&
+    values.length <= 6 &&
+    values.every((value) => value.length > 0 && value.length <= 200) &&
+    new Set(values).size === values.length
+  );
 };
+
 const simpleInteractionSettings = {
   requireName: false,
   showNames: false,
@@ -61,15 +58,15 @@ const simpleInteractionSettings = {
   allowMultipleResponses: true,
 } as const;
 
+const DURATION_PRESETS = [30, 60, 90, 120];
+
 export function InteractionManager({
   meetingId,
   initial,
   canManage,
-  canControl = true,
   embedded = false,
   onStateChange,
 }: Props) {
-  const initialQuestion = initial.session?.questions.find((item) => item.id === initial.session?.activeQuestionId);
   const [state, setState] = useState(initial);
   const onLiveUpdate = useCallback(
     (next: MeetingInteraction) => {
@@ -80,37 +77,32 @@ export function InteractionManager({
   );
   useLiveMeetingInteraction(meetingId, onLiveUpdate);
 
-  const [question, setQuestion] = useState(initial.session?.question || "");
-  const [questionType, setQuestionType] = useState<MeetingInteractionQuestionType>(initialQuestion?.type || "text");
-  const [questionOptions, setQuestionOptions] = useState<string[]>(initialQuestion?.options?.length ? initialQuestion.options : ["", ""]);
-  const [duration, setDuration] = useState(String(initial.session?.durationSeconds || 60));
-  const [showSettings, setShowSettings] = useState(false);
-  const [previewQuestionId, setPreviewQuestionId] = useState(
-    initial.session?.activeQuestionId || initial.session?.questions[0]?.id || ""
+  const session = state.session;
+  const questions = session?.questions || [];
+
+  // Quản lý câu hỏi đang chọn để sửa
+  const initialActive = questions.find((q) => q.id === session?.activeQuestionId) || questions[0];
+  const [selectedQuestionId, setSelectedQuestionId] = useState<string>(initialActive?.id || "");
+  const [questionText, setQuestionText] = useState(initialActive?.text || session?.question || "");
+  const [questionType, setQuestionType] = useState<MeetingInteractionQuestionType>(initialActive?.type || "text");
+  const [questionOptions, setQuestionOptions] = useState<string[]>(
+    initialActive?.options?.length ? initialActive.options : ["", ""]
   );
-  const [adding, setAdding] = useState(false);
-  const [newQuestion, setNewQuestion] = useState("");
+
+  // Thời gian trả lời (cấu hình chung cho phiên)
+  const [duration, setDuration] = useState(String(session?.durationSeconds || 60));
+
+  // Trạng thái form thêm câu hỏi mới
+  const [isCreating, setIsCreating] = useState(questions.length === 0);
+  const [newQuestionText, setNewQuestionText] = useState("");
   const [newQuestionType, setNewQuestionType] = useState<MeetingInteractionQuestionType>("text");
   const [newQuestionOptions, setNewQuestionOptions] = useState(["", ""]);
-  const [busy, setBusy] = useState("");
-  const [now, setNow] = useState<number | null>(null);
-  const [filterStatus, setFilterStatus] = useState<"all" | MeetingInteractionResponseStatus>("all");
 
-  useEffect(() => {
-    if (state.session?.status !== "open") return;
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [state.session?.status]);
+  const [busy, setBusy] = useState("");
 
   const apply = (next: MeetingInteraction) => {
     setState(next);
     onStateChange?.(next);
-    if (!next.session) return;
-    setQuestion(next.session.question);
-    const activeQuestion = next.session.questions.find((item) => item.id === next.session?.activeQuestionId);
-    setQuestionType(activeQuestion?.type || "text");
-    setQuestionOptions(activeQuestion?.options?.length ? activeQuestion.options : ["", ""]);
-    setDuration(String(next.session.durationSeconds));
   };
 
   const run = async (key: string, task: () => Promise<MeetingInteraction>) => {
@@ -124,112 +116,119 @@ export function InteractionManager({
     }
   };
 
-  const formData = (): MeetingInteractionInput | null => {
+  // Nạp câu hỏi vào form chỉnh sửa
+  const handleSelectQuestionToEdit = (q: MeetingInteractionQuestion) => {
+    setIsCreating(false);
+    setSelectedQuestionId(q.id);
+    setQuestionText(q.text);
+    setQuestionType(q.type || "text");
+    setQuestionOptions(q.options?.length ? q.options : ["", ""]);
+  };
+
+  // Lưu câu hỏi đang chỉnh sửa + cập nhật thời gian
+  const handleSaveEdit = () => {
     const seconds = Number(duration);
-    if (!question.trim()) {
-      Alert.alert("Thiếu câu hỏi", "Vui lòng nhập nội dung câu hỏi.");
-      return null;
+    if (!questionText.trim()) {
+      Alert.alert("Thiếu nội dung", "Vui lòng nhập nội dung câu hỏi.");
+      return;
     }
     if (!Number.isInteger(seconds) || seconds < 1 || seconds > 3600) {
-      Alert.alert("Thời gian không hợp lệ", "Thời gian phải từ 1 đến 3600 giây.");
-      return null;
+      Alert.alert("Thời gian không hợp lệ", "Thời gian trả lời phải từ 1 đến 3600 giây.");
+      return;
     }
     if (questionType === "single_choice" && !validOptions(questionOptions)) {
-      Alert.alert("Lựa chọn không hợp lệ", "Trắc nghiệm cần 2–6 lựa chọn khác nhau, mỗi lựa chọn có nội dung.");
-      return null;
+      Alert.alert("Lựa chọn không hợp lệ", "Trắc nghiệm cần từ 2 đến 6 lựa chọn không trùng nhau.");
+      return;
     }
-    return {
-      question: question.trim(),
+
+    const payload: MeetingInteractionInput = {
+      question: questionText.trim(),
       type: questionType,
-      ...(questionType === "single_choice" ? { options: questionOptions.map((option) => option.trim()) } : {}),
+      ...(questionType === "single_choice" ? { options: questionOptions.map((o) => o.trim()) } : {}),
       durationSeconds: seconds,
       ...simpleInteractionSettings,
     };
+
+    void run("save", async () => {
+      if (selectedQuestionId && selectedQuestionId !== session?.activeQuestionId) {
+        await meetingService.selectInteractionQuestion(meetingId, selectedQuestionId);
+      }
+      return meetingService.saveInteraction(meetingId, payload);
+    });
   };
 
-  const save = () => {
-    const input = formData();
-    if (!input) return;
-    const activeQuestion = state.session?.questions.find((item) => item.id === state.session?.activeQuestionId);
-    const nextOptions = input.type === "single_choice" ? input.options || [] : [];
-    const changesAnsweredQuestion = activeQuestion && activeQuestion.responseCount > 0 && (
-      activeQuestion.text !== input.question ||
-      (activeQuestion.type || "text") !== (input.type || "text") ||
-      JSON.stringify(activeQuestion.options || []) !== JSON.stringify(nextOptions)
-    );
-    if (changesAnsweredQuestion) {
-      Alert.alert(
-        "Thay đổi câu hỏi?",
-        "Các phản hồi đã gửi cho câu hỏi này sẽ bị xóa khi lưu nội dung hoặc đáp án mới.",
-        [
-          { text: "Hủy", style: "cancel" },
-          { text: "Lưu và xóa phản hồi", style: "destructive", onPress: () => void run("save", () => meetingService.saveInteraction(meetingId, input)) },
-        ]
-      );
+  // Tạo thêm câu hỏi mới
+  const handleCreateQuestion = () => {
+    if (!newQuestionText.trim()) {
+      Alert.alert("Thiếu nội dung", "Vui lòng nhập câu hỏi mới.");
       return;
     }
-    void run("save", () => meetingService.saveInteraction(meetingId, input));
-  };
-
-  const addQuestion = () => {
-    if (!newQuestion.trim()) return;
     if (newQuestionType === "single_choice" && !validOptions(newQuestionOptions)) {
-      Alert.alert("Lựa chọn không hợp lệ", "Trắc nghiệm cần 2–6 lựa chọn khác nhau, mỗi lựa chọn có nội dung.");
+      Alert.alert("Lựa chọn không hợp lệ", "Trắc nghiệm cần từ 2 đến 6 lựa chọn không trùng nhau.");
       return;
     }
-    void run("add", async () => {
+
+    void run("create", async () => {
+      // Nếu chưa có session, tạo session đầu tiên bằng saveInteraction
+      if (!session) {
+        const payload: MeetingInteractionInput = {
+          question: newQuestionText.trim(),
+          type: newQuestionType,
+          ...(newQuestionType === "single_choice" ? { options: newQuestionOptions.map((o) => o.trim()) } : {}),
+          durationSeconds: Number(duration) || 60,
+          ...simpleInteractionSettings,
+        };
+        const next = await meetingService.saveInteraction(meetingId, payload);
+        setIsCreating(false);
+        return next;
+      }
+
+      // Đã có session thì thêm câu hỏi
       const next = await meetingService.addInteractionQuestion(meetingId, {
-        question: newQuestion.trim(),
+        question: newQuestionText.trim(),
         type: newQuestionType,
-        ...(newQuestionType === "single_choice" ? { options: newQuestionOptions.map((option) => option.trim()) } : {}),
+        ...(newQuestionType === "single_choice" ? { options: newQuestionOptions.map((o) => o.trim()) } : {}),
       });
-      setNewQuestion("");
+
+      setNewQuestionText("");
       setNewQuestionType("text");
       setNewQuestionOptions(["", ""]);
-      setAdding(false);
+      setIsCreating(false);
+
+      const latestQ = next.session?.questions[next.session.questions.length - 1];
+      if (latestQ) {
+        handleSelectQuestionToEdit(latestQ);
+      }
       return next;
     });
   };
 
-  const removeQuestion = (id: string, text: string) =>
-    Alert.alert(
-      "Xóa câu hỏi?",
-      `“${text}” và toàn bộ câu trả lời của câu này sẽ bị xóa khỏi hệ thống.`,
-      [
-        { text: "Giữ lại", style: "cancel" },
-        {
-          text: "Xóa",
-          style: "destructive",
-          onPress: () => void run("delete", () => meetingService.deleteInteractionQuestion(meetingId, id)),
-        },
-      ]
-    );
-
-  const remaining =
-    state.session?.status === "open" && state.session.closesAt && now !== null
-      ? Math.max(0, Math.ceil((Date.parse(state.session.closesAt) - now) / 1000))
-      : state.session?.durationSeconds || 0;
-
-  const locked = !canManage || state.session?.status === "open";
-  const labels: Record<MeetingInteractionResponseStatus, string> = {
-    pending: "Chờ duyệt",
-    approved: "Đang hiển thị",
-    hidden: "Đã ẩn",
-    rejected: "Đã từ chối",
+  // Xóa câu hỏi
+  const handleDeleteQuestion = (qId: string, qText: string) => {
+    Alert.alert("Xóa câu hỏi?", `“${qText}” sẽ bị xóa vĩnh viễn.`, [
+      { text: "Hủy", style: "cancel" },
+      {
+        text: "Xóa",
+        style: "destructive",
+        onPress: () =>
+          void run("delete", async () => {
+            const next = await meetingService.deleteInteractionQuestion(meetingId, qId);
+            const remainingQuestions = next.session?.questions || [];
+            if (remainingQuestions.length > 0) {
+              handleSelectQuestionToEdit(remainingQuestions[0]);
+            } else {
+              setIsCreating(true);
+            }
+            return next;
+          }),
+      },
+    ]);
   };
 
-  const responses = useMemo(
-    () => [...(state.allResponses || state.responses)].reverse(),
-    [state.allResponses, state.responses]
-  );
-
-  const filteredResponses = useMemo(() => {
-    if (filterStatus === "all") return responses;
-    return responses.filter((item) => item.status === filterStatus);
-  }, [responses, filterStatus]);
-
-  const previewQuestion =
-    state.session?.questions.find((item) => item.id === previewQuestionId) || state.session?.questions[0];
+  // Đổi thời gian trả lời
+  const handleChangeDuration = (sec: number | string) => {
+    setDuration(String(sec));
+  };
 
   const Container = embedded ? View : Screen;
 
@@ -238,11 +237,11 @@ export function InteractionManager({
       {!embedded ? (
         <BackHeader
           title="Thu ý kiến"
-          subtitle="Câu hỏi & thảo luận trực tiếp"
+          subtitle="Soạn câu hỏi & Cài đặt thời gian"
           compact
           action={
             <HeaderRefreshAction
-              label="Làm mới ý kiến"
+              label="Làm mới"
               disabled={Boolean(busy)}
               onPress={() =>
                 void meetingService
@@ -255,545 +254,260 @@ export function InteractionManager({
         />
       ) : null}
 
-      {!embedded && state.session ? (
-        <>
-          {state.session.questions.length > 1 ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.previewTabs}>
-              {state.session.questions.map((item) => (
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={s.contentScroll}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* 1. KHỐI CẤU HÌNH THỜI GIAN TRẢ LỜI */}
+        <Card style={s.card}>
+          <View style={s.rowBetween}>
+            <View style={s.row}>
+              <Clock3 size={17} color={colors.primaryDark} />
+              <Text style={s.sectionTitle}>Thời gian trả lời</Text>
+            </View>
+            <Text style={s.durationHighlight}>{duration}s</Text>
+          </View>
+
+          {/* Dàn đều 4 thẻ preset cân đối 100% bề ngang */}
+          <View style={s.durationGrid}>
+            {DURATION_PRESETS.map((val) => {
+              const active = Number(duration) === val;
+              return (
                 <Pressable
-                  key={item.id}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: item.id === previewQuestion?.id }}
-                  onPress={() => setPreviewQuestionId(item.id)}
-                  style={[s.previewTab, item.id === previewQuestion?.id && s.previewTabActive]}
+                  key={val}
+                  disabled={!canManage}
+                  onPress={() => handleChangeDuration(val)}
+                  style={[s.durationChip, active && s.durationChipActive]}
                 >
-                  <Text style={[s.previewTabText, item.id === previewQuestion?.id && s.previewTabTextActive]}>
-                    Câu {item.order}
+                  <Text style={[s.durationChipText, active && s.durationChipTextActive]}>
+                    {val}s
                   </Text>
                 </Pressable>
-              ))}
-            </ScrollView>
-          ) : null}
-          {previewQuestion ? (
-            <ResponseWordCloud questions={[previewQuestion]} responses={state.allResponses || state.responses} />
-          ) : null}
-        </>
-      ) : null}
-
-      {/* CARD 1: CÂU HỎI TƯƠNG TÁC */}
-      <Card style={s.card}>
-        <View style={s.cardHeader}>
-          <View style={s.row}>
-            <View style={s.iconBox}>
-              <MessageCircle color={colors.primaryDark} size={18} />
-            </View>
-            <View style={s.cardHeaderText}>
-              <Text style={s.heading}>Câu hỏi tương tác</Text>
-              <Text style={s.metaSubtitle}>Khảo sát và thu thập ý kiến người tham dự</Text>
-            </View>
+              );
+            })}
           </View>
-          {state.session ? (
-            <Badge style={s.cardHeaderBadge} tone={state.session.status === "open" ? "primary" : state.session.status === "closed" ? "danger" : "default"}>
-              {state.session.status === "open" ? "ĐANG MỞ" : state.session.status === "closed" ? "ĐÃ ĐÓNG" : "BẢN NHÁP"}
-            </Badge>
-          ) : null}
-        </View>
+        </Card>
 
-        {/* Danh sách câu hỏi */}
-        {state.session ? (
-          <View style={s.listWrapper}>
-            <View style={s.between}>
-              <Text style={s.sectionSubtitle}>Danh sách câu hỏi</Text>
-              <Text style={s.countBadge}>{state.session.questions.length}/20 câu</Text>
+        {/* 2. DANH SÁCH CÂU HỎI */}
+        {questions.length > 0 ? (
+          <View style={s.questionListSection}>
+            <View style={s.rowBetween}>
+              <Text style={s.sectionTitle}>Danh sách câu hỏi</Text>
+              {canManage && !isCreating && questions.length < 20 ? (
+                <Pressable
+                  onPress={() => {
+                    setIsCreating(true);
+                    setNewQuestionText("");
+                    setNewQuestionType("text");
+                    setNewQuestionOptions(["", ""]);
+                  }}
+                  style={s.addQuestionLink}
+                >
+                  <Plus size={15} color={colors.primaryDark} />
+                  <Text style={s.addQuestionLinkText}>Thêm câu hỏi</Text>
+                </Pressable>
+              ) : null}
             </View>
-            <View style={s.questionList}>
-              {state.session.questions.map((item) => {
-                const active = item.id === state.session?.activeQuestionId;
+
+            <View style={s.questionItems}>
+              {questions.map((q) => {
+                const isSelected = selectedQuestionId === q.id && !isCreating;
                 return (
-                  <View key={item.id} style={[s.questionItem, active && s.questionItemActive]}>
-                    <Pressable
-                      disabled={!canManage || !canControl || Boolean(busy)}
-                      onPress={() =>
-                        !active &&
-                        void run("select", () => meetingService.selectInteractionQuestion(meetingId, item.id))
-                      }
-                      style={s.questionPress}
-                    >
-                      <View style={[s.orderBadge, active && s.orderBadgeActive]}>
-                        <Text style={[s.orderBadgeText, active && s.orderBadgeTextActive]}>{item.order}</Text>
+                  <Pressable
+                    key={q.id}
+                    onPress={() => handleSelectQuestionToEdit(q)}
+                    style={[s.questionItem, isSelected && s.questionItemActive]}
+                  >
+                    <View style={[s.orderBadge, isSelected && s.orderBadgeActive]}>
+                      <Text style={[s.orderBadgeText, isSelected && s.orderBadgeTextActive]}>{q.order}</Text>
+                    </View>
+                    <View style={s.grow}>
+                      <Text numberOfLines={2} style={s.questionText}>{q.text}</Text>
+                      <View style={s.row}>
+                        <Badge tone="default">
+                          {q.type === "single_choice" ? "Trắc nghiệm" : "Tự luận"}
+                        </Badge>
+                        {isSelected ? <Text style={s.editingIndicator}>· Đang sửa</Text> : null}
                       </View>
-                      <View style={s.grow}>
-                        <Text numberOfLines={2} style={[s.questionText, active && s.questionTextActive]}>
-                          {item.text}
-                        </Text>
-                        <View style={s.itemMetaRow}>
-                          <Text style={s.meta}>{item.type === "single_choice" ? "Trắc nghiệm" : "Tự luận"}</Text>
-                          <Text style={s.meta}>·</Text>
-                          <Text style={s.meta}>{item.responseCount} phản hồi</Text>
-                          {active ? (
-                            <View style={s.activeChip}>
-                              <Text style={s.activeChipText}>Đang chọn</Text>
-                            </View>
-                          ) : null}
-                        </View>
-                      </View>
-                      {!active ? <ChevronRight color={colors.muted} size={18} /> : null}
-                    </Pressable>
-                    {canManage && state.session!.status !== "open" && state.session!.questions.length > 1 ? (
+                    </View>
+
+                    {canManage && questions.length > 1 ? (
                       <Pressable
                         hitSlop={8}
-                        onPress={() => removeQuestion(item.id, item.text)}
+                        onPress={() => handleDeleteQuestion(q.id, q.text)}
                         style={s.deleteBtn}
                       >
-                        <Trash2 color={colors.danger} size={17} />
+                        <Trash2 size={16} color={colors.danger} />
                       </Pressable>
                     ) : null}
-                  </View>
+                  </Pressable>
                 );
               })}
             </View>
           </View>
         ) : null}
 
-        {/* Ô soạn nội dung câu hỏi */}
-        <View style={s.editorBox}>
-          <View style={s.between}>
-            <Text style={s.fieldLabel}>
-              {state.session
-                ? `Nội dung câu hỏi ${state.session.questionNumber}/${state.session.totalQuestions}`
-                : "Nội dung câu hỏi đầu tiên"}
-            </Text>
-            <Text style={s.counter}>{question.length}/300</Text>
-          </View>
-          <TextInput
-            value={question}
-            onChangeText={setQuestion}
-            editable={!locked}
-            maxLength={300}
-            multiline
-            placeholder="Ví dụ: Điều giá trị nhất bạn nhận được từ buổi họp hôm nay là gì?"
-            placeholderTextColor={colors.muted}
-            style={[s.input, s.textarea, locked && s.disabled]}
-          />
-          <QuestionOptionsEditor
-            type={questionType}
-            options={questionOptions}
-            disabled={locked}
-            onTypeChange={setQuestionType}
-            onOptionsChange={setQuestionOptions}
-          />
-        </View>
-
-        {/* Cấu hình bài tương tác (Accordion) */}
-        <Pressable
-          disabled={locked}
-          onPress={() => setShowSettings((v) => !v)}
-          style={[s.settingsCard, showSettings && s.settingsCardOpen]}
-        >
-          <View style={s.settingsIconWrap}>
-            <Settings2 color={colors.primaryDark} size={18} />
-          </View>
-          <View style={s.grow}>
-            <Text style={s.settingsTitle}>Cấu hình bài tương tác</Text>
-            <Text style={s.meta}>
-              {duration || 0} giây
-            </Text>
-          </View>
-          <ChevronDown
-            color={colors.muted}
-            size={18}
-            style={showSettings ? { transform: [{ rotate: "180deg" }] } : undefined}
-          />
-        </Pressable>
-
-        {showSettings ? (
-          <View style={s.settingsPanel}>
-            <View style={s.settingField}>
-              <Text style={s.label}>Thời gian nhận câu trả lời (giây)</Text>
-              <TextInput
-                value={duration}
-                onChangeText={setDuration}
-                keyboardType="number-pad"
-                placeholder="60"
-                style={s.input}
-              />
-            </View>
-          </View>
-        ) : null}
-
-        {/* Đồng hồ đếm ngược khi phiên đang mở */}
-        {state.session?.status === "open" ? (
-          <View style={[s.timer, remaining <= 10 && s.timerDanger]}>
-            <Clock3 color={remaining <= 10 ? colors.danger : colors.primaryDark} size={18} />
-            <Text style={[s.timerText, remaining <= 10 && { color: colors.danger }]}>
-              Đang mở nhận · Tự động đóng sau {remaining} giây
-            </Text>
-          </View>
-        ) : null}
-
-        {/* Cụm nút hành động */}
+        {/* 3. TRÌNH SOẠN THẢO (FORM THÊM MỚI HOẶC CHỈNH SỬA) */}
         {canManage ? (
-          <View style={s.actionGroup}>
-            {!state.session ? (
-              <Button fullWidth disabled={Boolean(busy)} onPress={save}>
-                Tạo phiên tương tác
-              </Button>
-            ) : null}
-
-            {canControl && state.session && state.session.status !== "open" ? (
-              <Button
-                icon={Play}
-                fullWidth
-                disabled={Boolean(busy)}
-                onPress={() => void run("open", () => meetingService.setInteractionStatus(meetingId, "open"))}
-              >
-                Mở nhận câu trả lời
-              </Button>
-            ) : null}
-
-            {canControl && state.session?.status === "open" ? (
-              <Button
-                tone="danger"
-                icon={Square}
-                fullWidth
-                disabled={Boolean(busy)}
-                onPress={() => void run("close", () => meetingService.setInteractionStatus(meetingId, "closed"))}
-              >
-                Đóng nhận phản hồi
-              </Button>
-            ) : null}
-
-            {state.session && state.session.status !== "open" ? (
-              <View style={s.buttonRow}>
-                <Button
-                  tone="primary"
-                  icon={Save}
-                  disabled={Boolean(busy)}
-                  onPress={save}
-                  style={s.buttonFlex}
-                >
-                  Lưu thay đổi
-                </Button>
-                {state.session.questions.length < 20 ? (
-                  <Button
-                    tone="secondary"
-                    icon={Plus}
-                    disabled={Boolean(busy)}
-                    onPress={() => setAdding(!adding)}
-                    style={s.buttonFlex}
-                  >
-                    Thêm câu hỏi
-                  </Button>
+          isCreating ? (
+            /* Form thêm câu hỏi mới */
+            <Card style={s.editorCard}>
+              <View style={s.rowBetween}>
+                <View style={s.row}>
+                  <Plus size={17} color={colors.primaryDark} />
+                  <Text style={s.sectionTitle}>
+                    {questions.length === 0 ? "Tạo câu hỏi đầu tiên" : "Thêm câu hỏi mới"}
+                  </Text>
+                </View>
+                {questions.length > 0 ? (
+                  <Pressable hitSlop={8} onPress={() => setIsCreating(false)}>
+                    <X size={18} color={colors.muted} />
+                  </Pressable>
                 ) : null}
               </View>
-            ) : null}
-          </View>
-        ) : null}
 
-        {/* Form thêm câu hỏi mới */}
-        {adding ? (
-          <View style={s.inlineAddBox}>
-            <Text style={s.label}>Nội dung câu hỏi mới</Text>
-            <TextInput
-              value={newQuestion}
-              onChangeText={setNewQuestion}
-              placeholder="Nhập nội dung câu hỏi mới..."
-              placeholderTextColor={colors.muted}
-              maxLength={300}
-              multiline
-              style={[s.input, s.textarea]}
-              autoFocus
-            />
-            <QuestionOptionsEditor
-              type={newQuestionType}
-              options={newQuestionOptions}
-              disabled={Boolean(busy)}
-              onTypeChange={setNewQuestionType}
-              onOptionsChange={setNewQuestionOptions}
-            />
-            <View style={s.addActions}>
-              <Button tone="secondary" icon={X} onPress={() => setAdding(false)} style={s.buttonFlex}>
-                Hủy
-              </Button>
+              <TextInput
+                value={newQuestionText}
+                onChangeText={setNewQuestionText}
+                placeholder="Nhập nội dung câu hỏi..."
+                placeholderTextColor={colors.muted}
+                maxLength={300}
+                multiline
+                style={[s.input, s.textarea]}
+                autoFocus={questions.length > 0}
+              />
+
+              <QuestionTypeEditor
+                type={newQuestionType}
+                options={newQuestionOptions}
+                onTypeChange={setNewQuestionType}
+                onOptionsChange={setNewQuestionOptions}
+              />
+
               <Button
                 icon={Plus}
-                disabled={!newQuestion.trim() || Boolean(busy)}
-                onPress={addQuestion}
-                style={s.buttonFlex}
+                fullWidth
+                disabled={!newQuestionText.trim() || Boolean(busy)}
+                onPress={handleCreateQuestion}
+                style={s.submitBtn}
               >
-                Thêm ngay
+                {busy === "create" ? "Đang thêm..." : "Thêm câu hỏi này"}
               </Button>
-            </View>
-          </View>
-        ) : null}
-      </Card>
-
-      {/* CARD 3: CÂU TRẢ LỜI / PHẢN HỒI CỦA THÀNH VIÊN */}
-      <Card style={s.card}>
-        <View style={s.cardHeader}>
-          <View style={s.row}>
-            <View style={s.iconBox}>
-              <MessageSquare color={colors.primaryDark} size={18} />
-            </View>
-            <View style={s.cardHeaderText}>
-              <Text style={s.heading}>Phản hồi từ người tham dự</Text>
-              <Text style={s.metaSubtitle}>
-                {state.session?.moderationEnabled
-                  ? "Duyệt và điều phối các ý kiến đóng góp"
-                  : "Ý kiến được tự động hiển thị trên màn hình chiếu"}
-              </Text>
-            </View>
-          </View>
-          <Badge style={s.cardHeaderBadge} tone={responses.length > 0 ? "primary" : "default"}>
-            {responses.length} PHẢN HỒI
-          </Badge>
-        </View>
-
-        {/* Filter Chips */}
-        {responses.length > 0 ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={s.filterScroll}
-          >
-            <Pressable
-              onPress={() => setFilterStatus("all")}
-              style={[s.filterChip, filterStatus === "all" && s.filterChipActive]}
-            >
-              <Text style={[s.filterChipText, filterStatus === "all" && s.filterChipTextActive]}>
-                Tất cả ({responses.length})
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => setFilterStatus("approved")}
-              style={[s.filterChip, filterStatus === "approved" && s.filterChipActive]}
-            >
-              <Text style={[s.filterChipText, filterStatus === "approved" && s.filterChipTextActive]}>
-                Đang hiển thị ({responses.filter((r) => r.status === "approved").length})
-              </Text>
-            </Pressable>
-            {state.session?.moderationEnabled ? (
-              <Pressable
-                onPress={() => setFilterStatus("pending")}
-                style={[s.filterChip, filterStatus === "pending" && s.filterChipActive]}
-              >
-                <Text style={[s.filterChipText, filterStatus === "pending" && s.filterChipTextActive]}>
-                  Chờ duyệt ({responses.filter((r) => r.status === "pending").length})
-                </Text>
-              </Pressable>
-            ) : null}
-            <Pressable
-              onPress={() => setFilterStatus("hidden")}
-              style={[s.filterChip, filterStatus === "hidden" && s.filterChipActive]}
-            >
-              <Text style={[s.filterChipText, filterStatus === "hidden" && s.filterChipTextActive]}>
-                Đã ẩn ({responses.filter((r) => r.status === "hidden").length})
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => setFilterStatus("rejected")}
-              style={[s.filterChip, filterStatus === "rejected" && s.filterChipActive]}
-            >
-              <Text style={[s.filterChipText, filterStatus === "rejected" && s.filterChipTextActive]}>
-                Đã từ chối ({responses.filter((r) => r.status === "rejected").length})
-              </Text>
-            </Pressable>
-          </ScrollView>
-        ) : null}
-
-        {/* Danh sách phản hồi */}
-        {!responses.length ? (
-          <EmptyState
-            title="Chưa có phản hồi nào"
-            message="Phản hồi của người tham gia buổi họp sẽ hiển thị trực tiếp tại đây."
-          />
-        ) : filteredResponses.length === 0 ? (
-          <View style={s.emptyFilter}>
-            <Text style={s.emptyFilterText}>Không có phản hồi nào trong mục này.</Text>
-          </View>
-        ) : (
-          filteredResponses.map((response) => {
-            const qOrder =
-              state.session?.questions.find((item) => item.id === response.questionId)?.order || 1;
-            const responderName = response.name || "Khách ẩn danh";
-            const userInitials =
-              responderName
-                .split(" ")
-                .filter(Boolean)
-                .slice(-2)
-                .map((p) => p[0])
-                .join("")
-                .toUpperCase() || "TV";
-
-            return (
-              <View key={response.id} style={s.responseCard}>
-                <View style={s.responseHeader}>
-                  <Avatar initials={userInitials} size={36} />
-                  <View style={s.responseMeta}>
-                    <View style={s.nameRow}>
-                      <Text style={s.responderName}>{responderName}</Text>
-                      <View style={s.qOrderTag}>
-                        <Text style={s.qOrderTagText}>Câu {qOrder}</Text>
-                      </View>
-                    </View>
-                  </View>
-                  <Badge
-                    tone={
-                      response.status === "approved"
-                        ? "success"
-                        : response.status === "pending"
-                        ? "warning"
-                        : response.status === "rejected"
-                        ? "danger"
-                        : "default"
-                    }
-                  >
-                    {labels[response.status]}
-                  </Badge>
+            </Card>
+          ) : (
+            /* Form chỉnh sửa câu hỏi đang chọn */
+            <Card style={s.editorCard}>
+              <View style={s.rowBetween}>
+                <View style={s.row}>
+                  <Edit2 size={16} color={colors.primaryDark} />
+                  <Text style={s.sectionTitle}>Nội dung câu hỏi</Text>
                 </View>
-
-                <View style={s.answerBubble}>
-                  <Text style={s.answerText}>{response.answer}</Text>
-                </View>
-
-                {canManage && state.session?.moderationEnabled ? (
-                  <View style={s.moderationRow}>
-                    {response.status !== "approved" ? (
-                      <Pressable
-                        onPress={() =>
-                          void run("approve", () =>
-                            meetingService.moderateInteractionResponse(meetingId, response.id, "approved")
-                          )
-                        }
-                        style={[s.modBtn, s.modBtnApprove]}
-                      >
-                        <Check color={colors.success} size={15} />
-                        <Text style={[s.modBtnText, { color: colors.success }]}>Duyệt</Text>
-                      </Pressable>
-                    ) : null}
-
-                    {response.status === "approved" ? (
-                      <Pressable
-                        onPress={() =>
-                          void run("hide", () =>
-                            meetingService.moderateInteractionResponse(meetingId, response.id, "hidden")
-                          )
-                        }
-                        style={[s.modBtn, s.modBtnHide]}
-                      >
-                        <EyeOff color={colors.muted} size={15} />
-                        <Text style={[s.modBtnText, { color: colors.text }]}>Ẩn</Text>
-                      </Pressable>
-                    ) : null}
-
-                    {response.status === "hidden" ? (
-                      <Pressable
-                        onPress={() =>
-                          void run("show", () =>
-                            meetingService.moderateInteractionResponse(meetingId, response.id, "approved")
-                          )
-                        }
-                        style={[s.modBtn, s.modBtnShow]}
-                      >
-                        <Eye color={colors.primaryDark} size={15} />
-                        <Text style={[s.modBtnText, { color: colors.primaryDark }]}>Hiện lại</Text>
-                      </Pressable>
-                    ) : null}
-
-                    {response.status !== "rejected" ? (
-                      <Pressable
-                        onPress={() =>
-                          void run("reject", () =>
-                            meetingService.moderateInteractionResponse(meetingId, response.id, "rejected")
-                          )
-                        }
-                        style={[s.modBtn, s.modBtnReject]}
-                      >
-                        <X color={colors.danger} size={15} />
-                        <Text style={[s.modBtnText, { color: colors.danger }]}>Từ chối</Text>
-                      </Pressable>
-                    ) : null}
-                  </View>
-                ) : null}
+                <Text style={s.counterText}>{questionText.length}/300</Text>
               </View>
-            );
-          })
-        )}
-      </Card>
+
+              <TextInput
+                value={questionText}
+                onChangeText={setQuestionText}
+                placeholder="Nhập nội dung câu hỏi..."
+                placeholderTextColor={colors.muted}
+                maxLength={300}
+                multiline
+                style={[s.input, s.textarea]}
+              />
+
+              <QuestionTypeEditor
+                type={questionType}
+                options={questionOptions}
+                onTypeChange={setQuestionType}
+                onOptionsChange={setQuestionOptions}
+              />
+
+              <Button
+                icon={Save}
+                fullWidth
+                disabled={!questionText.trim() || Boolean(busy)}
+                onPress={handleSaveEdit}
+                style={s.submitBtn}
+              >
+                {busy === "save" ? "Đang lưu..." : "Lưu thay đổi"}
+              </Button>
+            </Card>
+          )
+        ) : null}
+      </ScrollView>
     </Container>
   );
 }
 
-function QuestionOptionsEditor({
+// Trình chọn loại câu hỏi & chỉnh sửa đáp án trắc nghiệm
+function QuestionTypeEditor({
   type,
   options,
-  disabled,
   onTypeChange,
   onOptionsChange,
 }: {
   type: MeetingInteractionQuestionType;
   options: string[];
-  disabled: boolean;
-  onTypeChange: (value: MeetingInteractionQuestionType) => void;
-  onOptionsChange: (value: string[]) => void;
+  onTypeChange: (v: MeetingInteractionQuestionType) => void;
+  onOptionsChange: (opts: string[]) => void;
 }) {
   return (
-    <View style={s.questionOptionsEditor}>
-      <Text style={s.fieldLabel}>Loại câu hỏi</Text>
-      <View style={s.questionTypeRow}>
-        {(["text", "single_choice"] as const).map((value) => (
-          <Pressable
-            key={value}
-            accessibilityRole="button"
-            accessibilityState={{ selected: type === value, disabled }}
-            disabled={disabled}
-            onPress={() => onTypeChange(value)}
-            style={[s.questionTypeButton, type === value && s.questionTypeButtonActive]}
-          >
-            <Text style={[s.questionTypeText, type === value && s.questionTypeTextActive]}>
-              {value === "text" ? "Tự luận" : "Trắc nghiệm"}
-            </Text>
-          </Pressable>
-        ))}
+    <View style={s.typeEditorContainer}>
+      <Text style={s.inputLabel}>Hình thức câu hỏi</Text>
+      <View style={s.typeToggleRow}>
+        <Pressable
+          onPress={() => onTypeChange("text")}
+          style={[s.typeToggleBtn, type === "text" && s.typeToggleBtnActive]}
+        >
+          <Text style={[s.typeToggleText, type === "text" && s.typeToggleTextActive]}>Tự luận</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => onTypeChange("single_choice")}
+          style={[s.typeToggleBtn, type === "single_choice" && s.typeToggleBtnActive]}
+        >
+          <Text style={[s.typeToggleText, type === "single_choice" && s.typeToggleTextActive]}>
+            Trắc nghiệm
+          </Text>
+        </Pressable>
       </View>
+
       {type === "single_choice" ? (
         <View style={s.choiceList}>
-          <Text style={s.meta}>Người tham dự chọn một trong 2–6 đáp án.</Text>
-          {options.map((option, index) => (
-            <View key={index} style={s.choiceRow}>
-              <Text style={s.choiceNumber}>{index + 1}.</Text>
+          {options.map((opt, idx) => (
+            <View key={idx} style={s.choiceItemRow}>
+              <View style={s.choiceLetterBadge}>
+                <Text style={s.choiceLetterText}>{String.fromCharCode(65 + idx)}</Text>
+              </View>
               <TextInput
-                accessibilityLabel={`Lựa chọn ${index + 1}`}
-                value={option}
-                onChangeText={(text) => onOptionsChange(options.map((item, itemIndex) => itemIndex === index ? text : item))}
-                editable={!disabled}
-                maxLength={200}
-                placeholder={`Lựa chọn ${index + 1}`}
+                value={opt}
+                onChangeText={(text) =>
+                  onOptionsChange(options.map((item, itemIdx) => (itemIdx === idx ? text : item)))
+                }
+                placeholder={`Lựa chọn ${String.fromCharCode(65 + idx)}`}
                 placeholderTextColor={colors.muted}
-                style={[s.input, s.choiceInput, disabled && s.disabled]}
+                maxLength={200}
+                style={[s.input, s.choiceInput]}
               />
               {options.length > 2 ? (
                 <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Xóa lựa chọn ${index + 1}`}
-                  disabled={disabled}
-                  onPress={() => onOptionsChange(options.filter((_, itemIndex) => itemIndex !== index))}
-                  style={s.choiceRemove}
+                  hitSlop={6}
+                  onPress={() => onOptionsChange(options.filter((_, itemIdx) => itemIdx !== idx))}
+                  style={s.choiceRemoveBtn}
                 >
-                  <X color={colors.danger} size={18} />
+                  <X size={16} color={colors.muted} />
                 </Pressable>
               ) : null}
             </View>
           ))}
+
           {options.length < 6 ? (
             <Pressable
-              accessibilityRole="button"
-              disabled={disabled}
               onPress={() => onOptionsChange([...options, ""])}
-              style={s.addChoice}
+              style={s.addChoiceBtn}
             >
-              <Plus color={colors.primaryDark} size={17} />
-              <Text style={s.addChoiceText}>Thêm lựa chọn</Text>
+              <Plus size={15} color={colors.primaryDark} />
+              <Text style={s.addChoiceBtnText}>Thêm lựa chọn</Text>
             </Pressable>
           ) : null}
         </View>
@@ -804,272 +518,234 @@ function QuestionOptionsEditor({
 
 const s = StyleSheet.create({
   embedded: { gap: spacing.md },
-  card: { padding: spacing.md, marginBottom: spacing.md },
-  previewTabs: { gap: spacing.sm, paddingRight: spacing.md, marginBottom: spacing.md },
-  previewTab: {
-    minHeight: 40,
-    justifyContent: "center",
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.md,
-  },
-  previewTabActive: { borderColor: colors.brandBlue, backgroundColor: colors.brandBlue },
-  previewTabText: { color: colors.text, fontSize: 13, fontWeight: "700" },
-  previewTabTextActive: { color: "#FFFFFF" },
-
   grow: { flex: 1 },
-  row: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  between: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-  },
+  row: { flexDirection: "row", alignItems: "center", gap: 6 },
+  rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
 
-  cardHeader: {
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  cardHeaderText: { flex: 1, minWidth: 0 },
-  cardHeaderBadge: { alignSelf: "flex-end" },
-  iconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.md,
-    backgroundColor: colors.primarySoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  heading: { color: colors.text, fontSize: 16, fontWeight: "800" },
-  metaSubtitle: { color: colors.muted, fontSize: 11, marginTop: 2 },
-  sectionSubtitle: { color: colors.text, fontSize: 13, fontWeight: "800" },
-  countBadge: { color: colors.muted, fontSize: 12, fontWeight: "600" },
-  label: { color: colors.text, fontSize: 12, fontWeight: "700" },
-  fieldLabel: { color: colors.text, fontSize: 13, fontWeight: "700" },
-  meta: { color: colors.muted, fontSize: 11, lineHeight: 16 },
-
-  // Danh sách câu hỏi
-  listWrapper: {
-    backgroundColor: colors.background,
-    borderRadius: radius.md,
-    padding: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  questionList: { marginTop: spacing.xs, gap: spacing.xs },
-  questionItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    overflow: "hidden",
-  },
-  questionItemActive: {
-    borderColor: colors.primaryDark,
-    backgroundColor: colors.primarySoft,
-  },
-  questionPress: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    padding: spacing.sm,
-  },
-  orderBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.sm,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#EDF2F7",
-  },
-  orderBadgeActive: { backgroundColor: colors.brandBlue },
-  orderBadgeText: { color: colors.text, fontSize: 13, fontWeight: "800" },
-  orderBadgeTextActive: { color: "#FFFFFF" },
-  questionText: { color: colors.text, fontSize: 13, fontWeight: "700", lineHeight: 18 },
-  questionTextActive: { color: colors.primaryDark },
-  itemMetaRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
-  activeChip: {
-    backgroundColor: colors.brandBlue,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
-  },
-  activeChipText: { color: "#FFFFFF", fontSize: 10, fontWeight: "700" },
-  deleteBtn: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 4,
-  },
-
-  // Input soạn câu hỏi
-  editorBox: { marginBottom: spacing.sm },
-  counter: { color: colors.muted, fontSize: 11, fontWeight: "600" },
-  input: {
-    minHeight: 46,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
+  contentScroll: {
     paddingHorizontal: spacing.md,
-    color: colors.text,
-    backgroundColor: colors.surface,
-    fontSize: 14,
+    paddingBottom: 40,
+    gap: spacing.md,
   },
-  textarea: {
-    minHeight: 84,
-    paddingTop: spacing.md,
-    textAlignVertical: "top",
-    marginTop: spacing.xs,
-  },
-  disabled: { backgroundColor: colors.background, color: colors.muted },
-  questionOptionsEditor: { gap: spacing.xs, marginTop: spacing.md },
-  questionTypeRow: { flexDirection: "row", gap: spacing.sm },
-  questionTypeButton: {
-    flex: 1, minHeight: 42, alignItems: "center", justifyContent: "center",
-    borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  questionTypeButtonActive: { borderColor: colors.brandBlue, backgroundColor: colors.primarySoft },
-  questionTypeText: { color: colors.text, fontSize: 13, fontWeight: "700" },
-  questionTypeTextActive: { color: colors.primaryDark },
-  choiceList: { gap: spacing.sm, marginTop: spacing.xs },
-  choiceRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  choiceNumber: { width: 22, color: colors.muted, fontSize: 13, fontWeight: "700" },
-  choiceInput: { flex: 1, minWidth: 0 },
-  choiceRemove: { width: 36, height: 44, alignItems: "center", justifyContent: "center" },
-  addChoice: { minHeight: 40, flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  addChoiceText: { color: colors.primaryDark, fontSize: 13, fontWeight: "700" },
 
-  // Cấu hình bài tương tác
-  settingsCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: "rgba(0, 173, 252, 0.25)",
-    backgroundColor: colors.primarySoft,
-    borderRadius: radius.md,
+  card: {
     padding: spacing.md,
-    marginTop: spacing.xs,
+    borderRadius: radius.lg,
+    gap: spacing.sm,
   },
-  settingsCardOpen: {
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: colors.text,
   },
-  settingsIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.sm,
-    backgroundColor: "transparent",
+  // Cấu hình thời gian
+  durationHighlight: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: colors.primaryDark,
+  },
+  durationGrid: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 4,
+  },
+  durationChip: {
+    flex: 1,
+    minHeight: 40,
     alignItems: "center",
     justifyContent: "center",
-  },
-  settingsTitle: { color: colors.primaryDark, fontSize: 13, fontWeight: "800" },
-  settingsPanel: {
-    borderWidth: 1,
-    borderTopWidth: 0,
-    borderColor: "rgba(0, 173, 252, 0.25)",
-    backgroundColor: "rgba(0, 173, 252, 0.06)",
-    borderBottomLeftRadius: radius.md,
-    borderBottomRightRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  settingField: { marginBottom: spacing.xs },
-  // Timer
-  timer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
     borderRadius: radius.md,
-    backgroundColor: colors.primarySoft,
-    padding: spacing.md,
-    marginTop: spacing.md,
-  },
-  timerDanger: { backgroundColor: "#FDECEF" },
-  timerText: { color: colors.primaryDark, fontSize: 13, fontWeight: "800" },
-
-  // Nút hành động
-  actionGroup: { marginTop: spacing.md, gap: spacing.sm },
-  buttonRow: { flexDirection: "row", gap: spacing.sm },
-  buttonFlex: { flex: 1 },
-
-  // Form thêm câu hỏi mới
-  inlineAddBox: {
-    borderWidth: 1,
-    borderColor: colors.primary,
-    backgroundColor: colors.primarySoft,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginTop: spacing.md,
-  },
-  addActions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm },
-
-  // Phản hồi của người tham dự
-  filterScroll: { gap: spacing.xs, paddingBottom: spacing.sm },
-  filterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: radius.pill,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  filterChipActive: {
+  durationChipActive: {
     backgroundColor: colors.brandBlue,
     borderColor: colors.brandBlue,
   },
-  filterChipText: { color: colors.muted, fontSize: 12, fontWeight: "700" },
-  filterChipTextActive: { color: "#FFFFFF" },
-  emptyFilter: { paddingVertical: spacing.lg, alignItems: "center" },
-  emptyFilterText: { color: colors.muted, fontSize: 13 },
+  durationChipText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  durationChipTextActive: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+  },
 
-  responseCard: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    marginTop: spacing.sm,
+  // Danh sách câu hỏi
+  questionListSection: {
+    gap: spacing.sm,
   },
-  responseHeader: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  responseMeta: { flex: 1 },
-  nameRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
-  responderName: { color: colors.text, fontSize: 13, fontWeight: "800" },
-  qOrderTag: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
-  },
-  qOrderTagText: { color: colors.muted, fontSize: 10, fontWeight: "700" },
-  answerBubble: {
-    backgroundColor: colors.background,
-    borderRadius: radius.sm,
-    padding: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  answerText: { color: colors.text, fontSize: 13, lineHeight: 19, fontWeight: "500" },
-  moderationRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.sm },
-  modBtn: {
+  addQuestionLink: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    height: 36,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.pill,
-    borderWidth: 1,
   },
-  modBtnApprove: { backgroundColor: "#E7F7F0", borderColor: "#B2E5D0" },
-  modBtnHide: { backgroundColor: "#F1F5F9", borderColor: colors.border },
-  modBtnShow: { backgroundColor: colors.primarySoft, borderColor: "rgba(0, 173, 252, 0.25)" },
-  modBtnReject: { backgroundColor: "#FEECEF", borderColor: "#F8B4C0" },
-  modBtnText: { fontSize: 12, fontWeight: "800" },
+  addQuestionLinkText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.primaryDark,
+  },
+  questionItems: {
+    gap: 8,
+  },
+  questionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  questionItemActive: {
+    borderColor: colors.brandBlue,
+    borderWidth: 1.5,
+    backgroundColor: colors.primarySoft,
+  },
+  orderBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  orderBadgeActive: {
+    backgroundColor: colors.brandBlue,
+  },
+  orderBadgeText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: colors.text,
+  },
+  orderBadgeTextActive: {
+    color: "#FFFFFF",
+  },
+  questionText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.text,
+    lineHeight: 19,
+    marginBottom: 4,
+  },
+  editingIndicator: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.primaryDark,
+    marginLeft: 4,
+  },
+  deleteBtn: {
+    padding: 6,
+  },
+
+  // Trình soạn thảo
+  editorCard: {
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    gap: spacing.sm,
+    borderWidth: 1.5,
+    borderColor: "#E2EEF4",
+  },
+  counterText: {
+    fontSize: 11,
+    color: colors.muted,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    fontSize: 14,
+    color: colors.text,
+    backgroundColor: colors.surface,
+  },
+  textarea: {
+    minHeight: 80,
+    paddingTop: spacing.sm,
+    textAlignVertical: "top",
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  typeEditorContainer: {
+    gap: 8,
+    marginTop: 4,
+  },
+  typeToggleRow: {
+    flexDirection: "row",
+    backgroundColor: "#EAF0F3",
+    borderRadius: radius.md,
+    padding: 3,
+  },
+  typeToggleBtn: {
+    flex: 1,
+    minHeight: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.sm,
+  },
+  typeToggleBtnActive: {
+    backgroundColor: colors.surface,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  typeToggleText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.muted,
+  },
+  typeToggleTextActive: {
+    color: colors.brandBlue,
+    fontWeight: "800",
+  },
+  choiceList: {
+    gap: 6,
+    marginTop: 4,
+  },
+  choiceItemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  choiceLetterBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  choiceLetterText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: colors.primaryDark,
+  },
+  choiceInput: {
+    flex: 1,
+    minHeight: 40,
+  },
+  choiceRemoveBtn: {
+    padding: 6,
+  },
+  addChoiceBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 6,
+  },
+  addChoiceBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.primaryDark,
+  },
+  submitBtn: {
+    marginTop: spacing.sm,
+  },
 });
