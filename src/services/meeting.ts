@@ -253,7 +253,7 @@ export const meetingService = {
   checkIn: async (id: string, payload?: { latitude?: number; longitude?: number; name?: string; email?: string }) => {
     const meeting = await meetingService.get(id);
     assertMeetingCheckInOpen(meeting);
-    return apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}/checkin`, { method: "POST", body: JSON.stringify(payload || {}) }).then(unwrap);
+    return apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}/checkin`, { method: "POST", body: JSON.stringify(payload || {}) }).then(unwrap).then(publishUpdatedMeeting);
   },
   control: (id: string, action: "start" | "pause" | "resume" | "next" | "previous" | "finish" | "cancel" | "start_speaker" | "reset_speaker", version: number) =>
     apiRequest<{ data: Meeting }>(`/api/v1/meetings/${encodeURIComponent(id)}/control`, { method: "POST", body: JSON.stringify({ action, version }) }).then(unwrap).then(publishUpdatedMeeting),

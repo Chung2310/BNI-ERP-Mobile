@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { ChatUnreadCountProvider } from "@/context/ChatUnreadCountProvider";
 import { NotificationProvider } from "@/context/NotificationContext";
 import { AppAlertHost } from "@/components/AppAlert";
+import { PostLoginCheckInPrompt } from "@/components/PostLoginCheckInPrompt";
 import { colors } from "@/theme/tokens";
 import { isChapterGuest } from "@/utils/guest";
 
@@ -54,6 +55,7 @@ export default function RootLayout() {
           <StatusBar style="dark" />
           <AppNavigator />
             <AppAlertHost />
+            <PostLoginCheckInPrompt />
           </ChatUnreadCountProvider>
         </NotificationProvider>
       </AuthProvider>

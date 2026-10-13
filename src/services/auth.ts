@@ -2,7 +2,7 @@ import * as SecureStore from "expo-secure-store";
 import * as LocalAuthentication from "expo-local-authentication";
 import type { ImagePickerAsset } from "expo-image-picker";
 import { Platform } from "react-native";
-import { apiRequest, setApiAccessToken, setApiTokenPersister } from "@/services/api";
+import { apiRequest, getApiAccessToken, setApiAccessToken, setApiTokenPersister } from "@/services/api";
 import { galleryImagesFrom } from "@/utils/media";
 import { unregisterCurrentDeviceFromPush } from "@/services/pushNotifications";
 import type { UserProfile } from "@/types";
@@ -11,6 +11,57 @@ const ACCESS_TOKEN_KEY = "igen_access_token";
 const PROFILE_KEY = "igen_user_profile";
 const DEVICE_KEY = "igen_device_id";
 const BIOMETRIC_KEY = "igen_biometric_enabled";
+const BIOMETRIC_METHOD_KEY = "igen_biometric_method";
+
+export type BiometricMethod = "fingerprint" | "face";
+
+export type BiometricCapabilities = Record<BiometricMethod, boolean>;
+
+async function getBiometricCapabilities(): Promise<BiometricCapabilities> {
+  const [hasHardware, isEnrolled, supportedTypes] = await Promise.all([
+    LocalAuthentication.hasHardwareAsync(),
+    LocalAuthentication.isEnrolledAsync(),
+    LocalAuthentication.supportedAuthenticationTypesAsync(),
+  ]);
+  const isUsable = hasHardware && isEnrolled;
+  return {
+    fingerprint: isUsable && supportedTypes.includes(LocalAuthentication.AuthenticationType.FINGERPRINT),
+    face: isUsable && supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION),
+  };
+}
+
+async function hasUsableBiometrics(method?: BiometricMethod) {
+  const capabilities = await getBiometricCapabilities();
+  return method ? capabilities[method] : capabilities.fingerprint || capabilities.face;
+}
+
+async function getStoredBiometricEnabled() {
+  const [enabled, legacyMethod] = await Promise.all([
+    SecureStore.getItemAsync(BIOMETRIC_KEY),
+    SecureStore.getItemAsync(BIOMETRIC_METHOD_KEY),
+  ]);
+  // A selected method from the previous version means biometrics were enabled.
+  return enabled === "true" || legacyMethod === "fingerprint" || legacyMethod === "face";
+}
+
+async function authenticateWithBiometrics(promptMessage: string) {
+  if (!(await hasUsableBiometrics())) {
+    throw new Error("Thiết bị chưa hỗ trợ hoặc chưa cài đặt sinh trắc học.");
+  }
+  const result = await LocalAuthentication.authenticateAsync({
+    promptMessage,
+    cancelLabel: "Hủy",
+    fallbackLabel: "Dùng tài khoản",
+    disableDeviceFallback: true,
+    // Android Class 2 enables camera-based face recognition while still allowing fingerprints.
+    biometricsSecurityLevel: "weak",
+  });
+  if (!result.success) {
+    throw new Error(result.error === "user_cancel"
+      ? "Đã hủy xác thực sinh trắc học."
+      : "Không xác thực được sinh trắc học. Vui lòng thử lại.");
+  }
+}
 
 type LoginResponse = { accessToken: string; user: Omit<UserProfile, "uid"> & { _id?: string; uid?: string } };
 
@@ -40,6 +91,7 @@ async function clearLocalSession() {
     SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
     SecureStore.deleteItemAsync(PROFILE_KEY),
     SecureStore.deleteItemAsync(BIOMETRIC_KEY),
+    SecureStore.deleteItemAsync(BIOMETRIC_METHOD_KEY),
   ]);
 }
 
@@ -93,34 +145,35 @@ export const authService = {
     const [token, rawProfile, biometricEnabled] = await Promise.all([
       SecureStore.getItemAsync(ACCESS_TOKEN_KEY),
       SecureStore.getItemAsync(PROFILE_KEY),
-      SecureStore.getItemAsync(BIOMETRIC_KEY),
+      getStoredBiometricEnabled(),
     ]);
     if (!token || !rawProfile) return null;
-    if (biometricEnabled === "true" && !options.bypassBiometricGate) return null;
+    if (biometricEnabled && !options.bypassBiometricGate) return null;
     setApiAccessToken(token);
     return { token, user: JSON.parse(rawProfile) as UserProfile };
   },
 
   async canUseBiometricLogin() {
     const [enabled, token, profile] = await Promise.all([
-      SecureStore.getItemAsync(BIOMETRIC_KEY),
+      getStoredBiometricEnabled(),
       SecureStore.getItemAsync(ACCESS_TOKEN_KEY),
       SecureStore.getItemAsync(PROFILE_KEY),
     ]);
-    return enabled === "true" && Boolean(token && profile);
+    return enabled && Boolean(token && profile) && await hasUsableBiometrics();
   },
 
   async loginWithBiometrics() {
     if (!(await this.canUseBiometricLogin())) throw new Error("Chưa thiết lập đăng nhập sinh trắc học.");
-    const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: "Đăng nhập iGen Connect",
-      cancelLabel: "Hủy",
-      fallbackLabel: "Dùng tài khoản",
-    });
-    if (!result.success) throw new Error("Không xác thực được. Vui lòng thử lại hoặc dùng tài khoản.");
+    await authenticateWithBiometrics("Đăng nhập iGen Connect bằng sinh trắc học");
     const session = await this.restore({ bypassBiometricGate: true });
     if (!session) throw new Error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại bằng tài khoản.");
-    return session;
+    try {
+      const user = await this.getProfile();
+      return { token: getApiAccessToken() || session.token, user };
+    } catch (error) {
+      await clearLocalSession();
+      throw error;
+    }
   },
 
   async login(identifier: string, password: string) {
@@ -163,10 +216,22 @@ export const authService = {
   },
 
   async isBiometricEnabled() {
-    return (await SecureStore.getItemAsync(BIOMETRIC_KEY)) === "true";
+    return getStoredBiometricEnabled();
   },
 
   async setBiometricEnabled(enabled: boolean) {
-    await SecureStore.setItemAsync(BIOMETRIC_KEY, String(enabled));
+    if (enabled) await authenticateWithBiometrics("Xác nhận bật đăng nhập/check-in bằng sinh trắc học");
+    await Promise.all([
+      SecureStore.setItemAsync(BIOMETRIC_KEY, String(enabled)),
+      SecureStore.deleteItemAsync(BIOMETRIC_METHOD_KEY),
+    ]);
   },
+
+  async authenticateForCheckIn() {
+    if (!(await getStoredBiometricEnabled())) return;
+    await authenticateWithBiometrics("Xác nhận check-in bằng sinh trắc học");
+  },
+
+  hasUsableBiometrics,
+  getBiometricCapabilities,
 };

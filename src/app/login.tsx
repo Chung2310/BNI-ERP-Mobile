@@ -37,10 +37,7 @@ export default function LoginScreen() {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const passwordInputRef = useRef<TextInput>(null);
-
-  useEffect(() => {
-    authService.canUseBiometricLogin().then(setCanUseBiometrics);
-  }, []);
+  const autoBiometricAttempted = useRef(false);
 
   useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
@@ -98,10 +95,24 @@ export default function LoginScreen() {
       router.replace("/(tabs)");
     } catch (cause) {
       setError(friendlyErrorMessage(cause, "Không thể xác thực sinh trắc học."));
+      setIsSheetVisible(true);
     } finally {
       setSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    if (autoBiometricAttempted.current) return;
+    autoBiometricAttempted.current = true;
+    void authService.canUseBiometricLogin()
+      .then((available) => {
+        setCanUseBiometrics(available);
+        if (available) void submitBiometrics();
+      })
+      .catch(() => setCanUseBiometrics(false));
+  // Chỉ tự động hỏi một lần khi mở màn đăng nhập.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <ImageBackground
@@ -139,6 +150,18 @@ export default function LoginScreen() {
               <Text style={styles.registerAction}>Tạo tài khoản ngay</Text>
             </Pressable>
           </View>
+          {canUseBiometrics ? (
+            <Button
+              icon={Fingerprint}
+              tone="secondary"
+              fullWidth
+              disabled={submitting}
+              onPress={submitBiometrics}
+              style={styles.quickBiometricButton}
+            >
+              Đăng nhập bằng sinh trắc học
+            </Button>
+          ) : null}
         </View>
       </SafeAreaView>
 
@@ -272,7 +295,7 @@ export default function LoginScreen() {
                       onPress={submitBiometrics}
                       style={styles.biometricButton}
                     >
-                      Đăng nhập bằng vân tay / Face ID
+                      Đăng nhập bằng sinh trắc học
                     </Button>
                   ) : null}
 
@@ -327,6 +350,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.55,
     shadowRadius: 16,
     elevation: 6,
+  },
+  quickBiometricButton: {
+    minHeight: 48,
+    marginTop: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: "rgba(255, 255, 255, 0.92)",
   },
   modalOverlay: {
     flex: 1,
