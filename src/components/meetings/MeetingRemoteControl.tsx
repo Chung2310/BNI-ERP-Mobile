@@ -1,6 +1,6 @@
 import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { Alert } from "@/components/AppAlert";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { router, useFocusEffect } from "expo-router";
 import { io } from "socket.io-client";
 import QRCode from "react-native-qrcode-svg";
@@ -61,6 +61,7 @@ import { userService } from "@/services/users";
 import { apiConfig } from "@/services/api";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 import { hasPermission } from "@/utils/permissions";
+import type { UserProfile } from "@/types";
 
 const views: { value: PresentationView; label: string; icon: LucideIcon }[] = [
   { value: "checkin", label: "QR Check-in", icon: QrCode },
@@ -108,6 +109,9 @@ export function MeetingRemoteControl({
   const canManage = hasPermission(user, "meetings:manage", "access:manage");
   const [snapshot, setSnapshot] = useState<MeetingLiveSnapshot | null>(null);
   const [interactionPreview, setInteractionPreview] = useState<MeetingInteraction | null>(null);
+  const [drawUsers, setDrawUsers] = useState<UserProfile[]>([]);
+  const [drawUsersLoading, setDrawUsersLoading] = useState(true);
+  const [drawUsersError, setDrawUsersError] = useState("");
   const snapshotRef = useRef<MeetingLiveSnapshot | null>(null);
   const activeRef = useRef(false);
   const pollingRef = useRef(false);
@@ -181,6 +185,17 @@ export function MeetingRemoteControl({
     },
     [applySnapshot, id]
   );
+
+  const refreshDrawUsers = useCallback(async () => {
+    try {
+      setDrawUsers(await userService.directory());
+      setDrawUsersError("");
+    } catch (cause) {
+      setDrawUsersError(friendlyErrorMessage(cause, "Không tải được danh sách thành viên."));
+    } finally {
+      setDrawUsersLoading(false);
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -268,6 +283,23 @@ export function MeetingRemoteControl({
   const currentSpeaker = meeting?.speakers[meeting.currentIndex];
   const view: PresentationView =
     viewOverride || meeting?.presentation?.view || "checkin";
+  useEffect(() => {
+    if (view !== "luckyDraw") return;
+    let active = true;
+    void userService.directory()
+      .then((users) => {
+        if (!active) return;
+        setDrawUsers(users);
+        setDrawUsersError("");
+      })
+      .catch((cause) => {
+        if (active) setDrawUsersError(friendlyErrorMessage(cause, "Không tải được danh sách thành viên."));
+      })
+      .finally(() => {
+        if (active) setDrawUsersLoading(false);
+      });
+    return () => { active = false; };
+  }, [view]);
   const closed = meeting?.status === "ended" || meeting?.status === "cancelled";
   const disabled = !canManage || closed || busy || Boolean(syncError);
   const speakerSwitchDisabled = disabled || Boolean(meeting?.presentation?.autoAdvance);
@@ -364,7 +396,14 @@ export function MeetingRemoteControl({
       <>
         {/* Khung Stage Preview màn hình chiếu */}
         <View style={styles.previewCard}>
-          <StagePreview snapshot={snapshot} now={now} interaction={interactionPreview} />
+          <StagePreview
+            snapshot={snapshot}
+            now={now}
+            interaction={interactionPreview}
+            drawUsers={drawUsers}
+            drawUsersLoading={drawUsersLoading}
+            drawUsersError={drawUsersError}
+          />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Đồng bộ màn chiếu"
@@ -741,7 +780,19 @@ export function MeetingRemoteControl({
 
           {/* 3. CHẾ ĐỘ QUAY THƯỞNG */}
           {view === "luckyDraw" ? (
-            <MeetingDrawRemote id={id} meeting={meeting} disabled={disabled} onRefresh={() => refresh(true)} />
+            <MeetingDrawRemote
+              id={id}
+              meeting={meeting}
+              users={drawUsers}
+              loadingUsers={drawUsersLoading}
+              usersError={drawUsersError}
+              onRefreshUsers={async () => {
+                setDrawUsersLoading(true);
+                await refreshDrawUsers();
+              }}
+              disabled={disabled}
+              onRefresh={() => refresh(true)}
+            />
           ) : null}
 
           {/* 4. CHẾ ĐỘ CÂU TRẢ LỜI / THU Ý KIẾN */}
@@ -1118,10 +1169,16 @@ function StagePreview({
   snapshot,
   now,
   interaction,
+  drawUsers,
+  drawUsersLoading,
+  drawUsersError,
 }: {
   snapshot: MeetingLiveSnapshot;
   now: number;
   interaction: MeetingInteraction | null;
+  drawUsers: UserProfile[];
+  drawUsersLoading: boolean;
+  drawUsersError: string;
 }) {
   const { width: screenWidth } = useWindowDimensions();
   const meeting = snapshot.meeting;
@@ -1248,7 +1305,11 @@ function StagePreview({
     );
   }
 
-  if (view === "luckyDraw") return <MeetingWheelPreview meeting={meeting} now={now} fullscreen />;
+  if (view === "luckyDraw") {
+    if (drawUsersLoading) return <View style={styles.stage}><LoadingState label="Đang tải người tham gia quay..." /></View>;
+    if (drawUsersError) return <View style={styles.stage}><Text style={styles.stageSub}>{drawUsersError}</Text></View>;
+    return <MeetingWheelPreview meeting={meeting} now={now} users={drawUsers} fullscreen />;
+  }
   if (view === "activeMembers") return <StageRankingPreview meeting={meeting} />;
 
   return (
