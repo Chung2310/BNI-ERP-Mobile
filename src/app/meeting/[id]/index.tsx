@@ -202,7 +202,7 @@ export default function MeetingDetailScreen() {
       <Card style={styles.processCard}>
         <ProcessRow icon={MapPin} label="Check-in" detail={`${meeting.speakers.length} người đã điểm danh`} onPress={() => router.push({ pathname: "/meeting/[id]/attendees", params: { id } })} />
         <ProcessRow icon={Gift} label="Vòng quay may mắn" detail="Kết quả vòng quay may mắn" onPress={() => router.push({ pathname: "/meeting/[id]/game-results", params: { id } })} />
-        {manage ? <ProcessRow icon={MessageCircle} label="Thu ý kiến" detail="Tạo câu hỏi, hiển thị QR và xem phản hồi" onPress={() => router.push({ pathname: "/meeting/[id]/interaction", params: { id } })} /> : null}
+        {manage ? <ProcessRow icon={MessageCircle} label="Thu ý kiến" detail="Tạo câu hỏi và xem kết quả của cuộc họp" onPress={() => router.push({ pathname: "/meeting/[id]/interaction", params: { id } })} /> : null}
         <ProcessRow icon={Presentation} label="Thuyết trình" detail="Danh sách slide của người trình bày" onPress={() => router.push({ pathname: "/meeting/[id]/slides", params: { id } })} />
       </Card>
 

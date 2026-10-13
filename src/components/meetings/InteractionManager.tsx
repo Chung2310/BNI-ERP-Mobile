@@ -1,25 +1,19 @@
 import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { Alert } from "@/components/AppAlert";
-import * as Clipboard from "expo-clipboard";
-import QRCode from "react-native-qrcode-svg";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Check,
   ChevronDown,
   ChevronRight,
   Clock3,
-  Copy,
   Eye,
   EyeOff,
-  Globe,
-  Link,
   MessageCircle,
   MessageSquare,
   Play,
   Plus,
   Save,
   Settings2,
-  Share2,
   Square,
   Trash2,
   X,
@@ -27,9 +21,7 @@ import {
 import {
   Pressable,
   ScrollView,
-  Share,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -39,11 +31,11 @@ import { HeaderRefreshAction } from "@/components/HeaderRefreshAction";
 import { ResponseWordCloud } from "@/components/meetings/ResponseWordCloud";
 import { Avatar, Badge, Button, Card, EmptyState, Screen } from "@/components/ui";
 import { useLiveMeetingInteraction } from "@/hooks/useLiveMeetingInteraction";
-import { apiConfig } from "@/services/api";
 import {
   meetingService,
   type MeetingInteraction,
   type MeetingInteractionInput,
+  type MeetingInteractionQuestionType,
   type MeetingInteractionResponseStatus,
 } from "@/services/meeting";
 import { colors, radius, spacing } from "@/theme/tokens";
@@ -58,6 +50,16 @@ type Props = {
 };
 
 const message = (error: unknown) => friendlyErrorMessage(error, "Vui lòng thử lại.");
+const validOptions = (options: string[]) => {
+  const values = options.map((option) => option.trim());
+  return values.length >= 2 && values.length <= 6 && values.every((value) => value.length > 0 && value.length <= 200) && new Set(values).size === values.length;
+};
+const simpleInteractionSettings = {
+  requireName: false,
+  showNames: false,
+  moderationEnabled: false,
+  allowMultipleResponses: true,
+} as const;
 
 export function InteractionManager({
   meetingId,
@@ -67,6 +69,7 @@ export function InteractionManager({
   embedded = false,
   onStateChange,
 }: Props) {
+  const initialQuestion = initial.session?.questions.find((item) => item.id === initial.session?.activeQuestionId);
   const [state, setState] = useState(initial);
   const onLiveUpdate = useCallback(
     (next: MeetingInteraction) => {
@@ -78,17 +81,17 @@ export function InteractionManager({
   useLiveMeetingInteraction(meetingId, onLiveUpdate);
 
   const [question, setQuestion] = useState(initial.session?.question || "");
+  const [questionType, setQuestionType] = useState<MeetingInteractionQuestionType>(initialQuestion?.type || "text");
+  const [questionOptions, setQuestionOptions] = useState<string[]>(initialQuestion?.options?.length ? initialQuestion.options : ["", ""]);
   const [duration, setDuration] = useState(String(initial.session?.durationSeconds || 60));
-  const [requireName, setRequireName] = useState(initial.session?.requireName ?? false);
-  const [showNames, setShowNames] = useState(initial.session?.showNames ?? false);
-  const [moderation, setModeration] = useState(initial.session?.moderationEnabled ?? false);
-  const [multiple, setMultiple] = useState(initial.session?.allowMultipleResponses ?? true);
   const [showSettings, setShowSettings] = useState(false);
   const [previewQuestionId, setPreviewQuestionId] = useState(
     initial.session?.activeQuestionId || initial.session?.questions[0]?.id || ""
   );
   const [adding, setAdding] = useState(false);
   const [newQuestion, setNewQuestion] = useState("");
+  const [newQuestionType, setNewQuestionType] = useState<MeetingInteractionQuestionType>("text");
+  const [newQuestionOptions, setNewQuestionOptions] = useState(["", ""]);
   const [busy, setBusy] = useState("");
   const [now, setNow] = useState<number | null>(null);
   const [filterStatus, setFilterStatus] = useState<"all" | MeetingInteractionResponseStatus>("all");
@@ -104,11 +107,10 @@ export function InteractionManager({
     onStateChange?.(next);
     if (!next.session) return;
     setQuestion(next.session.question);
+    const activeQuestion = next.session.questions.find((item) => item.id === next.session?.activeQuestionId);
+    setQuestionType(activeQuestion?.type || "text");
+    setQuestionOptions(activeQuestion?.options?.length ? activeQuestion.options : ["", ""]);
     setDuration(String(next.session.durationSeconds));
-    setRequireName(next.session.requireName);
-    setShowNames(next.session.showNames);
-    setModeration(next.session.moderationEnabled);
-    setMultiple(next.session.allowMultipleResponses);
   };
 
   const run = async (key: string, task: () => Promise<MeetingInteraction>) => {
@@ -132,26 +134,58 @@ export function InteractionManager({
       Alert.alert("Thời gian không hợp lệ", "Thời gian phải từ 1 đến 3600 giây.");
       return null;
     }
+    if (questionType === "single_choice" && !validOptions(questionOptions)) {
+      Alert.alert("Lựa chọn không hợp lệ", "Trắc nghiệm cần 2–6 lựa chọn khác nhau, mỗi lựa chọn có nội dung.");
+      return null;
+    }
     return {
       question: question.trim(),
+      type: questionType,
+      ...(questionType === "single_choice" ? { options: questionOptions.map((option) => option.trim()) } : {}),
       durationSeconds: seconds,
-      requireName,
-      showNames,
-      moderationEnabled: moderation,
-      allowMultipleResponses: multiple,
+      ...simpleInteractionSettings,
     };
   };
 
   const save = () => {
     const input = formData();
-    if (input) void run("save", () => meetingService.saveInteraction(meetingId, input));
+    if (!input) return;
+    const activeQuestion = state.session?.questions.find((item) => item.id === state.session?.activeQuestionId);
+    const nextOptions = input.type === "single_choice" ? input.options || [] : [];
+    const changesAnsweredQuestion = activeQuestion && activeQuestion.responseCount > 0 && (
+      activeQuestion.text !== input.question ||
+      (activeQuestion.type || "text") !== (input.type || "text") ||
+      JSON.stringify(activeQuestion.options || []) !== JSON.stringify(nextOptions)
+    );
+    if (changesAnsweredQuestion) {
+      Alert.alert(
+        "Thay đổi câu hỏi?",
+        "Các phản hồi đã gửi cho câu hỏi này sẽ bị xóa khi lưu nội dung hoặc đáp án mới.",
+        [
+          { text: "Hủy", style: "cancel" },
+          { text: "Lưu và xóa phản hồi", style: "destructive", onPress: () => void run("save", () => meetingService.saveInteraction(meetingId, input)) },
+        ]
+      );
+      return;
+    }
+    void run("save", () => meetingService.saveInteraction(meetingId, input));
   };
 
   const addQuestion = () => {
     if (!newQuestion.trim()) return;
+    if (newQuestionType === "single_choice" && !validOptions(newQuestionOptions)) {
+      Alert.alert("Lựa chọn không hợp lệ", "Trắc nghiệm cần 2–6 lựa chọn khác nhau, mỗi lựa chọn có nội dung.");
+      return;
+    }
     void run("add", async () => {
-      const next = await meetingService.addInteractionQuestion(meetingId, newQuestion.trim());
+      const next = await meetingService.addInteractionQuestion(meetingId, {
+        question: newQuestion.trim(),
+        type: newQuestionType,
+        ...(newQuestionType === "single_choice" ? { options: newQuestionOptions.map((option) => option.trim()) } : {}),
+      });
       setNewQuestion("");
+      setNewQuestionType("text");
+      setNewQuestionOptions(["", ""]);
       setAdding(false);
       return next;
     });
@@ -194,31 +228,8 @@ export function InteractionManager({
     return responses.filter((item) => item.status === filterStatus);
   }, [responses, filterStatus]);
 
-  const participationUrl = state.session?.participationUrl
-    ? state.session.participationUrl.startsWith("http")
-      ? state.session.participationUrl
-      : `${apiConfig.baseUrl}${state.session.participationUrl.startsWith("/") ? "" : "/"}${state.session.participationUrl}`
-    : "";
-
   const previewQuestion =
     state.session?.questions.find((item) => item.id === previewQuestionId) || state.session?.questions[0];
-
-  const copyParticipationLink = async () => {
-    if (!participationUrl) return;
-    await Clipboard.setStringAsync(participationUrl);
-    Alert.alert("Đã sao chép", "Đã sao chép liên kết vào bộ nhớ tạm.");
-  };
-
-  const shareParticipationLink = async () => {
-    if (!participationUrl) return;
-    try {
-      await Share.share({
-        title: "Liên kết tham gia tương tác BNI",
-        message: `Mời bạn tham gia trả lời khảo sát và tương tác buổi họp:\n${participationUrl}`,
-        url: participationUrl,
-      });
-    } catch {}
-  };
 
   const Container = embedded ? View : Screen;
 
@@ -316,6 +327,8 @@ export function InteractionManager({
                           {item.text}
                         </Text>
                         <View style={s.itemMetaRow}>
+                          <Text style={s.meta}>{item.type === "single_choice" ? "Trắc nghiệm" : "Tự luận"}</Text>
+                          <Text style={s.meta}>·</Text>
                           <Text style={s.meta}>{item.responseCount} phản hồi</Text>
                           {active ? (
                             <View style={s.activeChip}>
@@ -362,6 +375,13 @@ export function InteractionManager({
             placeholderTextColor={colors.muted}
             style={[s.input, s.textarea, locked && s.disabled]}
           />
+          <QuestionOptionsEditor
+            type={questionType}
+            options={questionOptions}
+            disabled={locked}
+            onTypeChange={setQuestionType}
+            onOptionsChange={setQuestionOptions}
+          />
         </View>
 
         {/* Cấu hình bài tương tác (Accordion) */}
@@ -376,7 +396,7 @@ export function InteractionManager({
           <View style={s.grow}>
             <Text style={s.settingsTitle}>Cấu hình bài tương tác</Text>
             <Text style={s.meta}>
-              {duration || 0}s · {moderation ? "Có kiểm duyệt" : "Tự động hiển thị"} · {requireName ? "Yêu cầu tên" : "Ẩn danh"}
+              {duration || 0} giây
             </Text>
           </View>
           <ChevronDown
@@ -398,34 +418,6 @@ export function InteractionManager({
                 style={s.input}
               />
             </View>
-            <Toggle
-              label="Yêu cầu người tham dự nhập tên"
-              subtitle="Khách mời phải điền tên trước khi gửi ý kiến"
-              value={requireName}
-              onChange={setRequireName}
-              disabled={locked}
-            />
-            <Toggle
-              label="Cho phép hiển thị tên"
-              subtitle="Hiển thị tên người gửi trên màn hình chiếu"
-              value={showNames}
-              onChange={setShowNames}
-              disabled={locked}
-            />
-            <Toggle
-              label="Duyệt trước khi trình chiếu"
-              subtitle="Ban tổ chức duyệt phản hồi trước khi hiện lên màn hình"
-              value={moderation}
-              onChange={setModeration}
-              disabled={locked}
-            />
-            <Toggle
-              label="Cho phép gửi nhiều lần"
-              subtitle="Mỗi người có thể đóng góp nhiều câu trả lời"
-              value={multiple}
-              onChange={setMultiple}
-              disabled={locked}
-            />
           </View>
         ) : null}
 
@@ -512,6 +504,13 @@ export function InteractionManager({
               style={[s.input, s.textarea]}
               autoFocus
             />
+            <QuestionOptionsEditor
+              type={newQuestionType}
+              options={newQuestionOptions}
+              disabled={Boolean(busy)}
+              onTypeChange={setNewQuestionType}
+              onOptionsChange={setNewQuestionOptions}
+            />
             <View style={s.addActions}>
               <Button tone="secondary" icon={X} onPress={() => setAdding(false)} style={s.buttonFlex}>
                 Hủy
@@ -528,74 +527,6 @@ export function InteractionManager({
           </View>
         ) : null}
       </Card>
-
-      {/* QR dẫn tới biểu mẫu trả lời trên web */}
-      {state.session ? (
-        <Card style={s.card}>
-          <View style={s.shareHeader}>
-            <View style={s.iconBox}>
-              <Globe color={colors.primaryDark} size={18} />
-            </View>
-            <View style={s.grow}>
-              <Text style={s.heading}>QR trả lời ý kiến</Text>
-              <Text style={s.metaSubtitle}>
-                Mở nhận câu trả lời, sau đó cho thành viên quét mã để điền trên trình duyệt.
-              </Text>
-            </View>
-          </View>
-
-          {participationUrl ? (
-            <View style={s.qrSection}>
-              <View style={s.qrFrame}>
-                <QRCode value={participationUrl} size={208} quietZone={8} />
-              </View>
-              <Text style={s.qrCaption}>Quét mã để mở biểu mẫu trả lời</Text>
-            </View>
-          ) : (
-            <Text style={s.meta}>Chưa có liên kết tham gia. Hãy làm mới phiên ý kiến.</Text>
-          )}
-
-          <Pressable onPress={copyParticipationLink} style={s.linkBox}>
-            <Link color={colors.primaryDark} size={16} />
-            <Text numberOfLines={1} ellipsizeMode="middle" style={s.linkText}>
-              {participationUrl}
-            </Text>
-            <Copy color={colors.muted} size={16} />
-          </Pressable>
-
-          <View style={s.shareActionRow}>
-            <Button
-              tone="secondary"
-              icon={Copy}
-              onPress={copyParticipationLink}
-              style={s.shareBtn}
-            >
-              Sao chép
-            </Button>
-            <Button
-              tone="primary"
-              icon={Share2}
-              onPress={shareParticipationLink}
-              style={s.shareBtn}
-            >
-              Chia sẻ
-            </Button>
-          </View>
-
-          <View style={s.statRow}>
-            <View style={s.statBadge}>
-              <Text style={s.statLabel}>Đã nhận:</Text>
-              <Text style={s.statValue}>{state.session.responseCount} ý kiến</Text>
-            </View>
-            <View style={[s.statBadge, s.statBadgeActive]}>
-              <Text style={[s.statLabel, { color: colors.primaryDark }]}>Đang hiển thị:</Text>
-              <Text style={[s.statValue, { color: colors.primaryDark }]}>
-                {state.session.approvedCount} ý kiến
-              </Text>
-            </View>
-          </View>
-        </Card>
-      ) : null}
 
       {/* CARD 3: CÂU TRẢ LỜI / PHẢN HỒI CỦA THÀNH VIÊN */}
       <Card style={s.card}>
@@ -793,32 +724,80 @@ export function InteractionManager({
   );
 }
 
-function Toggle({
-  label,
-  subtitle,
-  value,
-  onChange,
+function QuestionOptionsEditor({
+  type,
+  options,
   disabled,
+  onTypeChange,
+  onOptionsChange,
 }: {
-  label: string;
-  subtitle?: string;
-  value: boolean;
-  onChange: (value: boolean) => void;
-  disabled?: boolean;
+  type: MeetingInteractionQuestionType;
+  options: string[];
+  disabled: boolean;
+  onTypeChange: (value: MeetingInteractionQuestionType) => void;
+  onOptionsChange: (value: string[]) => void;
 }) {
   return (
-    <View style={s.toggle}>
-      <View style={s.grow}>
-        <Text style={s.toggleLabel}>{label}</Text>
-        {subtitle ? <Text style={s.toggleSubtitle}>{subtitle}</Text> : null}
+    <View style={s.questionOptionsEditor}>
+      <Text style={s.fieldLabel}>Loại câu hỏi</Text>
+      <View style={s.questionTypeRow}>
+        {(["text", "single_choice"] as const).map((value) => (
+          <Pressable
+            key={value}
+            accessibilityRole="button"
+            accessibilityState={{ selected: type === value, disabled }}
+            disabled={disabled}
+            onPress={() => onTypeChange(value)}
+            style={[s.questionTypeButton, type === value && s.questionTypeButtonActive]}
+          >
+            <Text style={[s.questionTypeText, type === value && s.questionTypeTextActive]}>
+              {value === "text" ? "Tự luận" : "Trắc nghiệm"}
+            </Text>
+          </Pressable>
+        ))}
       </View>
-      <Switch
-        value={value}
-        onValueChange={onChange}
-        disabled={disabled}
-        trackColor={{ false: colors.border, true: "rgba(0, 173, 252, 0.35)" }}
-        thumbColor={value ? colors.primaryDark : "#FFFFFF"}
-      />
+      {type === "single_choice" ? (
+        <View style={s.choiceList}>
+          <Text style={s.meta}>Người tham dự chọn một trong 2–6 đáp án.</Text>
+          {options.map((option, index) => (
+            <View key={index} style={s.choiceRow}>
+              <Text style={s.choiceNumber}>{index + 1}.</Text>
+              <TextInput
+                accessibilityLabel={`Lựa chọn ${index + 1}`}
+                value={option}
+                onChangeText={(text) => onOptionsChange(options.map((item, itemIndex) => itemIndex === index ? text : item))}
+                editable={!disabled}
+                maxLength={200}
+                placeholder={`Lựa chọn ${index + 1}`}
+                placeholderTextColor={colors.muted}
+                style={[s.input, s.choiceInput, disabled && s.disabled]}
+              />
+              {options.length > 2 ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Xóa lựa chọn ${index + 1}`}
+                  disabled={disabled}
+                  onPress={() => onOptionsChange(options.filter((_, itemIndex) => itemIndex !== index))}
+                  style={s.choiceRemove}
+                >
+                  <X color={colors.danger} size={18} />
+                </Pressable>
+              ) : null}
+            </View>
+          ))}
+          {options.length < 6 ? (
+            <Pressable
+              accessibilityRole="button"
+              disabled={disabled}
+              onPress={() => onOptionsChange([...options, ""])}
+              style={s.addChoice}
+            >
+              <Plus color={colors.primaryDark} size={17} />
+              <Text style={s.addChoiceText}>Thêm lựa chọn</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -826,9 +805,6 @@ function Toggle({
 const s = StyleSheet.create({
   embedded: { gap: spacing.md },
   card: { padding: spacing.md, marginBottom: spacing.md },
-  qrSection: { alignItems: "center", gap: spacing.sm, marginVertical: spacing.md },
-  qrFrame: { backgroundColor: "#FFFFFF", padding: spacing.xs, borderRadius: radius.md },
-  qrCaption: { color: colors.muted, fontSize: 12, textAlign: "center" },
   previewTabs: { gap: spacing.sm, paddingRight: spacing.md, marginBottom: spacing.md },
   previewTab: {
     minHeight: 40,
@@ -951,6 +927,23 @@ const s = StyleSheet.create({
     marginTop: spacing.xs,
   },
   disabled: { backgroundColor: colors.background, color: colors.muted },
+  questionOptionsEditor: { gap: spacing.xs, marginTop: spacing.md },
+  questionTypeRow: { flexDirection: "row", gap: spacing.sm },
+  questionTypeButton: {
+    flex: 1, minHeight: 42, alignItems: "center", justifyContent: "center",
+    borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  questionTypeButtonActive: { borderColor: colors.brandBlue, backgroundColor: colors.primarySoft },
+  questionTypeText: { color: colors.text, fontSize: 13, fontWeight: "700" },
+  questionTypeTextActive: { color: colors.primaryDark },
+  choiceList: { gap: spacing.sm, marginTop: spacing.xs },
+  choiceRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  choiceNumber: { width: 22, color: colors.muted, fontSize: 13, fontWeight: "700" },
+  choiceInput: { flex: 1, minWidth: 0 },
+  choiceRemove: { width: 36, height: 44, alignItems: "center", justifyContent: "center" },
+  addChoice: { minHeight: 40, flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  addChoiceText: { color: colors.primaryDark, fontSize: 13, fontWeight: "700" },
 
   // Cấu hình bài tương tác
   settingsCard: {
@@ -988,21 +981,6 @@ const s = StyleSheet.create({
     gap: spacing.sm,
   },
   settingField: { marginBottom: spacing.xs },
-  toggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  toggleLabel: { color: colors.text, fontSize: 13, fontWeight: "700" },
-  toggleSubtitle: { color: colors.muted, fontSize: 11, marginTop: 2 },
-
   // Timer
   timer: {
     flexDirection: "row",
@@ -1032,48 +1010,7 @@ const s = StyleSheet.create({
   },
   addActions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm },
 
-  // CARD 2: Share link
-  shareHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  linkBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    padding: spacing.md,
-  },
-  linkText: { flex: 1, color: colors.primaryDark, fontSize: 12, fontWeight: "600" },
-  shareActionRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
-  shareBtn: { flex: 1 },
-  statRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
-  statBadge: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.sm,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xs,
-  },
-  statBadgeActive: {
-    backgroundColor: colors.primarySoft,
-    borderColor: "rgba(0, 173, 252, 0.25)",
-  },
-  statLabel: { color: colors.muted, fontSize: 11, fontWeight: "600" },
-  statValue: { color: colors.text, fontSize: 12, fontWeight: "800" },
-
-  // CARD 3: Responses
+  // Phản hồi của người tham dự
   filterScroll: { gap: spacing.xs, paddingBottom: spacing.sm },
   filterChip: {
     paddingHorizontal: 12,

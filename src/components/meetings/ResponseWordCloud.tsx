@@ -325,7 +325,7 @@ function QuestionCloud({
           <Text style={styles.number}>CÂU {question.order}</Text>
         </View>
         <View style={styles.headerRightActions}>
-          <Badge tone="primary">{approvedCount} Ý KIẾN</Badge>
+          <Badge tone="primary">{approvedCount} {question.type === "single_choice" ? "LƯỢT CHỌN" : "Ý KIẾN"}</Badge>
         </View>
       </View>
 
@@ -336,7 +336,25 @@ function QuestionCloud({
         {question.text}
       </Text>
 
-      {rows.length ? (
+      {question.type === "single_choice" ? (
+        <View style={styles.choiceResults}>
+          {(question.options || []).map((option, index) => {
+            const count = questionResponses.filter((response) => response.status === "approved" && response.answer === option).length;
+            const percent = approvedCount ? Math.round(count / approvedCount * 100) : 0;
+            return (
+              <View key={`${index}-${option}`} style={styles.choiceResult}>
+                <View style={styles.choiceResultHeader}>
+                  <Text style={styles.choiceResultLabel} numberOfLines={compact ? 1 : 2}>{option}</Text>
+                  <Text style={styles.choiceResultCount}>{count} · {percent}%</Text>
+                </View>
+                <View style={styles.choiceTrack}>
+                  <View style={[styles.choiceFill, { width: `${percent}%`, backgroundColor: COLOR_ROTATION[index % COLOR_ROTATION.length] }]} />
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      ) : rows.length ? (
         <View style={[styles.cloudWrapper, compact && styles.compactCloudWrapper, isBoard && styles.boardCloudWrapper]}>
           <View style={styles.cloudContainer}>
             {rows.map((row, rowIndex) => (
@@ -388,7 +406,7 @@ export function ResponseWordCloud({
         <View style={styles.sectionHeader}>
           <Text style={[styles.title, darkHeader && styles.darkTitle]}>Ý kiến đã ghi nhận</Text>
           <Text style={[styles.description, darkHeader && styles.darkDescription]}>
-            Đám mây từ khóa được tổng hợp và làm nổi bật theo mức độ nhắc lại.
+            Tự luận hiển thị đám mây từ khóa; trắc nghiệm hiển thị tỷ lệ chọn từng đáp án.
           </Text>
         </View>
       ) : darkHeader ? (
@@ -507,6 +525,13 @@ const styles = StyleSheet.create({
   sectionHeader: { marginBottom: 2 },
   title: { color: colors.text, fontSize: 17, fontWeight: "800" },
   description: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 2 },
+  choiceResults: { gap: spacing.sm, paddingVertical: spacing.xs },
+  choiceResult: { gap: 5 },
+  choiceResultHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+  choiceResultLabel: { flex: 1, color: colors.text, fontSize: 13, fontWeight: "600" },
+  choiceResultCount: { color: colors.muted, fontSize: 12, fontWeight: "700" },
+  choiceTrack: { height: 8, borderRadius: radius.pill, backgroundColor: colors.background, overflow: "hidden" },
+  choiceFill: { height: "100%", borderRadius: radius.pill },
 
   card: { gap: spacing.sm, padding: spacing.md },
   compactCard: { gap: 4, padding: spacing.xs },

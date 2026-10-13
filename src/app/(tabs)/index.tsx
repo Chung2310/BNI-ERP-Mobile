@@ -20,6 +20,7 @@ import {
   SectionTitle,
 } from "@/components/ui";
 import { DashboardQuickActions } from "@/components/DashboardQuickActions";
+import { GreetingIcon } from "@/components/GreetingIcon";
 import { isChapterGuest } from "@/utils/guest";
 import { useAuth } from "@/context/AuthContext";
 import { useNotifications } from "@/context/NotificationContext";
@@ -260,10 +261,10 @@ function MemberHomeScreen() {
 
   const greeting = useMemo(() => {
     const hour = currentTime.getHours();
-    if (hour >= 5 && hour < 12) return "Chào buổi sáng";
-    if (hour >= 12 && hour < 14) return "Chào buổi trưa";
-    if (hour >= 14 && hour < 18) return "Chào buổi chiều";
-    return "Chào buổi tối";
+    if (hour >= 5 && hour < 12) return { text: "Chào buổi sáng", icon: "sun" } as const;
+    if (hour >= 12 && hour < 14) return { text: "Chào buổi trưa", icon: "sun" } as const;
+    if (hour >= 14 && hour < 18) return { text: "Chào buổi chiều", icon: "cloud" } as const;
+    return { text: "Chào buổi tối", icon: "moon" } as const;
   }, [currentTime]);
 
   const todayDateString = useMemo(() => {
@@ -389,7 +390,10 @@ function MemberHomeScreen() {
       <View style={styles.headerHeroCard}>
         <View style={styles.headerHeroTop}>
           <View style={styles.headerHeroInfo}>
-            <Text style={styles.greetingText}>{greeting}</Text>
+            <View style={styles.greetingRow}>
+              <Text style={styles.greetingText}>{greeting.text}</Text>
+              <GreetingIcon name={greeting.icon} />
+            </View>
             <Text numberOfLines={1} style={styles.userNameText}>
               {displayName}
             </Text>
@@ -460,7 +464,6 @@ function MemberHomeScreen() {
                         {isFeaturedLive ? "Đang diễn ra" : "Sắp diễn ra"}
                       </Text>
                     </View>
-                    {isFeaturedLive ? <LiveWaveform /> : null}
                   </View>
 
                   <View style={styles.titleWithMic}>
@@ -503,9 +506,12 @@ function MemberHomeScreen() {
                   ) : null}
                 </View>
 
-                <View style={styles.heroActionBtn}>
-                  <Text style={styles.heroActionBtnText}>{featuredActionLabel}</Text>
-                  <ArrowRight color="#FFFFFF" size={13} strokeWidth={2.6} />
+                <View style={[styles.heroRight, isFeaturedLive && styles.heroRightLive]}>
+                  <View style={styles.heroActionBtn}>
+                    <Text style={styles.heroActionBtnText}>{featuredActionLabel}</Text>
+                    <ArrowRight color="#FFFFFF" size={13} strokeWidth={2.6} />
+                  </View>
+                  {isFeaturedLive ? <LiveWaveform /> : null}
                 </View>
               </View>
             </Pressable>
@@ -615,19 +621,19 @@ function MemberHomeScreen() {
 const styles = StyleSheet.create({
   /* Header Hero Card kiểu ảnh 1 */
   headerHeroCard: {
-    backgroundColor: "#D9F3FE",
-    borderRadius: 20,
+    backgroundColor: "#C9EDFC",
+    borderRadius: 32,
+    borderWidth: 1,
+    borderColor: "#E8F8FF",
     padding: 16,
-    borderWidth: 1.5,
-    borderColor: "rgba(0, 173, 252, 0.25)",
     gap: 12,
     marginTop: 2,
-    marginBottom: 4,
-    shadowColor: colors.brandBlue,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2,
+    marginBottom: 10,
+    shadowColor: "#257FA9",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.24,
+    shadowRadius: 16,
+    elevation: 7,
   },
   headerHeroTop: {
     flexDirection: "row",
@@ -668,6 +674,11 @@ const styles = StyleSheet.create({
     color: colors.surface,
     fontSize: 8,
     fontWeight: "900",
+  },
+  greetingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
   },
   greetingText: {
     color: "#64748B",
@@ -890,25 +901,21 @@ const styles = StyleSheet.create({
   heroCompact: {
     backgroundColor: "#CEEEFD",
     borderRadius: radius.lg,
-    padding: 3,
-    borderWidth: 1.5,
-    borderColor: "rgba(0, 173, 252, 0.25)",
-    shadowColor: colors.brandBlue,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.16,
-    shadowRadius: 8,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: "#E8F8FF",
+    paddingVertical: 9,
+    paddingHorizontal: 11,
+    marginBottom: 6,
+    shadowColor: "#257FA9",
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.22,
+    shadowRadius: 14,
+    elevation: 6,
   },
   heroInnerCard: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#E2F6FE",
-    borderRadius: radius.lg - 3,
-    paddingVertical: 11,
-    paddingHorizontal: 13,
-    borderWidth: 1,
-    borderColor: "rgba(0, 173, 252, 0.25)",
     gap: spacing.sm,
   },
   heroLeft: {
@@ -959,16 +966,17 @@ const styles = StyleSheet.create({
     color: "#00ADFC",
   },
   liveWave: {
-    height: 16,
+    height: 20,
     flexDirection: "row",
     alignItems: "center",
-    gap: 3,
+    gap: 4,
+    marginBottom: -4,
   },
   liveWaveBar: {
-    width: 3,
-    height: 14,
+    width: 4,
+    height: 18,
     borderRadius: 2,
-    backgroundColor: "#22C55E",
+    backgroundColor: colors.brandBlue,
   },
   titleWithMic: {
     flexDirection: "row",
@@ -998,6 +1006,14 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: "500",
     flex: 1,
+  },
+  heroRight: {
+    alignItems: "center",
+    gap: 5,
+  },
+  heroRightLive: {
+    alignSelf: "stretch",
+    justifyContent: "space-between",
   },
   heroActionBtn: {
     flexDirection: "row",

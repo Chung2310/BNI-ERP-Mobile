@@ -3,15 +3,14 @@ import { useCallback, useMemo, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Check, ChevronRight, Gift, RefreshCw, UserMinus, Users, X } from "lucide-react-native";
+import { Check, ChevronRight, Gift, RefreshCw, Trophy, UserMinus, Users, X } from "lucide-react-native";
 import { Alert } from "@/components/AppAlert";
 import { Avatar, Badge, Button, Card, LoadingState } from "@/components/ui";
-import { meetingService, meetingVersion, type LuckyDrawWinner, type Meeting } from "@/services/meeting";
+import { meetingService, meetingVersion, type DrawFilter, type LuckyDrawWinner, type Meeting } from "@/services/meeting";
 import { userService } from "@/services/users";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 import type { UserProfile } from "@/types";
 
-type Filter = "all" | "all_members" | "present" | "guest";
 type Participant = {
   id: string;
   name: string;
@@ -19,17 +18,18 @@ type Participant = {
   kind: "member_present" | "member_absent" | "guest";
 };
 
-const filters: { value: Filter; label: string }[] = [
-  { value: "present", label: "Có mặt" },
+const filters: { value: DrawFilter; label: string }[] = [
+  { value: "present_members", label: "Có mặt" },
   { value: "all", label: "Tất cả" },
   { value: "all_members", label: "Tất cả TV" },
-  { value: "guest", label: "Khách mời" },
+  { value: "absent_members", label: "Vắng mặt" },
+  { value: "guests", label: "Khách mời" },
 ];
 
 function participants(meeting: Meeting, users: UserProfile[]): Participant[] {
   const matched = new Set<string>();
   const members: Participant[] = users
-    .filter((user) => user.uid)
+    .filter((user) => user.uid && user.isActive !== false && (!meeting.companyCode || !user.companyCode || user.companyCode === meeting.companyCode))
     .map((user) => {
       const name = user.displayName?.trim() || user.email?.split("@")[0] || "Thành viên";
       const speaker = meeting.speakers.find(
@@ -57,10 +57,11 @@ function participants(meeting: Meeting, users: UserProfile[]): Participant[] {
   return [...members, ...others];
 }
 
-function matchesFilter(person: Participant, filter: Filter) {
+function matchesFilter(person: Participant, filter: DrawFilter) {
   if (filter === "all") return true;
   if (filter === "all_members") return person.kind !== "guest";
-  if (filter === "present") return person.kind !== "member_absent";
+  if (filter === "present_members") return person.kind !== "member_absent";
+  if (filter === "absent_members") return person.kind === "member_absent";
   return person.kind === "guest";
 }
 
@@ -73,17 +74,33 @@ export function MeetingDrawRemote({
   id: string;
   meeting: Meeting;
   disabled: boolean;
-  onRefresh: () => void;
+  onRefresh: () => Promise<void>;
 }) {
   const insets = useSafeAreaInsets();
-  const [selectedFilter, setSelectedFilter] = useState<Filter>("present");
   const [unselected, setUnselected] = useState<string[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [winner, setWinner] = useState<LuckyDrawWinner | null>(null);
+  const [dismissedWinnerId, setDismissedWinnerId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [displayOpen, setDisplayOpen] = useState(false);
+
+  const refreshDisplay = useCallback(async () => {
+    try {
+      const display = await meetingService.presentationDisplay(id);
+      setDisplayOpen(display.isOpen);
+    } catch {
+      setDisplayOpen(false);
+    }
+  }, [id]);
+
+  const ensureDisplayOpen = async () => {
+    const display = await meetingService.presentationDisplay(id);
+    setDisplayOpen(display.isOpen);
+    if (!display.isOpen) throw new Error("Hãy mở chế độ màn hình trình chiếu trên web trước khi điều khiển vòng quay.");
+  };
 
   const refreshUsers = useCallback(async () => {
     try {
@@ -99,62 +116,110 @@ export function MeetingDrawRemote({
   useFocusEffect(
     useCallback(() => {
       void refreshUsers();
-    }, [refreshUsers])
+      void refreshDisplay();
+      const interval = setInterval(() => void refreshDisplay(), 5000);
+      return () => clearInterval(interval);
+    }, [refreshUsers, refreshDisplay])
   );
 
   const roster = useMemo(() => participants(meeting, users), [meeting, users]);
-  const filter = selectedFilter;
+  const filter = meeting.presentation?.drawFilter || "all";
+  const drawPanel = meeting.presentation?.drawPanel || "participants";
+  const winnerCount = meeting.luckyDraw?.prizes.reduce((total, prize) => total + prize.winners.length, 0) || 0;
   const filtered = roster.filter((person) => matchesFilter(person, filter));
-  const selected = filtered.filter((person) => !unselected.includes(person.id));
-
-  const previousWinners = useMemo(
-    () =>
-      new Set(
-        meeting.luckyDraw?.allowRepeatWinners
+  const excludedWinnerIds = new Set(
+    meeting.luckyDraw?.prizes.flatMap((prize) =>
+      prize.winners.flatMap((item) =>
+        item.repeatEligible === true ||
+        (item.repeatEligible == null && meeting.luckyDraw?.allowRepeatWinners)
           ? []
-          : meeting.luckyDraw?.prizes.flatMap((prize) => prize.winners.map((item) => item.winnerId)) ||
-            []
-      ),
-    [meeting.luckyDraw]
+          : [item.winnerId, item.userId].filter((value): value is string => Boolean(value))
+      )
+    ) || []
+  );
+  const eligible = filtered.filter((person) => !excludedWinnerIds.has(person.id));
+  const projectedIds = meeting.presentation?.drawParticipantIds;
+  const selected = eligible.filter((person) => sheetOpen
+    ? !unselected.includes(person.id)
+    : projectedIds == null || projectedIds.includes(person.id));
+  const presentedWinner = meeting.luckyDraw?.prizes
+    .flatMap((prize) => prize.winners)
+    .find((item) => item.id === meeting.presentation?.drawWinnerId);
+  const localWinner = winner && (
+    meeting.presentation?.drawResultVisible !== false ||
+    meeting.presentation?.drawWinnerId !== winner.id
+  ) ? winner : null;
+  const activeWinner = localWinner || (
+    meeting.presentation?.drawResultVisible !== false &&
+    presentedWinner?.id !== dismissedWinnerId
+      ? presentedWinner || null
+      : null
   );
 
-  const backendCandidates = meeting.speakers.filter(
-    (speaker) => !previousWinners.has(speaker.id)
-  );
-
-  const canProject =
-    selected.length > 0 &&
-    selected.length === backendCandidates.length &&
-    backendCandidates.every((speaker) => selected.some((person) => person.id === speaker.id));
+  const canProject = selected.length > 0;
 
   const ready =
-    !disabled && !busy && !winner && (meeting.status === "live" || meeting.status === "paused");
+    displayOpen && !disabled && !busy && !activeWinner && (meeting.status === "live" || meeting.status === "paused");
+
+  const openSelection = () => {
+    setUnselected(eligible.filter((person) => projectedIds != null && !projectedIds.includes(person.id)).map((person) => person.id));
+    setSheetOpen(true);
+  };
+
+  const changeFilter = async (nextFilter: DrawFilter) => {
+    if (!displayOpen || disabled || busy || activeWinner || nextFilter === filter) return;
+    setBusy(true);
+    setError("");
+    try {
+      await ensureDisplayOpen();
+      const current = await meetingService.get(id);
+      await meetingService.presentationState(
+        id,
+        { drawFilter: nextFilter, drawParticipantIds: null, drawPanel: "participants" },
+        meetingVersion(current)
+      );
+      setUnselected([]);
+      await onRefresh();
+    } catch (cause) {
+      setError(friendlyErrorMessage(cause, "Không thể đổi bộ lọc trên màn chiếu."));
+      void onRefresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleWinnerList = async () => {
+    if (!displayOpen || disabled || busy || activeWinner) return;
+    setBusy(true);
+    setError("");
+    try {
+      await ensureDisplayOpen();
+      const current = await meetingService.get(id);
+      const nextPanel = current.presentation?.drawPanel === "winners" ? "participants" : "winners";
+      await meetingService.presentationState(id, { drawPanel: nextPanel }, meetingVersion(current));
+      await onRefresh();
+    } catch (cause) {
+      setError(friendlyErrorMessage(cause, "Không thể chuyển danh sách trên màn chiếu."));
+      void onRefresh();
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const spin = async () => {
     if (!ready) return;
     if (!canProject) {
       Alert.alert(
         "Chưa thể quay trên màn chiếu",
-        "API trình chiếu hiện chỉ quay danh sách người đã check-in. Bộ lọc hoặc người được tick chưa khớp danh sách này."
+        "Hãy chọn ít nhất một người trong bộ lọc trước khi quay."
       );
       return;
     }
     setBusy(true);
     setError("");
     try {
+      await ensureDisplayOpen();
       let current = await meetingService.get(id);
-      const currentWinners = new Set(
-        current.luckyDraw?.allowRepeatWinners
-          ? []
-          : current.luckyDraw?.prizes.flatMap((prize) => prize.winners.map((item) => item.winnerId)) || []
-      );
-      const actualCandidates = current.speakers.filter((speaker) => !currentWinners.has(speaker.id));
-      if (
-        actualCandidates.length !== selected.length ||
-        actualCandidates.some((speaker) => !selected.some((person) => person.id === speaker.id))
-      ) {
-        throw new Error("Danh sách trên màn chiếu vừa thay đổi. Hãy làm mới rồi quay lại.");
-      }
       if (current.luckyDraw?.drawMode !== "attendees") {
         await meetingService.updateLuckyDrawConfig(id, { drawMode: "attendees" });
         current = await meetingService.get(id);
@@ -171,44 +236,47 @@ export function MeetingDrawRemote({
         current = await meetingService.get(id);
       }
       if (!prize) throw new Error("Không tạo được giải thưởng để quay.");
-      const result = await meetingService.presentationDraw(id, prize.id, meetingVersion(current));
+      await ensureDisplayOpen();
+      const result = await meetingService.presentationDraw(id, prize.id, meetingVersion(current), filter, selected.map((person) => person.id));
       setWinner(result.winner);
-      onRefresh();
+      void onRefresh();
     } catch (cause) {
       setError(friendlyErrorMessage(cause, "Không thể quay trên màn chiếu."));
-      onRefresh();
+      void onRefresh();
     } finally {
       setBusy(false);
     }
   };
 
-  const closeResult = () => {
-    if (winner)
-      setUnselected((current) => [...new Set([...current, winner.winnerId])]);
-    setWinner(null);
-    onRefresh();
-  };
-
-  const keepWinner = async () => {
-    if (!winner?.prizeId || busy) return;
+  const decideWinner = async (repeatEligible: boolean) => {
+    if (!displayOpen || !activeWinner || busy) return;
     setBusy(true);
+    setError("");
     try {
-      await meetingService.redrawWinner(id, winner.prizeId, winner.id);
+      await ensureDisplayOpen();
+      const current = await meetingService.get(id);
+      await meetingService.setDrawWinnerRepeatEligibility(
+        id,
+        activeWinner.id,
+        repeatEligible,
+        meetingVersion(current)
+      );
+      setDismissedWinnerId(activeWinner.id);
       setWinner(null);
-      onRefresh();
+      void onRefresh();
     } catch (cause) {
-      setError(friendlyErrorMessage(cause, "Không thể giữ người này trong vòng quay."));
+      setError(friendlyErrorMessage(cause, "Không thể cập nhật kết quả trên màn chiếu."));
     } finally {
       setBusy(false);
     }
   };
 
   const selectAll = () => {
-    setUnselected((curr) => curr.filter((id) => !filtered.some((p) => p.id === id)));
+    setUnselected((curr) => curr.filter((id) => !eligible.some((p) => p.id === id)));
   };
 
   const deselectAll = () => {
-    setUnselected((curr) => [...new Set([...curr, ...filtered.map((p) => p.id)])]);
+    setUnselected((curr) => [...new Set([...curr, ...eligible.map((p) => p.id)])]);
   };
 
   const togglePerson = (personId: string) => {
@@ -217,8 +285,29 @@ export function MeetingDrawRemote({
     );
   };
 
+  const saveSelection = async () => {
+    if (!displayOpen || disabled || busy || activeWinner) return;
+    setBusy(true);
+    setError("");
+    try {
+      await ensureDisplayOpen();
+      const current = await meetingService.get(id);
+      await meetingService.presentationState(
+        id,
+        { drawFilter: filter, drawParticipantIds: selected.map((person) => person.id), drawPanel: "participants" },
+        meetingVersion(current)
+      );
+      await onRefresh();
+      setSheetOpen(false);
+    } catch (cause) {
+      setError(friendlyErrorMessage(cause, "Không thể đồng bộ người được chọn lên màn chiếu."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const currentFilterLabel =
-    filters.find((f) => f.value === filter)?.label || "Có mặt";
+    filters.find((f) => f.value === filter)?.label || "Tất cả";
 
   return (
     <View style={styles.container}>
@@ -232,7 +321,7 @@ export function MeetingDrawRemote({
             icon={RefreshCw}
             onPress={() => {
               void refreshUsers();
-              onRefresh();
+              void onRefresh();
             }}
           >
             Làm mới
@@ -244,17 +333,33 @@ export function MeetingDrawRemote({
       <Card style={styles.card}>
         <View style={styles.headingRow}>
           <Text style={styles.heading}>Điều khiển Vòng quay may mắn</Text>
-          <Badge tone={canProject ? "success" : "default"}>
-            {canProject ? "SẴN SÀNG QUAY" : "CHƯA SẴN SÀNG"}
+          <Badge tone={displayOpen && canProject ? "success" : "default"}>
+            {displayOpen && canProject ? "SẴN SÀNG QUAY" : "CHƯA SẴN SÀNG"}
           </Badge>
         </View>
+        {!displayOpen ? <Text style={styles.meta}>Mở chế độ màn hình trình chiếu trên web để điều khiển vòng quay.</Text> : null}
+        <View style={styles.filters}>
+          {filters.map(({ value, label }) => (
+            <Pressable
+              key={value}
+              accessibilityRole="button"
+              accessibilityState={{ selected: filter === value, disabled: !displayOpen || disabled || busy || !!activeWinner }}
+              disabled={!displayOpen || disabled || busy || !!activeWinner}
+              onPress={() => void changeFilter(value)}
+              style={[styles.filterChip, filter === value && styles.filterChipActive]}
+            >
+              <Text numberOfLines={1} style={[styles.filterChipText, filter === value && styles.filterChipTextActive]}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        {!canProject && eligible.length > 0 ? <Text style={styles.meta}>Chọn ít nhất một người để quay.</Text> : null}
 
         {/* NÚT MỞ BOTTOM SHEET ĐỂ CHỌN NGƯỜI THAM GIA */}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Chọn người tham gia"
-          disabled={busy || !!winner}
-          onPress={() => setSheetOpen(true)}
+          disabled={!displayOpen || busy || !!activeWinner}
+          onPress={openSelection}
           style={styles.participantBar}
         >
           <View style={styles.participantIconWrap}>
@@ -283,18 +388,28 @@ export function MeetingDrawRemote({
           {busy ? "Đang gửi lệnh quay..." : "Quay trên màn chiếu"}
         </Button>
 
+        <Button
+          tone="secondary"
+          icon={drawPanel === "winners" ? Users : Trophy}
+          fullWidth
+          disabled={!displayOpen || disabled || busy || !!activeWinner}
+          onPress={() => void toggleWinnerList()}
+        >
+          {drawPanel === "winners" ? "Hiện người tham gia" : `Mở danh sách trúng thưởng (${winnerCount})`}
+        </Button>
+
         {/* KẾT QUẢ NGƯỜI TRÚNG THƯỞNG */}
-        {winner ? (
+        {activeWinner ? (
           <View style={styles.result}>
-            <Text style={styles.winnerHeading}>Người trúng: {winner.name}</Text>
-            <Text style={styles.winnerPrize}>{winner.prizeName}</Text>
+            <Text style={styles.winnerHeading}>Người trúng: {activeWinner.name}</Text>
+            <Text style={styles.winnerPrize}>{activeWinner.prizeName}</Text>
             <View style={styles.actions}>
               <Button
                 tone="danger"
                 icon={UserMinus}
                 style={styles.actionBtn}
-                disabled={busy}
-                onPress={closeResult}
+                disabled={!displayOpen || busy}
+                onPress={() => void decideWinner(false)}
               >
                 Loại khỏi vòng quay
               </Button>
@@ -302,8 +417,8 @@ export function MeetingDrawRemote({
                 tone="secondary"
                 icon={Check}
                 style={styles.actionBtn}
-                disabled={busy}
-                onPress={() => void keepWinner()}
+                disabled={!displayOpen || busy}
+                onPress={() => void decideWinner(true)}
               >
                 Giữ lại & Đóng
               </Button>
@@ -353,9 +468,8 @@ export function MeetingDrawRemote({
                     key={value}
                     accessibilityRole="button"
                     accessibilityState={{ selected: isActive }}
-                    onPress={() =>
-                      setSelectedFilter(value)
-                    }
+                    disabled={!displayOpen || disabled || busy || !!activeWinner}
+                    onPress={() => void changeFilter(value)}
                     style={[styles.filterChip, isActive && styles.filterChipActive]}
                   >
                     <Text
@@ -375,7 +489,7 @@ export function MeetingDrawRemote({
             {/* Quick Actions (Chọn tất cả / Bỏ chọn) */}
             <View style={styles.sheetMetaRow}>
               <Text style={styles.sheetMetaText}>
-                Đang chọn {selected.length}/{filtered.length} người
+                Đang chọn {selected.length}/{eligible.length} người
               </Text>
               <View style={styles.quickActions}>
                 <Pressable onPress={selectAll}>
@@ -398,12 +512,14 @@ export function MeetingDrawRemote({
                 <Text style={styles.emptyText}>Không có thành viên nào trong nhóm này</Text>
               ) : (
                 filtered.map((person) => {
-                  const checked = !unselected.includes(person.id);
+                  const excluded = excludedWinnerIds.has(person.id);
+                  const checked = !excluded && !unselected.includes(person.id);
                   return (
                     <Pressable
                       key={person.id}
                       accessibilityRole="checkbox"
-                      accessibilityState={{ checked }}
+                      accessibilityState={{ checked, disabled: excluded }}
+                      disabled={excluded}
                       onPress={() => togglePerson(person.id)}
                       style={styles.personRow}
                     >
@@ -425,14 +541,18 @@ export function MeetingDrawRemote({
                       </Text>
                       <Badge
                         tone={
-                          person.kind === "member_present"
+                          excluded
+                            ? "default"
+                            : person.kind === "member_present"
                             ? "success"
                             : person.kind === "guest"
                             ? "warning"
                             : "default"
                         }
                       >
-                        {person.kind === "member_present"
+                        {excluded
+                          ? "Đã loại"
+                          : person.kind === "member_present"
                           ? "Có mặt"
                           : person.kind === "guest"
                           ? "Khách mời"
@@ -445,7 +565,7 @@ export function MeetingDrawRemote({
             </ScrollView>
 
             {/* Nút xác nhận hoàn tất */}
-            <Button fullWidth onPress={() => setSheetOpen(false)} style={styles.confirmBtn}>
+            <Button fullWidth disabled={!displayOpen || busy || disabled} onPress={() => void saveSelection()} style={styles.confirmBtn}>
               Xác nhận ({selected.length} người)
             </Button>
           </View>
@@ -540,11 +660,13 @@ const styles = StyleSheet.create({
 
   filters: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 6,
     width: "100%",
   },
   filterChip: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: "30%",
     minHeight: 32,
     alignItems: "center",
     justifyContent: "center",
