@@ -150,6 +150,9 @@ export default function LoginScreen() {
               <Text style={styles.registerAction}>Tạo tài khoản ngay</Text>
             </Pressable>
           </View>
+          <Pressable accessibilityRole="link" onPress={() => router.push("/wheel-rules")} style={styles.rulesLink}>
+            <Text style={styles.rulesLinkText}>Thể lệ vòng quay may mắn</Text>
+          </Pressable>
           {canUseBiometrics ? (
             <Button
               icon={Fingerprint}
@@ -491,5 +494,17 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 8,
     marginBottom: 4,
+  },
+  rulesLink: {
+    alignSelf: "center",
+    minHeight: 40,
+    justifyContent: "center",
+    paddingHorizontal: spacing.md,
+  },
+  rulesLinkText: {
+    color: colors.primaryDark,
+    fontSize: 12,
+    fontWeight: "700",
+    textDecorationLine: "underline",
   },
 });

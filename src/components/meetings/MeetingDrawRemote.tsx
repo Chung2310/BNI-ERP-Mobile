@@ -1,6 +1,6 @@
 import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useCallback, useMemo, useState } from "react";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Check, ChevronRight, Gift, RefreshCw, Trophy, UserMinus, Users, X } from "lucide-react-native";
@@ -276,6 +276,9 @@ export function MeetingDrawRemote({
             {displayOpen && canProject ? "SẴN SÀNG QUAY" : "CHƯA SẴN SÀNG"}
           </Badge>
         </View>
+        <Pressable accessibilityRole="link" onPress={() => router.push("/wheel-rules")} style={styles.rulesLink}>
+          <Text style={styles.rulesLinkText}>Xem thể lệ vòng quay</Text>
+        </Pressable>
         {!displayOpen ? <Text style={styles.meta}>Mở chế độ màn hình trình chiếu trên web để điều khiển vòng quay.</Text> : null}
         <View style={styles.filters}>
           {filters.map(({ value, label }) => (
@@ -535,6 +538,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   heading: { color: colors.text, fontSize: 15, fontWeight: "800" },
+  rulesLink: { alignSelf: "flex-start", minHeight: 32, justifyContent: "center", paddingRight: spacing.md },
+  rulesLinkText: { color: colors.primaryDark, fontSize: 12, fontWeight: "700", textDecorationLine: "underline" },
   error: { color: colors.danger, fontSize: 13, marginBottom: spacing.xs },
   meta: { color: colors.muted, fontSize: 12, lineHeight: 17 },
 
