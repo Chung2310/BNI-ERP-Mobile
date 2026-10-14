@@ -29,7 +29,7 @@ export function drawParticipants(meeting: Meeting, users: UserProfile[]): DrawPa
       };
     });
   const others: DrawParticipant[] = meeting.speakers
-    .filter((speaker) => !matched.has(speaker.id))
+    .filter((speaker) => !speaker.deletedAccount && !matched.has(speaker.id))
     .map((speaker) => ({
       id: speaker.id,
       name: speaker.name,

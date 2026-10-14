@@ -1,11 +1,14 @@
 import * as SecureStore from "expo-secure-store";
+import * as FileSystem from "expo-file-system/legacy";
 import * as LocalAuthentication from "expo-local-authentication";
+import { isRunningInExpoGo } from "expo";
 import type { ImagePickerAsset } from "expo-image-picker";
 import { Platform } from "react-native";
 import { ApiError, apiRequest, getApiAccessToken, setApiAccessToken, setApiTokenPersister } from "@/services/api";
 import { galleryImagesFrom } from "@/utils/media";
 import { unregisterCurrentDeviceFromPush } from "@/services/pushNotifications";
 import type { UserProfile } from "@/types";
+import { accountDeletion } from "@/services/accountDeletion";
 
 const ACCESS_TOKEN_KEY = "igen_access_token";
 const PROFILE_KEY = "igen_user_profile";
@@ -18,17 +21,38 @@ export type BiometricMethod = "fingerprint" | "face";
 
 export type BiometricCapabilities = Record<BiometricMethod, boolean>;
 
-async function getBiometricCapabilities(): Promise<BiometricCapabilities> {
+export type BiometricStatus = {
+  supported: BiometricCapabilities;
+  label: string;
+  available: boolean;
+  unavailableReason: "expoGo" | "notEnrolled" | "unsupported" | null;
+};
+
+async function getBiometricStatus(): Promise<BiometricStatus> {
   const [hasHardware, isEnrolled, supportedTypes] = await Promise.all([
     LocalAuthentication.hasHardwareAsync(),
     LocalAuthentication.isEnrolledAsync(),
     LocalAuthentication.supportedAuthenticationTypesAsync(),
   ]);
-  const isUsable = hasHardware && isEnrolled;
-  return {
-    fingerprint: isUsable && supportedTypes.includes(LocalAuthentication.AuthenticationType.FINGERPRINT),
-    face: isUsable && supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION),
+  const supported = {
+    fingerprint: supportedTypes.includes(LocalAuthentication.AuthenticationType.FINGERPRINT),
+    face: supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION),
   };
+  const label = supported.face
+    ? Platform.OS === "ios" ? "Face ID" : supported.fingerprint ? "Sinh trắc học" : "Nhận diện khuôn mặt"
+    : supported.fingerprint ? Platform.OS === "ios" ? "Touch ID" : "Vân tay" : "Sinh trắc học";
+  // Expo Go cannot request Face ID permission on behalf of this app.
+  const unavailableReason = Platform.OS === "ios" && isRunningInExpoGo() && !supported.fingerprint
+    ? "expoGo"
+    : !hasHardware || (!supported.face && !supported.fingerprint)
+      ? "unsupported"
+      : !isEnrolled ? "notEnrolled" : null;
+  return { supported, label, available: unavailableReason === null, unavailableReason };
+}
+
+async function getBiometricCapabilities(): Promise<BiometricCapabilities> {
+  const { available, supported } = await getBiometricStatus();
+  return { fingerprint: available && supported.fingerprint, face: available && supported.face };
 }
 
 async function hasUsableBiometrics(method?: BiometricMethod) {
@@ -46,11 +70,15 @@ async function getStoredBiometricEnabled() {
 }
 
 async function authenticateWithBiometrics(promptMessage: string) {
-  if (!(await hasUsableBiometrics())) {
+  const status = await getBiometricStatus();
+  if (status.unavailableReason === "expoGo") {
+    throw new Error("Face ID không dùng được trong Expo Go. Vui lòng dùng bản iGen Connect cài riêng hoặc TestFlight.");
+  }
+  if (!status.available) {
     throw new Error("Thiết bị chưa hỗ trợ hoặc chưa cài đặt sinh trắc học.");
   }
   const result = await LocalAuthentication.authenticateAsync({
-    promptMessage,
+    promptMessage: promptMessage.replace("sinh trắc học", status.label),
     cancelLabel: "Hủy",
     fallbackLabel: "Dùng tài khoản",
     disableDeviceFallback: true,
@@ -58,9 +86,14 @@ async function authenticateWithBiometrics(promptMessage: string) {
     biometricsSecurityLevel: "weak",
   });
   if (!result.success) {
-    throw new Error(result.error === "user_cancel"
-      ? "Đã hủy xác thực sinh trắc học."
-      : "Không xác thực được sinh trắc học. Vui lòng thử lại.");
+    const messages: Partial<Record<LocalAuthentication.LocalAuthenticationError, string>> = {
+      user_cancel: "Đã hủy xác thực sinh trắc học.",
+      user_fallback: "Vui lòng đăng nhập bằng tài khoản và mật khẩu.",
+      lockout: "Sinh trắc học đang bị khóa tạm thời. Hãy mở khóa thiết bị bằng mật mã rồi thử lại.",
+      not_available: `Hãy kiểm tra quyền ${status.label} của iGen Connect trong Cài đặt thiết bị.`,
+      not_enrolled: `Hãy thiết lập ${status.label} trong Cài đặt thiết bị rồi thử lại.`,
+    };
+    throw new Error(messages[result.error] || "Không xác thực được sinh trắc học. Vui lòng thử lại.");
   }
 }
 
@@ -225,12 +258,24 @@ export const authService = {
     }
   },
 
-  async deleteOwnAccount(password: string) {
-    await apiRequest("/api/v1/auth/me", {
+  async deleteOwnAccount(password: string, successorId?: string) {
+    const profile = await SecureStore.getItemAsync(PROFILE_KEY).catch(() => null);
+    const result = await apiRequest<{ data: { receiptToken: string } }>("/api/v1/auth/me", {
       method: "DELETE",
-      body: JSON.stringify({ password, confirmation: "XÓA TÀI KHOẢN" }),
+      body: JSON.stringify({ password, confirmation: "XÓA TÀI KHOẢN", successorId }),
     });
+    await accountDeletion.saveReceipt(result.data.receiptToken);
     await clearLocalSession();
+    const keys = [DEVICE_KEY, "igen_native_push_token", "igen_expo_push_token"];
+    try { const uid = profile ? JSON.parse(profile).uid : null; if (uid) keys.push(`chapter-notice-read-${uid}`); } catch { /* Ignore an invalid old profile. */ }
+    await Promise.allSettled(keys.map((key) => SecureStore.deleteItemAsync(key)));
+    // Delete app-owned cached downloads/media; files exported to Photos/Files belong to the user.
+    const cache = FileSystem.cacheDirectory;
+    if (cache) {
+      const entries = await FileSystem.readDirectoryAsync(cache).catch(() => [] as string[]);
+      const personal = entries.filter((name) => /^(downloads$|chat-|resource-upload-|ImagePicker$|Camera$|Audio$)/.test(name));
+      await Promise.allSettled(personal.map((name) => FileSystem.deleteAsync(`${cache}${name}`, { idempotent: true })));
+    }
   },
 
   async changePassword(password: string) {
@@ -259,4 +304,5 @@ export const authService = {
 
   hasUsableBiometrics,
   getBiometricCapabilities,
+  getBiometricStatus,
 };

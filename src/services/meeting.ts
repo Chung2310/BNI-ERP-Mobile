@@ -4,6 +4,7 @@ import { assertMeetingCheckInOpen } from "@/utils/meetingCheckIn";
 export type Speaker = {
   id: string;
   userId?: string;
+  deletedAccount?: boolean;
   name: string;
   email?: string;
   photoURL?: string;

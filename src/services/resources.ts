@@ -7,6 +7,7 @@ export type ResourceItem = {
   _id: string; section: "local"; type: "folder" | "file"; name: string; parentId: string | null;
   fileUrl?: string; mimeType?: string; size?: number; createdAt?: string; deletedAt?: string;
   creatorUid?: string; creatorName?: string; isFixed?: boolean; isShared?: boolean; managedType?: "user" | "system";
+  awaitingReview?: boolean;
 };
 const path = (id: string) => `/api/v1/resources/${encodeURIComponent(id)}`;
 const json = (method: string, body: unknown) => ({ method, body: JSON.stringify(body) });

@@ -51,3 +51,8 @@ firebase-service-account*.json
 
 # Separate local project
 /BNI/
+
+# Local environment values
+.env
+.env.*
+!.env.example

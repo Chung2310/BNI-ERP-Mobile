@@ -218,6 +218,12 @@ export default function MemberDetailScreen() {
         </Button>
       </View>
 
+      {currentUser?.uid !== id ? <View style={{ gap: spacing.sm }}>
+        <Button tone="secondary" icon={AlertTriangle} onPress={() => router.push({ pathname: "/content-report", params: { targetType: "profile", targetId: id } })}>Báo cáo hồ sơ hoặc ảnh</Button>
+        <Button tone="secondary" onPress={() => Alert.alert("Chặn thành viên", "Không nhận tin nhắn và thông báo chat từ thành viên này?", [
+          { text: "Hủy", style: "cancel" }, { text: "Chặn", style: "destructive", onPress: () => { void chatService.blockUser(id, true).then(() => Alert.alert("Đã chặn", "Bạn có thể bỏ chặn tại Cài đặt → An toàn nội dung.")).catch(cause => Alert.alert("Không thể chặn", friendlyErrorMessage(cause, "Vui lòng thử lại."))); } },
+        ])}>Chặn thành viên</Button>
+      </View> : null}
       <Card style={styles.info}>
         <Info label="Công ty" value={company} />
         <Info label="Lĩnh vực" value={member.industry || "Chưa cập nhật"} />
