@@ -4,7 +4,11 @@
   },
   "build": {
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "environment": "production",
+      "ios": {
+        "image": "latest"
+      }
     }
   }
 }

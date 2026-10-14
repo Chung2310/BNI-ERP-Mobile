@@ -12,13 +12,11 @@ export function chooseImageSource(onSelect: (source: ImageSource) => void) {
 }
 
 export async function pickImages(source: ImageSource, options: ImagePicker.ImagePickerOptions) {
-  const permission = source === "camera"
-    ? await ImagePicker.requestCameraPermissionsAsync()
-    : await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (!permission.granted) {
-    throw new Error(`Vui lòng cấp quyền ${source === "camera" ? "camera" : "thư viện ảnh"} để thêm ảnh.`);
+  if (source === "camera") {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) throw new Error("Vui lòng cấp quyền camera để thêm ảnh.");
   }
   return source === "camera"
     ? ImagePicker.launchCameraAsync({ ...options, allowsMultipleSelection: false, selectionLimit: 1 })
-    : ImagePicker.launchImageLibraryAsync(options);
+    : ImagePicker.launchImageLibraryAsync({ ...options, videoExportPreset: ImagePicker.VideoExportPreset.MediumQuality });
 }

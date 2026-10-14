@@ -15,8 +15,13 @@ function AppNavigator() {
   return <Stack screenOptions={{ headerShown: false, orientation: "portrait", contentStyle: { backgroundColor: colors.background } }}>
     <Stack.Screen name="index" />
     <Stack.Screen name="login" />
+    <Stack.Screen name="sign-in" options={{ animation: "slide_from_bottom", gestureDirection: "vertical" }} />
     <Stack.Screen name="register" />
     <Stack.Screen name="wheel-rules" />
+    <Stack.Screen name="privacy-policy" />
+    <Stack.Screen name="community-rules" />
+    <Stack.Screen name="delete-account" />
+    <Stack.Screen name="account-deletion" />
     <Stack.Screen name="(tabs)" />
     <Stack.Screen name="settings" />
     <Stack.Screen name="profile" />
@@ -36,6 +41,9 @@ function AppNavigator() {
       <Stack.Screen name="meeting/[id]/interaction" />
       <Stack.Screen name="member/[id]" />
       <Stack.Screen name="chat/[id]" />
+      <Stack.Screen name="chat-report" />
+      <Stack.Screen name="content-report" />
+      <Stack.Screen name="chat-safety" />
       <Stack.Screen name="rankings" />
       <Stack.Screen name="statistics" />
       <Stack.Screen name="resources" />

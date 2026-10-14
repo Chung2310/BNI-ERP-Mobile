@@ -7,6 +7,7 @@ export type UserProfile = {
   photoURL?: string;
   role: UserRole;
   permissions?: string[];
+  enabledModules?: string[];
   companyCode?: string;
   companyName?: string;
   company?: string | { name?: string; code?: string; title?: string };
@@ -18,6 +19,7 @@ export type UserProfile = {
   coverUrl?: string;
   coverImage?: string;
   galleryImages?: string[];
+  profileMediaPending?: boolean;
   birthDate?: string;
   gender?: "male" | "female" | "other";
   address?: string;

@@ -7,7 +7,7 @@ import {
   CalendarClock,
   ChevronRight,
   Clock3,
-  Gift,
+  RotateCw,
   MapPin,
   MessageCircle,
   Navigation,
@@ -203,7 +203,7 @@ export default function MeetingDetailScreen() {
       <SectionTitle>Quy trình cuộc họp</SectionTitle>
       <Card style={styles.processCard}>
         <ProcessRow icon={MapPin} label="Check-in" detail={`${meeting.speakers.length} người đã điểm danh`} onPress={() => router.push({ pathname: "/meeting/[id]/attendees", params: { id } })} />
-        <ProcessRow icon={Gift} label="Vòng quay may mắn" detail="Kết quả vòng quay may mắn" onPress={() => router.push({ pathname: "/meeting/[id]/game-results", params: { id } })} />
+        <ProcessRow icon={RotateCw} label="Vòng quay chọn người" detail="Kết quả vòng quay chọn người" onPress={() => router.push({ pathname: "/meeting/[id]/game-results", params: { id } })} />
         {manage ? <ProcessRow icon={MessageCircle} label="Thu ý kiến" detail="Tạo câu hỏi và xem kết quả của cuộc họp" onPress={() => router.push({ pathname: "/meeting/[id]/interaction", params: { id } })} /> : null}
         <ProcessRow icon={Presentation} label="Thuyết trình" detail="Danh sách slide của người trình bày" onPress={() => router.push({ pathname: "/meeting/[id]/slides", params: { id } })} />
       </Card>
@@ -252,7 +252,7 @@ export default function MeetingDetailScreen() {
               <Pressable accessibilityRole="button" accessibilityLabel="Đóng" disabled={busy} onPress={closeSettings} style={styles.sheetClose}><X color={colors.muted} size={20} /></Pressable>
             </View>
             {confirmAction ? <View style={styles.confirmContent}>
-              <Text style={styles.confirmText}>{confirmAction === "cancel" ? "Buổi họp sẽ được đánh dấu đã hủy. Các buổi khác trong chuỗi không thay đổi." : "Cuộc họp cùng danh sách check-in và dữ liệu quay thưởng sẽ bị xóa vĩnh viễn."}</Text>
+              <Text style={styles.confirmText}>{confirmAction === "cancel" ? "Buổi họp sẽ được đánh dấu đã hủy. Các buổi khác trong chuỗi không thay đổi." : "Cuộc họp cùng danh sách check-in và dữ liệu quay chọn người sẽ bị xóa vĩnh viễn."}</Text>
               {actionError ? <Text style={styles.sheetError}>{actionError}</Text> : null}
               <Button tone="danger" fullWidth disabled={busy} onPress={() => void confirmChange()}>{busy ? "Đang xử lý…" : confirmAction === "cancel" ? "Xác nhận hủy lịch" : "Xóa vĩnh viễn"}</Button>
               <Button tone="secondary" fullWidth disabled={busy} onPress={() => { setConfirmAction(null); setActionError(""); }}>Quay lại</Button>

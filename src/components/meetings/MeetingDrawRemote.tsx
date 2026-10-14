@@ -3,13 +3,14 @@ import { useCallback, useMemo, useState } from "react";
 import { router, useFocusEffect } from "expo-router";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Check, ChevronRight, Gift, RefreshCw, Trophy, UserMinus, Users, X } from "lucide-react-native";
+import { Check, ChevronRight, RotateCw, RefreshCw, List, UserMinus, Users, X } from "lucide-react-native";
 import { Alert } from "@/components/AppAlert";
 import { Avatar, Badge, Button, Card, LoadingState } from "@/components/ui";
 import { drawParticipants, excludedDrawWinnerIds, matchesDrawFilter } from "@/components/meetings/drawParticipants";
 import { meetingService, meetingVersion, type DrawFilter, type LuckyDrawWinner, type Meeting } from "@/services/meeting";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 import type { UserProfile } from "@/types";
+import { WHEEL_SELECTION_NAME } from "@/data/wheel-selection";
 
 const filters: { value: DrawFilter; label: string }[] = [
   { value: "present_members", label: "Có mặt" },
@@ -164,17 +165,17 @@ export function MeetingDrawRemote({
         current = await meetingService.get(id);
       }
       let prize = current.luckyDraw?.prizes.find(
-        (item) => item.name === "Giải thưởng" && item.winners.length < item.quantity
+        (item) => item.name === WHEEL_SELECTION_NAME && item.winners.length < item.quantity
       );
       if (!prize) {
         const config = await meetingService.savePrize(id, {
-          name: "Giải thưởng",
+          name: WHEEL_SELECTION_NAME,
           quantity: Math.max(100, current.speakers.length),
         });
-        prize = config.prizes.find((item) => item.name === "Giải thưởng" && item.winners.length < item.quantity);
+        prize = config.prizes.find((item) => item.name === WHEEL_SELECTION_NAME && item.winners.length < item.quantity);
         current = await meetingService.get(id);
       }
-      if (!prize) throw new Error("Không tạo được giải thưởng để quay.");
+      if (!prize) throw new Error("Không tạo được lượt chọn để quay.");
       await ensureDisplayOpen();
       const result = await meetingService.presentationDraw(id, prize.id, meetingVersion(current), filter, selected.map((person) => person.id));
       setWinner(result.winner);
@@ -268,16 +269,16 @@ export function MeetingDrawRemote({
         </Card>
       ) : null}
 
-      {/* CARD ĐIỀU KHIỂN QUAY THƯỞNG CHÍNH (GỌN GÀNG, KHÔNG XỔ DANH SÁCH CHECKBOX) */}
+      {/* CARD ĐIỀU KHIỂN QUAY CHỌN NGƯỜI CHÍNH (GỌN GÀNG, KHÔNG XỔ DANH SÁCH CHECKBOX) */}
       <Card style={styles.card}>
         <View style={styles.headingRow}>
-          <Text style={styles.heading}>Điều khiển Vòng quay may mắn</Text>
+          <Text style={styles.heading}>Điều khiển Vòng quay chọn người</Text>
           <Badge tone={displayOpen && canProject ? "success" : "default"}>
             {displayOpen && canProject ? "SẴN SÀNG QUAY" : "CHƯA SẴN SÀNG"}
           </Badge>
         </View>
         <Pressable accessibilityRole="link" onPress={() => router.push("/wheel-rules")} style={styles.rulesLink}>
-          <Text style={styles.rulesLinkText}>Xem thể lệ vòng quay</Text>
+          <Text style={styles.rulesLinkText}>Xem hướng dẫn vòng quay</Text>
         </Pressable>
         {!displayOpen ? <Text style={styles.meta}>Mở chế độ màn hình trình chiếu trên web để điều khiển vòng quay.</Text> : null}
         <View style={styles.filters}>
@@ -321,7 +322,7 @@ export function MeetingDrawRemote({
 
 
         <Button
-          icon={Gift}
+          icon={RotateCw}
           iconSize={16}
           fullWidth
           disabled={!ready || !canProject}
@@ -334,7 +335,7 @@ export function MeetingDrawRemote({
 
         <Button
           tone="secondary"
-          icon={drawPanel === "winners" ? Users : Trophy}
+          icon={drawPanel === "winners" ? Users : List}
           iconSize={16}
           fullWidth
           disabled={!displayOpen || disabled || busy || !!activeWinner}
@@ -342,13 +343,13 @@ export function MeetingDrawRemote({
           style={styles.controlButton}
           textStyle={styles.controlButtonText}
         >
-          {drawPanel === "winners" ? "Hiện người tham gia" : `Mở danh sách trúng thưởng (${winnerCount})`}
+          {drawPanel === "winners" ? "Hiện người tham gia" : `Mở danh sách được chọn (${winnerCount})`}
         </Button>
 
         {/* KẾT QUẢ NGƯỜI TRÚNG THƯỞNG */}
         {activeWinner ? (
           <View style={styles.result}>
-            <Text style={styles.winnerHeading}>Người trúng: {activeWinner.name}</Text>
+            <Text style={styles.winnerHeading}>Người được chọn: {activeWinner.name}</Text>
             <Text style={styles.winnerPrize}>{activeWinner.prizeName}</Text>
             <View style={styles.actions}>
               <Button

@@ -13,6 +13,7 @@ export type ChatMessage = {
   createdAt: string;
   editedAt?: string;
   isDeleted?: boolean;
+  awaitingReview?: boolean;
   attachments?: ChatAttachment[];
   reactions?: ChatReaction[];
   readBy?: string[];
@@ -48,6 +49,11 @@ const roomPath = (roomId: string) => '/api/v1/chat/rooms/' + encodeURIComponent(
 const unreadChangedListeners = new Set<() => void>();
 
 export const chatService = {
+  report: (roomId: string, messageId: string, reason: string, details: string) => apiRequest(roomPath(roomId) + '/messages/' + encodeURIComponent(messageId) + '/report', { method: 'POST', body: JSON.stringify({ reason, details }) }),
+  blockUser: (userId: string, blocked: boolean) => apiRequest('/api/v1/chat/blocks/' + encodeURIComponent(userId), { method: 'PATCH', body: JSON.stringify({ blocked }) }),
+  blocks: () => apiRequest<{ data: { _id: string; blockedUserId: { _id: string; displayName: string } | null }[] }>('/api/v1/chat/blocks').then(result => result.data),
+  moderation: () => apiRequest<{ data: ChatSafetyReport[] }>('/api/v1/chat/moderation').then(result => result.data),
+  resolveReport: (id: string, action: 'approve' | 'remove' | 'suspend' | 'dismiss') => apiRequest('/api/v1/chat/moderation/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify({ action }) }),
   onUnreadChanged: (listener: () => void) => {
     unreadChangedListeners.add(listener);
     return () => { unreadChangedListeners.delete(listener); };
@@ -138,3 +144,5 @@ export const chatService = {
     unreadChangedListeners.forEach((listener) => listener());
   },
 };
+
+export type ChatSafetyReport = { _id: string; reason: string; details: string; createdAt: string; messageId: Pick<ChatMessage, 'content' | 'attachments' | 'senderName' | 'isDeleted'> | null; reporterId: { displayName: string } | null };

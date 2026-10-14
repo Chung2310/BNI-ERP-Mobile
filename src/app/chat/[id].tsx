@@ -237,12 +237,13 @@ export default function ChatRoomScreen() {
       if (event.roomId !== id) return;
       setData((current) => {
         const existing = current || [];
-        return existing.some((item) => item._id === event.message._id) ? existing : [event.message, ...existing];
+        return existing.some((item) => item._id === event.message._id) ? existing.map(item => item._id === event.message._id ? event.message : item) : [event.message, ...existing];
       });
       setRoom(event.roomUpdate);
       void chatService.markRead(id).catch(() => undefined);
       if (shouldStickToBottom.current) setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
     });
+    socket.on('internal_safety_changed', () => { void chatService.messages(id).then(setData).catch(() => undefined); void chatService.room(id).then(setRoom).catch(() => undefined); });
     socket.on('internal_room_updated', (updated: ChatRoom) => { if (updated._id === id) setRoom(updated); });
     socket.on('internal_room_deleted', (event: { roomId: string }) => { if (event.roomId === id) router.replace('/(tabs)/chat'); });
     socket.on('internal_message_deleted', (event: { roomId: string; messageId: string; message: ChatMessage; roomUpdate: ChatRoom }) => {
@@ -607,18 +608,21 @@ export default function ChatRoomScreen() {
   };
 
   const reportMessage = () => {
+    const item = actionsMessage;
     setActionsMessage(null);
-    setTimeout(() => Alert.alert(
-      'Báo cáo tin nhắn',
-      'Ứng dụng sẽ mở email hỗ trợ. Hãy mô tả tin nhắn và lý do bạn muốn báo cáo trước khi gửi.',
-      [
-        { text: 'Bỏ qua', style: 'cancel' },
-        { text: 'Mở email', onPress: () => {
-          void Linking.openURL('mailto:igen.work99@gmail.com?subject=B%C3%A1o%20c%C3%A1o%20tin%20nh%E1%BA%AFn%20iGen%20Connect')
-            .catch(() => Alert.alert('Không thể mở email', 'Vui lòng cài đặt ứng dụng email để gửi báo cáo.'));
-        } },
-      ],
-    ), 250);
+    if (item) router.push({ pathname: '/chat-report', params: { roomId: id, messageId: item._id } });
+  };
+
+  const blockSender = () => {
+    const item = actionsMessage;
+    setActionsMessage(null);
+    if (!item) return;
+    Alert.alert('Chặn người gửi', 'Không nhận tin nhắn và thông báo từ người này, kể cả trong nhóm chung?', [
+      { text: 'Hủy', style: 'cancel' },
+      { text: 'Chặn', style: 'destructive', onPress: () => {
+        void chatService.blockUser(senderId(item), true).then(() => chatService.messages(id)).then(setData).catch(cause => Alert.alert('Lỗi', friendlyErrorMessage(cause, 'Vui lòng thử lại.')));
+      } },
+    ]);
   };
 
   const downloadAttachment = async (attachment: ChatAttachment) => {
@@ -651,6 +655,7 @@ export default function ChatRoomScreen() {
 
     return (
       <View>
+        {item.awaitingReview ? <Text style={styles.day}>Đang chờ quản trị viên duyệt tệp đính kèm</Text> : null}
         {showDay ? <Text style={styles.day}>{formatDay(item.createdAt)}</Text> : null}
         <View style={[styles.messageRow, mine && styles.myMessageRow, reactionCounts.length > 0 && styles.messageRowWithReactions]}>
           <View style={styles.bubbleWrapper}>
@@ -939,7 +944,7 @@ export default function ChatRoomScreen() {
           {actionsMessage?.content ? <SheetAction label='Sao chép nội dung' onPress={() => { const content = actionsMessage.content; setActionsMessage(null); void Clipboard.setStringAsync(content); }} /> : null}
           <SheetAction label='Trả lời' onPress={() => { setReplyingTo(actionsMessage); setActionsMessage(null); }} />
           <SheetAction label='Chia sẻ / chuyển tiếp' onPress={() => { const item = actionsMessage; setActionsMessage(null); if (!item) return; setSharingMessage(item); void chatService.rooms().then(setShareRooms).catch((cause) => Alert.alert('Không thể tải cuộc trò chuyện', friendlyErrorMessage(cause, 'Vui lòng thử lại.'))); }} />
-          {actionsMessage && senderId(actionsMessage) !== user?.uid ? <SheetAction label='Báo cáo' danger onPress={reportMessage} /> : null}
+          {actionsMessage && senderId(actionsMessage) !== user?.uid ? <><SheetAction label='Báo cáo' danger onPress={reportMessage} /><SheetAction label='Chặn người gửi' danger onPress={blockSender} /></> : null}
           {canPin ? <SheetAction label={actionsMessage && pinnedIds.includes(actionsMessage._id) ? 'Bỏ ghim tin nhắn' : 'Ghim tin nhắn'} onPress={() => { const item = actionsMessage; setActionsMessage(null); if (item) void chatService.pinMessage(id, item._id, pinnedIds.includes(item._id)).then(setRoom).catch((cause) => Alert.alert('Không thể ghim tin', friendlyErrorMessage(cause, 'Vui lòng thử lại.'))); }} /> : null}
           {actionsMessage && senderId(actionsMessage) === user?.uid && actionsMessage.content ? <SheetAction label='Sửa tin nhắn' onPress={() => { setEditingMessage(actionsMessage); setMessage(actionsMessage.content); setReplyingTo(null); setActionsMessage(null); }} /> : null}
           {actionsMessage && (senderId(actionsMessage) === user?.uid || canManageMessages) ? <SheetAction label='Thu hồi tin nhắn' danger onPress={() => { const item = actionsMessage; setActionsMessage(null); if (item) Alert.alert('Thu hồi tin nhắn?', 'Tin nhắn sẽ không còn hiển thị nội dung.', [{ text: 'Bỏ qua', style: 'cancel' }, { text: 'Thu hồi', style: 'destructive', onPress: () => void removeMessage(item) }]); }} /> : null}
