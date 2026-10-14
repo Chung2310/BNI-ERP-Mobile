@@ -10,7 +10,7 @@ type AuthState = {
   activateSession(token: string, profile: UserProfile): void;
   signInWithBiometrics(): Promise<void>;
   signOut(): Promise<void>;
-  deleteAccount(password: string): Promise<void>;
+  deleteAccount(password: string, successorId?: string): Promise<void>;
   refreshProfile(): Promise<UserProfile>;
   applyProfile(profile: UserProfile): void;
 };
@@ -52,8 +52,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }, []);
 
-  const deleteAccount = useCallback(async (password: string) => {
-    await authService.deleteOwnAccount(password);
+  const deleteAccount = useCallback(async (password: string, successorId?: string) => {
+    await authService.deleteOwnAccount(password, successorId);
     setToken(null);
     setUser(null);
   }, []);

@@ -1,7 +1,8 @@
 import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useState } from "react";
+import { router } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
-import { Camera, ChevronRight, File, FileText, Folder, FolderOpen, MoreVertical, Plus, Trash2, Upload, X } from "lucide-react-native";
+import { Camera, ChevronRight, File, FileText, Flag, Folder, FolderOpen, MoreVertical, Plus, Trash2, Upload, X } from "lucide-react-native";
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BackHeader } from "@/components/BackHeader";
@@ -75,7 +76,7 @@ export function ResourceManager() {
       await run(async () => {
         const uploaded = await resourceService.uploadFile(asset);
         await resourceService.createFile(asset.name, uploaded.url, folder?._id || null, asset.mimeType, asset.size);
-      }, "Đã tải tệp lên.");
+      }, "Đã tải tệp lên. Tệp đang chờ quản trị viên duyệt trước khi chia sẻ.");
     } catch (cause) { fail(cause); }
   };
   const captureImage = async () => {
@@ -87,7 +88,7 @@ export function ResourceManager() {
       await run(async () => {
         const uploaded = await resourceService.uploadFile({ uri: asset.uri, name, mimeType: asset.mimeType || "image/jpeg", size: asset.fileSize });
         await resourceService.createFile(name, uploaded.url, folder?._id || null, asset.mimeType || "image/jpeg", asset.fileSize);
-      }, "Đã tải ảnh lên.");
+      }, "Đã tải ảnh lên. Ảnh đang chờ quản trị viên duyệt trước khi chia sẻ.");
     } catch (cause) { fail(cause); }
   };
   const prepareMove = async () => {
@@ -151,9 +152,10 @@ export function ResourceManager() {
       {data.map((item) => { const Icon = item.type === "folder" ? Folder : item.mimeType?.includes("pdf") ? FileText : File; return <View key={item._id} style={styles.row}>
         <Pressable accessibilityRole="button" disabled={(trash && !canEdit(item)) || downloadingId === item._id} onPress={() => trash ? select(item) : void open(item)} style={styles.itemBody}>
           <View style={styles.icon}>{downloadingId === item._id ? <ActivityIndicator color={colors.primaryDark} size="small" /> : <Icon color={colors.primaryDark} size={22} strokeWidth={1.9} />}</View>
-          <View style={styles.grow}><Text numberOfLines={2} style={styles.name}>{item.name}</Text><Text style={styles.meta}>{item.type === "folder" ? "Thư mục" : formatSize(item.size)}{item.isShared ? " · Được chia sẻ" : ""}{item.createdAt ? ` · ${new Date(item.createdAt).toLocaleDateString("vi-VN")}` : ""}</Text></View>
+          <View style={styles.grow}><Text numberOfLines={2} style={styles.name}>{item.name}</Text><Text style={styles.meta}>{item.awaitingReview ? "Chờ kiểm duyệt · " : ""}{item.type === "folder" ? "Thư mục" : formatSize(item.size)}{item.isShared ? " · Được chia sẻ" : ""}{item.createdAt ? ` · ${new Date(item.createdAt).toLocaleDateString("vi-VN")}` : ""}</Text></View>
         </Pressable>
         {canEdit(item) ? <Pressable accessibilityLabel={`Tùy chọn ${item.name}`} accessibilityRole="button" onPress={() => select(item)} style={styles.more}><MoreVertical color={colors.muted} size={20} /></Pressable> : item.type === "folder" && !trash ? <ChevronRight color={colors.muted} size={18} /> : null}
+        {!trash && item.creatorUid !== user?.uid && /^[a-f0-9]{24}$/i.test(item._id) ? <Pressable accessibilityRole="button" accessibilityLabel={"Báo cáo " + item.name} style={styles.more} onPress={() => router.push({ pathname: "/content-report", params: { targetType: "resource", targetId: item._id } })}><Flag size={18} color={colors.muted} /></Pressable> : null}
       </View>; })}
     </Card>}
 
@@ -165,7 +167,7 @@ export function ResourceManager() {
             <MenuAction label="Mở tài nguyên" onPress={() => { setDialog(null); void open(selected); }} />
             <MenuAction label="Đổi tên" onPress={() => { setName(selected.name); setDialog("rename"); }} />
             <MenuAction label="Di chuyển" onPress={() => void prepareMove()} />
-            <MenuAction label="Chia sẻ" onPress={() => void prepareShare()} />
+            {!selected.awaitingReview ? <MenuAction label="Chia sẻ" onPress={() => void prepareShare()} /> : <Text style={styles.description}>Chờ quản trị viên duyệt trước khi chia sẻ.</Text>}
             <MenuAction label="Chuyển vào thùng rác" danger onPress={() => setDialog("confirm")} />
           </>}
           <Button tone="secondary" onPress={close} fullWidth>Đóng</Button>

@@ -41,12 +41,32 @@ function showOpenNotificationSettingsPrompt() {
   );
 }
 
-async function performDevicePushRegistration(providedToken?: string): Promise<string | null> {
+export async function getDevicePushPermission(): Promise<"enabled" | "notGranted" | "unavailable"> {
+  if (Platform.OS === "web" || !Device.isDevice) return "unavailable";
+  const Notifications = await getPushNotificationsModule();
+  if (!Notifications) return "unavailable";
+  const permission = await Notifications.getPermissionsAsync();
+  return permission.granted || (Platform.OS === "ios" && (permission.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL || permission.ios?.status === Notifications.IosAuthorizationStatus.EPHEMERAL))
+    ? "enabled" : "notGranted";
+}
+
+async function performDevicePushRegistration(providedToken?: string, interactive = false): Promise<string | null> {
   if (Platform.OS === "web" || !Device.isDevice) return null;
   const Notifications = await getPushNotificationsModule();
   if (!Notifications) return null;
 
-  if (!providedToken && Platform.OS === "android") {
+  const currentPermission = await Notifications.getPermissionsAsync();
+  const alreadyAllowed = currentPermission.granted || (Platform.OS === "ios" && (
+    currentPermission.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL ||
+    currentPermission.ios?.status === Notifications.IosAuthorizationStatus.EPHEMERAL
+  ));
+  // Ask once on first use; respect an earlier refusal on automatic retries and token refreshes.
+  if (!alreadyAllowed && currentPermission.status !== "undetermined" && !interactive) {
+    await unregisterCurrentDeviceFromPush().catch(() => undefined);
+    return null;
+  }
+
+  if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
       name: "Thông báo iGen Connect",
       importance: Notifications.AndroidImportance.HIGH,
@@ -59,9 +79,8 @@ async function performDevicePushRegistration(providedToken?: string): Promise<st
   const registration = getPushRegistrationMetadata();
   // iOS native tokens are APNs tokens and cannot be sent through Firebase
   // Admin. Use Expo's project-scoped token there; Android stays on native FCM.
-  let token = registration.provider === "fcm" ? providedToken : undefined;
+  let token = alreadyAllowed && registration.provider === "fcm" ? providedToken : undefined;
   if (!token) {
-    const currentPermission = await Notifications.getPermissionsAsync();
     const hasCurrentPermission = currentPermission.granted || (
       Platform.OS === "ios" && (
         currentPermission.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL ||
@@ -69,7 +88,7 @@ async function performDevicePushRegistration(providedToken?: string): Promise<st
       )
     );
     if (!hasCurrentPermission && !currentPermission.canAskAgain) {
-      showOpenNotificationSettingsPrompt();
+      if (interactive) showOpenNotificationSettingsPrompt();
       return null;
     }
 
@@ -139,9 +158,10 @@ async function performDevicePushRegistration(providedToken?: string): Promise<st
   return token;
 }
 
-export function registerCurrentDeviceForPush(nativeToken?: string): Promise<string | null> {
+export function registerCurrentDeviceForPush(nativeToken?: string, interactive = false): Promise<string | null> {
+  if (registrationPromise && interactive) return registrationPromise.catch(() => null).then(() => registerCurrentDeviceForPush(nativeToken, true));
   if (registrationPromise) return registrationPromise;
-  registrationPromise = performDevicePushRegistration(nativeToken)
+  registrationPromise = performDevicePushRegistration(nativeToken, interactive)
     .finally(() => { registrationPromise = null; });
   return registrationPromise;
 }

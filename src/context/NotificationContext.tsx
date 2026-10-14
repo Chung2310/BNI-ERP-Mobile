@@ -16,7 +16,7 @@ import { useAuth } from "@/context/AuthContext";
 import { apiConfig, getApiAccessToken } from "@/services/api";
 import { notificationService, type NotificationItem } from "@/services/notifications";
 import { getChapterNotifications, type ChapterNotification } from "@/services/chapterNotifications";
-import { getPushNotificationsModule, registerCurrentDeviceForPush, updateAppBadge } from "@/services/pushNotifications";
+import { getDevicePushPermission, getPushNotificationsModule, registerCurrentDeviceForPush, updateAppBadge } from "@/services/pushNotifications";
 import { isChapterGuest } from "@/utils/guest";
 
 type NotificationResponse = import("expo-notifications").NotificationResponse;
@@ -174,17 +174,17 @@ export function NotificationProvider({ children }: PropsWithChildren) {
         const registeredToken = await registerCurrentDeviceForPush();
         if (!active) return;
         if (!registeredToken) {
-          setPushError(Platform.OS === "ios"
-            ? "Thiết bị chưa đăng ký được Expo Push/APNs. Hãy kiểm tra quyền thông báo, EAS project ID và cài bản iOS mới nhất."
-            : "Thiết bị chưa đăng ký được FCM. Hãy kiểm tra quyền thông báo và cài lại APK mới nhất.");
+          if (await getDevicePushPermission() !== "enabled") { if (active) setPushError(null); return; }
+          if (!active) return;
+          setPushError("Chưa bật được thông báo trên thiết bị. Vui lòng thử lại trong Cài đặt của ứng dụng.");
           return;
         }
         retryCount = 0;
         setPushError(null);
       } catch (error) {
         if (!active) return;
-        const message = error instanceof Error ? error.message : "Không rõ nguyên nhân";
-        setPushError(`Không đăng ký được thông báo nền: ${message}`);
+        console.warn("[Notifications] Push registration failed", error);
+        setPushError("Chưa đăng ký được thông báo trên thiết bị. Hãy kiểm tra kết nối và thử lại trong Cài đặt của ứng dụng.");
         retryTimer = setTimeout(
           () => void registerPush(),
           Math.min(300_000, 30_000 * 2 ** Math.min(retryCount++, 4)),

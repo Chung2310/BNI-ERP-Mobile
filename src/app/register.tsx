@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-import { ChevronLeft, ImagePlus } from "lucide-react-native";
+import { Check, ChevronLeft, ImagePlus } from "lucide-react-native";
 import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Alert } from "@/components/AppAlert";
@@ -25,6 +25,7 @@ const fields: { key: Field; label: string; placeholder: string; maxLength: numbe
 ];
 const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const phonePattern = /^(0|\+84|84)[35789][0-9]{8}$/;
+const requiredFields: Field[] = ["displayName", "email", "password"];
 
 export default function RegisterScreen() {
   const { activateSession } = useAuth();
@@ -32,6 +33,7 @@ export default function RegisterScreen() {
   const [avatar, setAvatar] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [acceptedPolicies, setAcceptedPolicies] = useState(false);
 
   const goBack = () => {
     if (router.canGoBack()) router.back();
@@ -53,14 +55,15 @@ export default function RegisterScreen() {
   };
 
   const submit = async () => {
+    if (!acceptedPolicies) return setError("Vui lòng đồng ý chính sách bảo mật và quy tắc cộng đồng trước khi tạo tài khoản.");
     const data = Object.fromEntries(fields.map(({ key }) => [key, form[key].trim()])) as Registration;
     data.email = data.email.toLowerCase();
     data.password = form.password;
     for (const { key, label } of fields) {
-      if (!data[key].trim()) return setError(`Vui lòng nhập ${label.toLowerCase()}.`);
+      if (requiredFields.includes(key) && !data[key].trim()) return setError(`Vui lòng nhập ${label.toLowerCase()}.`);
     }
     if (!emailPattern.test(data.email)) return setError("Email không đúng định dạng.");
-    if (!phonePattern.test(data.phone)) return setError("Số điện thoại không đúng định dạng (ví dụ: 0987654321).");
+    if (data.phone && !phonePattern.test(data.phone)) return setError("Số điện thoại không đúng định dạng (ví dụ: 0987654321).");
     if (data.password.trim().length < 8) return setError("Mật khẩu phải có ít nhất 8 ký tự.");
     if (data.password.length > 128) return setError("Mật khẩu không được vượt quá 128 ký tự.");
     setSubmitting(true);
@@ -99,7 +102,7 @@ export default function RegisterScreen() {
 
   const renderField = ({ key, label, placeholder, maxLength, keyboardType, autoComplete }: typeof fields[number]) => (
     <View key={key} style={styles.field}>
-      <Text style={styles.label}>{label} <Text style={styles.required}>*</Text></Text>
+      <Text style={styles.label}>{label} {requiredFields.includes(key) ? <Text style={styles.required}>*</Text> : "(tùy chọn)"}</Text>
       <TextInput style={styles.input} value={form[key]} onChangeText={(value) => setForm((current) => ({ ...current, [key]: value }))}
         autoCapitalize={key === "email" || key === "password" ? "none" : undefined} autoComplete={autoComplete} keyboardType={keyboardType}
         secureTextEntry={key === "password"} maxLength={maxLength} placeholder={placeholder} placeholderTextColor={colors.muted} />
@@ -127,7 +130,27 @@ export default function RegisterScreen() {
             </Pressable>
           </View>
           {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
-          <Button fullWidth disabled={submitting} onPress={submit} style={styles.submitButton}>{submitting ? "Đang tạo tài khoản..." : "Tạo tài khoản"}</Button>
+          <View style={styles.consentRow}>
+            <Pressable
+              accessibilityRole="checkbox"
+              accessibilityLabel="Đồng ý chính sách bảo mật và quy tắc cộng đồng"
+              accessibilityState={{ checked: acceptedPolicies, disabled: submitting }}
+              disabled={submitting}
+              onPress={() => setAcceptedPolicies(current => !current)}
+              style={styles.checkboxTarget}
+            >
+              <View style={[styles.checkbox, acceptedPolicies && styles.checkboxChecked]}>
+                {acceptedPolicies ? <Check size={15} color="#FFFFFF" strokeWidth={3} /> : null}
+              </View>
+            </Pressable>
+            <Text style={styles.consentText}>
+              Tôi đồng ý với{" "}
+              <Text accessibilityRole="link" style={styles.consentLink} onPress={() => router.push("/privacy-policy")}>Chính sách bảo mật</Text>
+              {" và "}
+              <Text accessibilityRole="link" style={styles.consentLink} onPress={() => router.push("/community-rules")}>Quy tắc cộng đồng</Text>.
+            </Text>
+          </View>
+          <Button fullWidth disabled={submitting || !acceptedPolicies} onPress={submit} style={styles.submitButton}>{submitting ? "Đang tạo tài khoản..." : "Tạo tài khoản"}</Button>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -151,5 +174,11 @@ const styles = StyleSheet.create({
   avatarPicker: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   avatarPreview: { width: 40, height: 40, borderRadius: radius.pill },
   error: { color: colors.danger, fontSize: 12 },
+  consentRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingVertical: spacing.xs },
+  checkboxTarget: { width: 44, minHeight: 44, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  checkbox: { width: 20, height: 20, borderWidth: 1.5, borderColor: colors.muted, borderRadius: 4, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface },
+  checkboxChecked: { borderColor: colors.brandBlue, backgroundColor: colors.brandBlue },
+  consentText: { flex: 1, color: colors.text, fontSize: 12, lineHeight: 18 },
+  consentLink: { color: "#0075A8", fontWeight: "700", textDecorationLine: "underline" },
   submitButton: { minHeight: 48 },
 });

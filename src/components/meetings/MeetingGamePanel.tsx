@@ -3,12 +3,13 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { router, useFocusEffect } from "expo-router";
 import { Animated, Easing, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import Svg, { Circle, Path, Text as SvgText } from "react-native-svg";
-import { Check, ChevronRight, Gift, RefreshCw, Trophy, UserMinus } from "lucide-react-native";
+import { Check, ChevronRight, RotateCw, RefreshCw, Users, UserMinus } from "lucide-react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { Avatar, Button, Card, ErrorState, LoadingState, Screen, SectionTitle } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { meetingService, meetingVersion, type GameWinnerInput, type LuckyDrawWinner, type Meeting } from "@/services/meeting";
 import { userService } from "@/services/users";
+import { WHEEL_SELECTION_NAME } from "@/data/wheel-selection";
 import { colors, radius, spacing } from "@/theme/tokens";
 import type { UserProfile } from "@/types";
 import { hasPermission } from "@/utils/permissions";
@@ -23,13 +24,13 @@ const initials = (name: string) => name.split(" ").filter(Boolean).map((word) =>
 
 function roster(meeting: Meeting, users: UserProfile[]): Player[] {
   const matched = new Set<string>();
-  const members = users.filter((user) => user.uid).map((user) => {
+  const members = users.filter((user) => user.uid && user.isActive !== false).map((user) => {
     const name = user.displayName?.trim() || user.email?.split("@")[0] || "Thành viên";
     const speaker = meeting.speakers.find((item) => item.userId === user.uid || (!item.userId && item.name.trim().toLocaleLowerCase("vi") === name.toLocaleLowerCase("vi")));
     if (speaker) matched.add(speaker.id);
     return { id: speaker?.id || user.uid, name, photoURL: user.photoURL || speaker?.photoURL, category: speaker ? "present" as const : "absent" as const };
   });
-  const guests = meeting.speakers.filter((speaker) => !matched.has(speaker.id)).map((speaker) => ({
+  const guests = meeting.speakers.filter((speaker) => !speaker.deletedAccount && !matched.has(speaker.id)).map((speaker) => ({
     id: speaker.id, name: speaker.name.trim(), photoURL: speaker.photoURL, category: (speaker.userId ? "present" : "guest") as Player["category"],
   }));
   return [...members, ...guests];
@@ -73,7 +74,7 @@ export function MeetingGamePanel({ id, embedded = false }: { id: string; embedde
       if (!mounted.current) return;
       setMeeting(fresh);
       setUsers(directory);
-      setPrizeName((current) => current || "Giải thưởng");
+      setPrizeName((current) => current || WHEEL_SELECTION_NAME);
       setError("");
     } catch (cause) {
       if (mounted.current) setError(friendlyErrorMessage(cause, "Không tải được cuộc họp."));
@@ -94,7 +95,7 @@ export function MeetingGamePanel({ id, embedded = false }: { id: string; embedde
   const history = (meeting?.gameWinners || []).filter((entry) => entry.source === "wheel").slice().reverse();
   const size = Math.min(300, width - 76);
   const previousProjectedWinners = new Set(meeting?.luckyDraw?.allowRepeatWinners ? [] : meeting?.luckyDraw?.prizes.flatMap((prize) => prize.winners.map((item) => item.winnerId)) || []);
-  const projectedCandidates = meeting?.speakers.filter((speaker) => !previousProjectedWinners.has(speaker.id)) || [];
+  const projectedCandidates = meeting?.speakers.filter((speaker) => !speaker.deletedAccount && !previousProjectedWinners.has(speaker.id)) || [];
   const canProjectWheel = category === "present" && !customGuests.length && !!meeting?.speakers.length && eligible.length === projectedCandidates.length && projectedCandidates.every((speaker) => eligible.some((player) => player.id === speaker.id));
   const spin = async () => {
     if (busyRef.current || winner || !meeting || !canManage || !eligible.length || !["live", "paused"].includes(meeting.status)) return;
@@ -105,18 +106,18 @@ export function MeetingGamePanel({ id, embedded = false }: { id: string; embedde
       // Refresh immediately before choosing, so a result saved on another device is respected.
       const fresh = await meetingService.get(id);
       const candidates = eligible;
-      if (!candidates.length) throw new Error("Mọi người trong danh sách đã trúng. Hãy chọn thêm người tham gia.");
+      if (!candidates.length) throw new Error("Mọi người trong danh sách đã được chọn. Hãy chọn thêm người tham gia.");
       let projectedWinner: LuckyDrawWinner | null = null;
       if (canProjectWheel) {
-        let prize = fresh.luckyDraw?.prizes.find((item) => item.name === (prizeName.trim() || "Giải thưởng") && item.winners.length < item.quantity);
+        let prize = fresh.luckyDraw?.prizes.find((item) => item.name === (prizeName.trim() || "Lượt chọn") && item.winners.length < item.quantity);
         if (fresh.luckyDraw?.drawMode !== "attendees") {
           await meetingService.updateLuckyDrawConfig(id, { drawMode: "attendees" });
         }
         if (!prize) {
-          const config = await meetingService.savePrize(id, { name: prizeName.trim() || "Giải thưởng", quantity: Math.max(100, candidates.length) });
-          prize = config.prizes.find((item) => item.name === (prizeName.trim() || "Giải thưởng") && item.winners.length < item.quantity);
+          const config = await meetingService.savePrize(id, { name: prizeName.trim() || "Lượt chọn", quantity: Math.max(100, candidates.length) });
+          prize = config.prizes.find((item) => item.name === (prizeName.trim() || "Lượt chọn") && item.winners.length < item.quantity);
         }
-        if (!prize) throw new Error("Không tạo được giải thưởng để trình chiếu.");
+        if (!prize) throw new Error("Không tạo được lượt chọn để trình chiếu.");
         const latest = await meetingService.get(id);
         projectedWinner = (await meetingService.presentationDraw(id, prize.id, meetingVersion(latest))).winner;
       }
@@ -125,7 +126,7 @@ export function MeetingGamePanel({ id, embedded = false }: { id: string; embedde
       const selected = candidates[selectedIndex];
       const input: GameWinnerInput = {
         id: projectedWinner?.id || `mobile-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
-        winnerId: selected.id, source: "wheel", name: projectedWinner?.name || selected.name, prizeName: projectedWinner?.prizeName || prizeName.trim() || "Giải thưởng",
+        winnerId: selected.id, source: "wheel", name: projectedWinner?.name || selected.name, prizeName: projectedWinner?.prizeName || prizeName.trim() || "Lượt chọn",
         ...(selected.photoURL?.startsWith("http") ? { photoURL: selected.photoURL } : {}),
         wonAt: projectedWinner?.wonAt || new Date().toISOString(),
       };
@@ -159,16 +160,16 @@ export function MeetingGamePanel({ id, embedded = false }: { id: string; embedde
   const rotate = rotation.interpolate({ inputRange: [0, 360], outputRange: ["0deg", "360deg"], extrapolate: "extend" });
 
   const content = <>
-    {!embedded ? <BackHeader title="Quay thưởng" subtitle={meeting?.title} /> : null}
+    {!embedded ? <BackHeader title="Quay chọn người" subtitle={meeting?.title} /> : null}
     {loading && !meeting ? <LoadingState /> : !meeting ? <ErrorState message={error || "Không tìm thấy cuộc họp."} onRetry={() => void refresh()} /> : <>
       {error ? <Card style={styles.error}><Text style={styles.errorText}>{error}</Text><Button tone="secondary" icon={RefreshCw} onPress={() => { setError(""); void refresh(); }}>Làm mới</Button></Card> : null}
       {canManage ? <Card style={styles.options}>
-        <Text style={styles.label}>Giải của lượt quay</Text>
-        <TextInput accessibilityLabel="Tên giải thưởng" value={prizeName} onChangeText={setPrizeName} editable={!busy && !winner} maxLength={200} placeholder="Giải thưởng" style={styles.input} />
+        <Text style={styles.label}>Tên lượt chọn</Text>
+        <TextInput accessibilityLabel="Tên lượt chọn" value={prizeName} onChangeText={setPrizeName} editable={!busy && !winner} maxLength={200} placeholder="Lượt chọn" style={styles.input} />
         {meeting.luckyDraw?.prizes.length ? <View style={styles.chips}>{meeting.luckyDraw.prizes.map((prize) => <Pressable key={prize.id} accessibilityRole="button" disabled={busy || !!winner} onPress={() => setPrizeName(prize.name)} style={[styles.chip, prizeName === prize.name && styles.chipActive]}><Text style={styles.chipText}>{prize.name}</Text></Pressable>)}</View> : null}
       </Card> : null}
       <Card style={styles.stage}>
-        <Text style={styles.stageTitle}>Vòng quay may mắn</Text>
+        <Text style={styles.stageTitle}>Vòng quay chọn người</Text>
         <Text style={styles.muted}>{eligible.length} người đang tham gia · 5 giây</Text>
         {canManage ? <Text style={styles.muted}>{canProjectWheel ? "Quay đồng bộ với màn chiếu web" : "Bộ lọc này quay trên điện thoại và lưu kết quả; màn chiếu web chưa hỗ trợ đồng bộ."}</Text> : null}
         <Pressable accessibilityRole="button" accessibilityLabel="Chạm vòng quay để quay" disabled={!canManage || busy || !!winner || !eligible.length || !["live", "paused"].includes(meeting.status)} onPress={() => void spin()} style={[styles.gameView, { width: size, height: size }]}>
@@ -185,12 +186,12 @@ export function MeetingGamePanel({ id, embedded = false }: { id: string; embedde
           </Animated.View>
           <View style={styles.pointer} />
         </Pressable>
-        <Text style={styles.muted}>{busy ? "Đang quay..." : canManage ? "Bấm quay để chọn người trúng" : "Người quản lý cuộc họp có thể bắt đầu quay"}</Text>
+        <Text style={styles.muted}>{busy ? "Đang quay..." : canManage ? "Bấm quay để chọn người được chọn" : "Người quản lý cuộc họp có thể bắt đầu quay"}</Text>
         {!["live", "paused"].includes(meeting.status) ? <Text style={styles.errorText}>{meeting.status === "scheduled" ? "Hãy bắt đầu cuộc họp trước khi quay." : "Cuộc họp đã đóng, không thể quay tiếp."}</Text> : null}
-        {canManage ? <Button icon={Gift} fullWidth disabled={busy || !!winner || !eligible.length || !["live", "paused"].includes(meeting.status)} onPress={() => void spin()}>{busy ? "Đang quay..." : "Quay VQMM"}</Button> : null}
+        {canManage ? <Button icon={RotateCw} fullWidth disabled={busy || !!winner || !eligible.length || !["live", "paused"].includes(meeting.status)} onPress={() => void spin()}>{busy ? "Đang quay..." : "Quay chọn người"}</Button> : null}
         {winner ? <View style={styles.winnerCard}>
-          <Trophy color="#D69200" size={32} />
-          <Text style={styles.modalEyebrow}>CHÚC MỪNG CHIẾN THẮNG</Text>
+          <Users color={colors.primaryDark} size={32} />
+          <Text style={styles.modalEyebrow}>NGƯỜI ĐƯỢC CHỌN</Text>
           <Avatar initials={initials(winner.name)} url={winner.photoURL} size={56} />
           <Text style={styles.modalName}>{winner.name}</Text>
           <Text style={styles.muted}>{winner.prizeName}{winner.ticketNumber ? ` · Số ${winner.ticketNumber}` : ""}</Text>

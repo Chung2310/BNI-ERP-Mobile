@@ -1,5 +1,5 @@
 import { useLocalSearchParams } from "expo-router";
-import { Gift, Trophy } from "lucide-react-native";
+import { CheckCircle2, Users } from "lucide-react-native";
 import { StyleSheet, Text, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { HeaderRefreshAction } from "@/components/HeaderRefreshAction";
@@ -34,9 +34,9 @@ export default function MeetingGameResultsScreen() {
   const winners = getWheelWinners(meeting);
 
   return <Screen style={styles.screen}>
-    <BackHeader title="Kết quả quay thưởng" subtitle={meeting?.title} compact action={<HeaderRefreshAction label="Làm mới kết quả quay thưởng" disabled={isLoading} onPress={() => void reload()} />} />
+    <BackHeader title="Kết quả quay chọn người" subtitle={meeting?.title} compact action={<HeaderRefreshAction label="Làm mới kết quả quay chọn người" disabled={isLoading} onPress={() => void reload()} />} />
     {isLoading && !meeting ? <LoadingState /> : error && !meeting ? <ErrorState message={error} onRetry={reload} /> : !meeting ? null : <>
-      <Text style={styles.heading}>Vòng quay may mắn · {winners.length} người trúng</Text>
+      <Text style={styles.heading}>Vòng quay chọn người · {winners.length} người được chọn</Text>
       {winners.length ? <Card style={styles.list}>{winners.map((winner) => <WinnerRow key={winner.id} winner={winner} />)}</Card>
         : <EmptyState title="Chưa có kết quả" message="Kết quả vòng quay may mắn sẽ xuất hiện tại đây." />}
     </>}
@@ -44,15 +44,15 @@ export default function MeetingGameResultsScreen() {
 }
 
 function WinnerRow({ winner }: { winner: LuckyDrawWinner }) {
-  const name = winner.name || (winner.ticketNumber != null ? `Số ${winner.ticketNumber}` : "Người trúng giải");
+  const name = winner.name || (winner.ticketNumber != null ? `Số ${winner.ticketNumber}` : "Người được chọn");
   return <View style={styles.row}>
-    {winner.photoURL ? <Avatar initials={initials(name)} url={winner.photoURL} size={36} /> : <View style={styles.icon}><Trophy color={colors.primaryDark} size={18} /></View>}
+    {winner.photoURL ? <Avatar initials={initials(name)} url={winner.photoURL} size={36} /> : <View style={styles.icon}><Users color={colors.primaryDark} size={18} /></View>}
     <View style={styles.grow}>
       <Text style={styles.name}>{name}</Text>
-      <Text style={styles.meta}>{winner.prizeName || "Giải thưởng"}{winner.ticketNumber != null ? ` · Số ${winner.ticketNumber}` : ""}</Text>
+      <Text style={styles.meta}>{winner.prizeName || "Lượt chọn"}{winner.ticketNumber != null ? ` · Số ${winner.ticketNumber}` : ""}</Text>
       {winner.wonAt ? <Text style={styles.meta}>{new Date(winner.wonAt).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}</Text> : null}
     </View>
-    <Gift color={colors.muted} size={16} />
+    <CheckCircle2 color={colors.muted} size={16} />
   </View>;
 }
 

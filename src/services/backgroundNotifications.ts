@@ -55,8 +55,8 @@ if (Platform.OS !== "web") {
 
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: title ?? "iGen Connect",
-          body: body ?? "Bạn có thông báo mới.",
+          title: "iGen Connect",
+          body: pushData.type === "chat" ? "Bạn có tin nhắn mới. Mở ứng dụng để xem." : "Bạn có thông báo mới. Mở ứng dụng để xem.",
           data: pushData,
           sound: "default",
         },

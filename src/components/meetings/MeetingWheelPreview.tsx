@@ -13,12 +13,9 @@ import Svg, {
   Text as SvgText,
 } from "react-native-svg";
 import {
-  Award,
-  Crown,
-  Gift,
-  PartyPopper,
+  CheckCircle2,
+  Users,
   Sparkles,
-  Trophy,
   X,
 } from "lucide-react-native";
 import { Avatar, Badge, Card } from "@/components/ui";
@@ -212,7 +209,7 @@ export function MeetingWheelPreview({
     extrapolate: "extend",
   });
 
-  // Render Vòng quay may mắn xịn xò
+  // Render Vòng quay chọn người xịn xò
   const renderWheel = () => (
     <View style={[styles.wheelContainer, { width: wheelSize, height: wheelSize }]}>
       {/* Vành vàng tĩnh với đèn LED xung quanh */}
@@ -267,7 +264,7 @@ export function MeetingWheelPreview({
         </Svg>
       </Animated.View>
 
-      {/* Mũi tên kim loại 3D chỉ giải thưởng ở đỉnh */}
+      {/* Mũi tên kim loại 3D chỉ lượt chọn ở đỉnh */}
       <View style={[styles.pointerWrap, { left: wheelSize / 2 - 13 }]}>
         <Svg width={26} height={32} viewBox="0 0 26 32">
           <Path
@@ -289,11 +286,11 @@ export function MeetingWheelPreview({
         <View style={styles.fullscreenLeft}>{renderWheel()}</View>
         <View style={styles.fullscreenRight}>
           <Badge tone={spinning ? "danger" : "warning"}>
-            {spinning ? "⚡ ĐANG QUAY THƯỞNG..." : "QUAY THƯỞNG MAY MẮN"}
+            {spinning ? "⚡ ĐANG QUAY CHỌN NGƯỜI..." : "VÒNG QUAY CHỌN NGƯỜI"}
           </Badge>
           {(() => {
             const prizeTitle = (winner?.prizeName || selectedPrize?.name || "").trim();
-            if (!prizeTitle || prizeTitle.toLowerCase() === "giải thưởng may mắn") return null;
+            if (!prizeTitle || prizeTitle.toLowerCase() === "chọn người tham gia") return null;
             return (
               <Text numberOfLines={2} style={styles.fullscreenPrizeName}>
                 {prizeTitle}
@@ -301,12 +298,12 @@ export function MeetingWheelPreview({
             );
           })()}
           <Text style={styles.fullscreenSubtext}>
-            {numeric ? `${range} số may mắn` : `${count} người tham gia`}
+            {numeric ? `${range} số thứ tự` : `${count} người tham gia`}
           </Text>
 
           {winner && !spinning ? (
             <View style={styles.fullscreenWinnerCard}>
-              <Text style={styles.fullscreenWinnerEyebrow}>🎉 NGƯỜI TRÚNG GIẢI</Text>
+              <Text style={styles.fullscreenWinnerEyebrow}>🎉 NGƯỜI ĐƯỢC CHỌN</Text>
               <Text numberOfLines={1} style={styles.fullscreenWinnerName}>
                 {winner.name}
               </Text>
@@ -336,8 +333,8 @@ export function MeetingWheelPreview({
                 </View>
               ) : (
                 <View style={styles.idleBadge}>
-                  <Trophy size={13} color="#D97706" />
-                  <Text style={styles.idleBadgeText}>QUAY THƯỞNG</Text>
+                  <Users size={13} color="#D97706" />
+                  <Text style={styles.idleBadgeText}>QUAY CHỌN NGƯỜI</Text>
                 </View>
               )}
               <Text style={styles.participantCount}>
@@ -347,7 +344,7 @@ export function MeetingWheelPreview({
 
             {(() => {
               const prizeTitle = (winner?.prizeName || selectedPrize?.name || "").trim();
-              if (!prizeTitle || prizeTitle.toLowerCase() === "giải thưởng may mắn") return null;
+              if (!prizeTitle || prizeTitle.toLowerCase() === "chọn người tham gia") return null;
               return (
                 <Text numberOfLines={1} style={styles.mainPrizeTitle}>
                   {prizeTitle}
@@ -366,8 +363,8 @@ export function MeetingWheelPreview({
         <View style={styles.celebrationCard}>
           <View style={styles.celebrationHeader}>
             <View style={styles.celebrationTag}>
-              <PartyPopper size={16} color="#B45309" />
-              <Text style={styles.celebrationTitle}>CHÚC MỪNG CHIẾN THẮNG!</Text>
+              <CheckCircle2 size={16} color="#B45309" />
+              <Text style={styles.celebrationTitle}>NGƯỜI ĐƯỢC CHỌN!</Text>
             </View>
             <Pressable
               hitSlop={8}
@@ -390,10 +387,10 @@ export function MeetingWheelPreview({
               </Text>
               {(() => {
                 const prizeTitle = (winner.prizeName || selectedPrize?.name || "").trim();
-                const hasCustomPrize = prizeTitle && prizeTitle.toLowerCase() !== "giải thưởng may mắn";
+                const hasCustomPrize = prizeTitle && prizeTitle.toLowerCase() !== "chọn người tham gia";
                 const parts = [
                   hasCustomPrize ? prizeTitle : null,
-                  winner.ticketNumber ? `Vé số #${winner.ticketNumber}` : null,
+                  winner.ticketNumber ? `Số #${winner.ticketNumber}` : null,
                 ].filter(Boolean);
                 if (!parts.length) return null;
                 return (
@@ -436,11 +433,11 @@ export function MeetingWinnersList({ meeting, now }: { meeting: Meeting; now: nu
     <View style={styles.winnersSection}>
       <View style={styles.winnersHeader}>
         <View style={styles.winnersTitleRow}>
-          <Trophy size={18} color="#D97706" />
-          <Text style={styles.winnersTitle}>Danh sách trúng thưởng</Text>
+          <Users size={18} color="#D97706" />
+          <Text style={styles.winnersTitle}>Danh sách được chọn</Text>
         </View>
         <Badge tone={allWinners.length > 0 ? "warning" : "default"}>
-          {allWinners.length} người đã trúng
+          {allWinners.length} người đã được chọn
         </Badge>
       </View>
 
@@ -454,13 +451,7 @@ export function MeetingWinnersList({ meeting, now }: { meeting: Meeting; now: nu
                 style={[styles.winnerItem, isRecent && styles.latestWinnerItem]}
               >
                 <View style={styles.rankCol}>
-                  {index === 0 ? (
-                    <Crown size={18} color="#D97706" />
-                  ) : index === 1 ? (
-                    <Award size={18} color="#64748B" />
-                  ) : (
-                    <Text style={styles.rankNumber}>#{index + 1}</Text>
-                  )}
+                  <Text style={styles.rankNumber}>#{allWinners.length - index}</Text>
                 </View>
 
                 <Avatar
@@ -476,14 +467,14 @@ export function MeetingWinnersList({ meeting, now }: { meeting: Meeting; now: nu
                     </Text>
                     {isRecent ? (
                       <View style={styles.recentPill}>
-                        <Gift size={11} color="#B45309" />
-                        <Text style={styles.recentPillText}>Vừa trúng</Text>
+                        <CheckCircle2 size={11} color="#B45309" />
+                        <Text style={styles.recentPillText}>Vừa được chọn</Text>
                       </View>
                     ) : null}
                   </View>
 
                   <View style={styles.winnerMetaRow}>
-                    {item.prizeName && item.prizeName.toLowerCase() !== "giải thưởng may mắn" ? (
+                    {item.prizeName && item.prizeName.toLowerCase() !== "chọn người tham gia" ? (
                       <Text numberOfLines={1} style={styles.prizeBadgeText}>
                         {item.prizeName}
                       </Text>
@@ -501,12 +492,12 @@ export function MeetingWinnersList({ meeting, now }: { meeting: Meeting; now: nu
         </View>
       ) : (
         <View style={styles.emptyBox}>
-          <Gift size={32} color="#CBD5E1" />
-          <Text style={styles.emptyTitle}>Chưa có người trúng thưởng</Text>
+          <Users size={32} color="#CBD5E1" />
+          <Text style={styles.emptyTitle}>Chưa có người được chọn</Text>
           <Text style={styles.emptySubtitle}>
             {spinning
               ? "Vòng quay đang xoay để tìm người may mắn..."
-              : "Kết quả trúng thưởng sẽ hiển thị tại đây theo thời gian thực."}
+              : "Kết quả được chọn sẽ hiển thị tại đây theo thời gian thực."}
           </Text>
         </View>
       )}
@@ -663,7 +654,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  // Danh sách người trúng giải Real-time
+  // Danh sách người được chọn Real-time
   winnersSection: {
     gap: spacing.sm,
   },
