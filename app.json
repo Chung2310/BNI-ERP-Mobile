@@ -113,7 +113,7 @@
           "locationWhenInUsePermission": "Cho phép iGen Connect dùng vị trí hiện tại khi bạn check-in để xác minh bạn đang trong khu vực cuộc họp.",
           "locationAlwaysPermission": false,
           "locationAlwaysAndWhenInUsePermission": false,
-          "motionUsagePermission": false
+          "motionUsagePermission": "Cho phép iGen Connect nhận biết trạng thái di chuyển của thiết bị để hỗ trợ tính năng vị trí khi check-in cuộc họp."
         }
       ],
       [
