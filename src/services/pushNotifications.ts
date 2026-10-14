@@ -1,4 +1,5 @@
 import { isRunningInExpoGo } from "expo";
+import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as SecureStore from "expo-secure-store";
 import { Linking, Platform } from "react-native";
@@ -11,12 +12,12 @@ const ANDROID_CHANNEL_ID = "default";
 let registrationPromise: Promise<string | null> | null = null;
 
 type PushPlatform = "android" | "ios";
-type PushProvider = "fcm" | "apns";
+type PushProvider = "fcm" | "expo";
 
 function getPushRegistrationMetadata(): { platform: PushPlatform; provider: PushProvider } {
   return Platform.OS === "android"
     ? { platform: "android", provider: "fcm" }
-    : { platform: "ios", provider: "apns" };
+    : { platform: "ios", provider: "expo" };
 }
 
 export async function getPushNotificationsModule() {
@@ -55,7 +56,10 @@ async function performDevicePushRegistration(providedToken?: string): Promise<st
     });
   }
 
-  let token = providedToken;
+  const registration = getPushRegistrationMetadata();
+  // iOS native tokens are APNs tokens and cannot be sent through Firebase
+  // Admin. Use Expo's project-scoped token there; Android stays on native FCM.
+  let token = registration.provider === "fcm" ? providedToken : undefined;
   if (!token) {
     const currentPermission = await Notifications.getPermissionsAsync();
     const hasCurrentPermission = currentPermission.granted || (
@@ -80,19 +84,29 @@ async function performDevicePushRegistration(providedToken?: string): Promise<st
     );
     if (!hasPermission) return null;
 
-    // This is the provider-native token: FCM on Android and APNs on iOS.
-    // The backend sends directly to those providers; Expo Push Service is not used.
-    const nativeToken = await Notifications.getDevicePushTokenAsync();
-    if (Platform.OS === "android" && nativeToken.type !== "android") {
-      throw new Error("Firebase trả về sai loại token cho thiết bị Android.");
+    if (registration.provider === "expo") {
+      const projectId =
+        Constants.expoConfig?.extra?.eas?.projectId ??
+        Constants.easConfig?.projectId ??
+        process.env.EXPO_PUBLIC_EAS_PROJECT_ID?.trim();
+      if (!projectId) {
+        throw new Error("Thiếu EAS project ID. Hãy cấu hình EXPO_PUBLIC_EAS_PROJECT_ID cho bản iOS.");
+      }
+      const expoToken = await Notifications.getExpoPushTokenAsync({ projectId });
+      if (typeof expoToken.data !== "string") {
+        throw new Error("Expo Push Service không trả về token hợp lệ.");
+      }
+      token = expoToken.data.trim();
+    } else {
+      const nativeToken = await Notifications.getDevicePushTokenAsync();
+      if (nativeToken.type !== "android") {
+        throw new Error("Firebase trả về sai loại token cho thiết bị Android.");
+      }
+      if (typeof nativeToken.data !== "string") {
+        throw new Error("Dịch vụ push không trả về token hợp lệ.");
+      }
+      token = nativeToken.data.trim();
     }
-    if (Platform.OS === "ios" && nativeToken.type !== "ios") {
-      throw new Error("APNs trả về sai loại token cho thiết bị iOS.");
-    }
-    if (typeof nativeToken.data !== "string") {
-      throw new Error("Dịch vụ push không trả về token hợp lệ.");
-    }
-    token = nativeToken.data.trim();
   }
   if (!token) return null;
   token = token.trim();
@@ -101,8 +115,6 @@ async function performDevicePushRegistration(providedToken?: string): Promise<st
   }
   const previousToken = await SecureStore.getItemAsync(PUSH_TOKEN_KEY);
   const legacyExpoToken = await SecureStore.getItemAsync(LEGACY_EXPO_PUSH_TOKEN_KEY);
-  const registration = getPushRegistrationMetadata();
-
   await apiRequest("/api/v1/push/mobile/subscribe", {
     method: "POST",
     body: JSON.stringify({

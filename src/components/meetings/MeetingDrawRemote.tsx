@@ -1,160 +1,164 @@
 import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useCallback, useMemo, useState } from "react";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Check, ChevronRight, Gift, RefreshCw, UserMinus, Users, X } from "lucide-react-native";
+import { Check, ChevronRight, Gift, RefreshCw, Trophy, UserMinus, Users, X } from "lucide-react-native";
 import { Alert } from "@/components/AppAlert";
 import { Avatar, Badge, Button, Card, LoadingState } from "@/components/ui";
-import { meetingService, meetingVersion, type LuckyDrawWinner, type Meeting } from "@/services/meeting";
-import { userService } from "@/services/users";
+import { drawParticipants, excludedDrawWinnerIds, matchesDrawFilter } from "@/components/meetings/drawParticipants";
+import { meetingService, meetingVersion, type DrawFilter, type LuckyDrawWinner, type Meeting } from "@/services/meeting";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 import type { UserProfile } from "@/types";
 
-type Filter = "all" | "all_members" | "present" | "guest";
-type Participant = {
-  id: string;
-  name: string;
-  photoURL?: string;
-  kind: "member_present" | "member_absent" | "guest";
-};
-
-const filters: { value: Filter; label: string }[] = [
-  { value: "present", label: "Có mặt" },
+const filters: { value: DrawFilter; label: string }[] = [
+  { value: "present_members", label: "Có mặt" },
   { value: "all", label: "Tất cả" },
   { value: "all_members", label: "Tất cả TV" },
-  { value: "guest", label: "Khách mời" },
+  { value: "absent_members", label: "Vắng mặt" },
+  { value: "guests", label: "Khách mời" },
 ];
-
-function participants(meeting: Meeting, users: UserProfile[]): Participant[] {
-  const matched = new Set<string>();
-  const members: Participant[] = users
-    .filter((user) => user.uid)
-    .map((user) => {
-      const name = user.displayName?.trim() || user.email?.split("@")[0] || "Thành viên";
-      const speaker = meeting.speakers.find(
-        (item) =>
-          item.userId === user.uid ||
-          (user.email && item.email?.toLowerCase() === user.email.toLowerCase()) ||
-          item.name.trim().toLocaleLowerCase("vi") === name.toLocaleLowerCase("vi")
-      );
-      if (speaker) matched.add(speaker.id);
-      return {
-        id: speaker?.id || user.uid,
-        name,
-        photoURL: user.photoURL || speaker?.photoURL,
-        kind: speaker ? "member_present" : "member_absent",
-      };
-    });
-  const others: Participant[] = meeting.speakers
-    .filter((speaker) => !matched.has(speaker.id))
-    .map((speaker) => ({
-      id: speaker.id,
-      name: speaker.name,
-      photoURL: speaker.photoURL,
-      kind: speaker.userId ? "member_present" : "guest",
-    }));
-  return [...members, ...others];
-}
-
-function matchesFilter(person: Participant, filter: Filter) {
-  if (filter === "all") return true;
-  if (filter === "all_members") return person.kind !== "guest";
-  if (filter === "present") return person.kind !== "member_absent";
-  return person.kind === "guest";
-}
 
 export function MeetingDrawRemote({
   id,
   meeting,
+  users,
+  loadingUsers,
+  usersError,
+  onRefreshUsers,
   disabled,
   onRefresh,
 }: {
   id: string;
   meeting: Meeting;
+  users: UserProfile[];
+  loadingUsers: boolean;
+  usersError: string;
+  onRefreshUsers: () => Promise<void>;
   disabled: boolean;
-  onRefresh: () => void;
+  onRefresh: () => Promise<void>;
 }) {
   const insets = useSafeAreaInsets();
-  const [selectedFilter, setSelectedFilter] = useState<Filter>("present");
   const [unselected, setUnselected] = useState<string[]>([]);
-  const [users, setUsers] = useState<UserProfile[]>([]);
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [winner, setWinner] = useState<LuckyDrawWinner | null>(null);
+  const [dismissedWinnerId, setDismissedWinnerId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [displayOpen, setDisplayOpen] = useState(false);
 
-  const refreshUsers = useCallback(async () => {
+  const refreshDisplay = useCallback(async () => {
     try {
-      setUsers(await userService.directory());
-      setError("");
-    } catch (cause) {
-      setError(friendlyErrorMessage(cause, "Không tải được danh sách thành viên."));
-    } finally {
-      setLoading(false);
+      const display = await meetingService.presentationDisplay(id);
+      setDisplayOpen(display.isOpen);
+    } catch {
+      setDisplayOpen(false);
     }
-  }, []);
+  }, [id]);
+
+  const ensureDisplayOpen = async () => {
+    const display = await meetingService.presentationDisplay(id);
+    setDisplayOpen(display.isOpen);
+    if (!display.isOpen) throw new Error("Hãy mở chế độ màn hình trình chiếu trên web trước khi điều khiển vòng quay.");
+  };
 
   useFocusEffect(
     useCallback(() => {
-      void refreshUsers();
-    }, [refreshUsers])
+      void refreshDisplay();
+      const interval = setInterval(() => void refreshDisplay(), 5000);
+      return () => clearInterval(interval);
+    }, [refreshDisplay])
   );
 
-  const roster = useMemo(() => participants(meeting, users), [meeting, users]);
-  const filter = selectedFilter;
-  const filtered = roster.filter((person) => matchesFilter(person, filter));
-  const selected = filtered.filter((person) => !unselected.includes(person.id));
-
-  const previousWinners = useMemo(
-    () =>
-      new Set(
-        meeting.luckyDraw?.allowRepeatWinners
-          ? []
-          : meeting.luckyDraw?.prizes.flatMap((prize) => prize.winners.map((item) => item.winnerId)) ||
-            []
-      ),
-    [meeting.luckyDraw]
+  const roster = useMemo(() => drawParticipants(meeting, users), [meeting, users]);
+  const filter = meeting.presentation?.drawFilter || "all";
+  const drawPanel = meeting.presentation?.drawPanel || "participants";
+  const winnerCount = meeting.luckyDraw?.prizes.reduce((total, prize) => total + prize.winners.length, 0) || 0;
+  const filtered = roster.filter((person) => matchesDrawFilter(person, filter));
+  const excludedWinnerIds = excludedDrawWinnerIds(meeting);
+  const eligible = filtered.filter((person) => !excludedWinnerIds.has(person.id));
+  const projectedIds = meeting.presentation?.drawParticipantIds;
+  const selected = eligible.filter((person) => sheetOpen
+    ? !unselected.includes(person.id)
+    : projectedIds == null || projectedIds.includes(person.id));
+  const presentedWinner = meeting.luckyDraw?.prizes
+    .flatMap((prize) => prize.winners)
+    .find((item) => item.id === meeting.presentation?.drawWinnerId);
+  const localWinner = winner && (
+    meeting.presentation?.drawResultVisible !== false ||
+    meeting.presentation?.drawWinnerId !== winner.id
+  ) ? winner : null;
+  const activeWinner = localWinner || (
+    meeting.presentation?.drawResultVisible !== false &&
+    presentedWinner?.id !== dismissedWinnerId
+      ? presentedWinner || null
+      : null
   );
 
-  const backendCandidates = meeting.speakers.filter(
-    (speaker) => !previousWinners.has(speaker.id)
-  );
-
-  const canProject =
-    selected.length > 0 &&
-    selected.length === backendCandidates.length &&
-    backendCandidates.every((speaker) => selected.some((person) => person.id === speaker.id));
+  const canProject = selected.length > 0;
 
   const ready =
-    !disabled && !busy && !winner && (meeting.status === "live" || meeting.status === "paused");
+    displayOpen && !loadingUsers && !usersError && !disabled && !busy && !activeWinner && (meeting.status === "live" || meeting.status === "paused");
+
+  const openSelection = () => {
+    setUnselected(eligible.filter((person) => projectedIds != null && !projectedIds.includes(person.id)).map((person) => person.id));
+    setSheetOpen(true);
+  };
+
+  const changeFilter = async (nextFilter: DrawFilter) => {
+    if (!displayOpen || disabled || busy || activeWinner || nextFilter === filter) return;
+    setBusy(true);
+    setError("");
+    try {
+      await ensureDisplayOpen();
+      const current = await meetingService.get(id);
+      await meetingService.presentationState(
+        id,
+        { drawFilter: nextFilter, drawParticipantIds: null, drawPanel: "participants" },
+        meetingVersion(current)
+      );
+      setUnselected([]);
+      await onRefresh();
+    } catch (cause) {
+      setError(friendlyErrorMessage(cause, "Không thể đổi bộ lọc trên màn chiếu."));
+      void onRefresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleWinnerList = async () => {
+    if (!displayOpen || disabled || busy || activeWinner) return;
+    setBusy(true);
+    setError("");
+    try {
+      await ensureDisplayOpen();
+      const current = await meetingService.get(id);
+      const nextPanel = current.presentation?.drawPanel === "winners" ? "participants" : "winners";
+      await meetingService.presentationState(id, { drawPanel: nextPanel }, meetingVersion(current));
+      await onRefresh();
+    } catch (cause) {
+      setError(friendlyErrorMessage(cause, "Không thể chuyển danh sách trên màn chiếu."));
+      void onRefresh();
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const spin = async () => {
     if (!ready) return;
     if (!canProject) {
       Alert.alert(
         "Chưa thể quay trên màn chiếu",
-        "API trình chiếu hiện chỉ quay danh sách người đã check-in. Bộ lọc hoặc người được tick chưa khớp danh sách này."
+        "Hãy chọn ít nhất một người trong bộ lọc trước khi quay."
       );
       return;
     }
     setBusy(true);
     setError("");
     try {
+      await ensureDisplayOpen();
       let current = await meetingService.get(id);
-      const currentWinners = new Set(
-        current.luckyDraw?.allowRepeatWinners
-          ? []
-          : current.luckyDraw?.prizes.flatMap((prize) => prize.winners.map((item) => item.winnerId)) || []
-      );
-      const actualCandidates = current.speakers.filter((speaker) => !currentWinners.has(speaker.id));
-      if (
-        actualCandidates.length !== selected.length ||
-        actualCandidates.some((speaker) => !selected.some((person) => person.id === speaker.id))
-      ) {
-        throw new Error("Danh sách trên màn chiếu vừa thay đổi. Hãy làm mới rồi quay lại.");
-      }
       if (current.luckyDraw?.drawMode !== "attendees") {
         await meetingService.updateLuckyDrawConfig(id, { drawMode: "attendees" });
         current = await meetingService.get(id);
@@ -171,44 +175,47 @@ export function MeetingDrawRemote({
         current = await meetingService.get(id);
       }
       if (!prize) throw new Error("Không tạo được giải thưởng để quay.");
-      const result = await meetingService.presentationDraw(id, prize.id, meetingVersion(current));
+      await ensureDisplayOpen();
+      const result = await meetingService.presentationDraw(id, prize.id, meetingVersion(current), filter, selected.map((person) => person.id));
       setWinner(result.winner);
-      onRefresh();
+      void onRefresh();
     } catch (cause) {
       setError(friendlyErrorMessage(cause, "Không thể quay trên màn chiếu."));
-      onRefresh();
+      void onRefresh();
     } finally {
       setBusy(false);
     }
   };
 
-  const closeResult = () => {
-    if (winner)
-      setUnselected((current) => [...new Set([...current, winner.winnerId])]);
-    setWinner(null);
-    onRefresh();
-  };
-
-  const keepWinner = async () => {
-    if (!winner?.prizeId || busy) return;
+  const decideWinner = async (repeatEligible: boolean) => {
+    if (!displayOpen || !activeWinner || busy) return;
     setBusy(true);
+    setError("");
     try {
-      await meetingService.redrawWinner(id, winner.prizeId, winner.id);
+      await ensureDisplayOpen();
+      const current = await meetingService.get(id);
+      await meetingService.setDrawWinnerRepeatEligibility(
+        id,
+        activeWinner.id,
+        repeatEligible,
+        meetingVersion(current)
+      );
+      setDismissedWinnerId(activeWinner.id);
       setWinner(null);
-      onRefresh();
+      void onRefresh();
     } catch (cause) {
-      setError(friendlyErrorMessage(cause, "Không thể giữ người này trong vòng quay."));
+      setError(friendlyErrorMessage(cause, "Không thể cập nhật kết quả trên màn chiếu."));
     } finally {
       setBusy(false);
     }
   };
 
   const selectAll = () => {
-    setUnselected((curr) => curr.filter((id) => !filtered.some((p) => p.id === id)));
+    setUnselected((curr) => curr.filter((id) => !eligible.some((p) => p.id === id)));
   };
 
   const deselectAll = () => {
-    setUnselected((curr) => [...new Set([...curr, ...filtered.map((p) => p.id)])]);
+    setUnselected((curr) => [...new Set([...curr, ...eligible.map((p) => p.id)])]);
   };
 
   const togglePerson = (personId: string) => {
@@ -217,22 +224,43 @@ export function MeetingDrawRemote({
     );
   };
 
+  const saveSelection = async () => {
+    if (!displayOpen || disabled || busy || activeWinner) return;
+    setBusy(true);
+    setError("");
+    try {
+      await ensureDisplayOpen();
+      const current = await meetingService.get(id);
+      await meetingService.presentationState(
+        id,
+        { drawFilter: filter, drawParticipantIds: selected.map((person) => person.id), drawPanel: "participants" },
+        meetingVersion(current)
+      );
+      await onRefresh();
+      setSheetOpen(false);
+    } catch (cause) {
+      setError(friendlyErrorMessage(cause, "Không thể đồng bộ người được chọn lên màn chiếu."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const currentFilterLabel =
-    filters.find((f) => f.value === filter)?.label || "Có mặt";
+    filters.find((f) => f.value === filter)?.label || "Tất cả";
 
   return (
     <View style={styles.container}>
-      {loading ? <LoadingState /> : null}
+      {loadingUsers ? <LoadingState /> : null}
 
-      {error ? (
+      {error || usersError ? (
         <Card style={styles.card}>
-          <Text style={styles.error}>{error}</Text>
+          <Text style={styles.error}>{error || usersError}</Text>
           <Button
             tone="secondary"
             icon={RefreshCw}
             onPress={() => {
-              void refreshUsers();
-              onRefresh();
+              void onRefreshUsers();
+              void onRefresh();
             }}
           >
             Làm mới
@@ -244,17 +272,36 @@ export function MeetingDrawRemote({
       <Card style={styles.card}>
         <View style={styles.headingRow}>
           <Text style={styles.heading}>Điều khiển Vòng quay may mắn</Text>
-          <Badge tone={canProject ? "success" : "default"}>
-            {canProject ? "SẴN SÀNG QUAY" : "CHƯA SẴN SÀNG"}
+          <Badge tone={displayOpen && canProject ? "success" : "default"}>
+            {displayOpen && canProject ? "SẴN SÀNG QUAY" : "CHƯA SẴN SÀNG"}
           </Badge>
         </View>
+        <Pressable accessibilityRole="link" onPress={() => router.push("/wheel-rules")} style={styles.rulesLink}>
+          <Text style={styles.rulesLinkText}>Xem thể lệ vòng quay</Text>
+        </Pressable>
+        {!displayOpen ? <Text style={styles.meta}>Mở chế độ màn hình trình chiếu trên web để điều khiển vòng quay.</Text> : null}
+        <View style={styles.filters}>
+          {filters.map(({ value, label }) => (
+            <Pressable
+              key={value}
+              accessibilityRole="button"
+              accessibilityState={{ selected: filter === value, disabled: !displayOpen || loadingUsers || !!usersError || disabled || busy || !!activeWinner }}
+              disabled={!displayOpen || loadingUsers || !!usersError || disabled || busy || !!activeWinner}
+              onPress={() => void changeFilter(value)}
+              style={[styles.filterChip, filter === value && styles.filterChipActive]}
+            >
+              <Text numberOfLines={1} style={[styles.filterChipText, filter === value && styles.filterChipTextActive]}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        {!canProject && eligible.length > 0 ? <Text style={styles.meta}>Chọn ít nhất một người để quay.</Text> : null}
 
         {/* NÚT MỞ BOTTOM SHEET ĐỂ CHỌN NGƯỜI THAM GIA */}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Chọn người tham gia"
-          disabled={busy || !!winner}
-          onPress={() => setSheetOpen(true)}
+          disabled={!displayOpen || loadingUsers || !!usersError || busy || !!activeWinner}
+          onPress={openSelection}
           style={styles.participantBar}
         >
           <View style={styles.participantIconWrap}>
@@ -275,35 +322,54 @@ export function MeetingDrawRemote({
 
         <Button
           icon={Gift}
+          iconSize={16}
           fullWidth
           disabled={!ready || !canProject}
           onPress={() => void spin()}
           style={styles.spinButton}
+          textStyle={styles.controlButtonText}
         >
           {busy ? "Đang gửi lệnh quay..." : "Quay trên màn chiếu"}
         </Button>
 
+        <Button
+          tone="secondary"
+          icon={drawPanel === "winners" ? Users : Trophy}
+          iconSize={16}
+          fullWidth
+          disabled={!displayOpen || disabled || busy || !!activeWinner}
+          onPress={() => void toggleWinnerList()}
+          style={styles.controlButton}
+          textStyle={styles.controlButtonText}
+        >
+          {drawPanel === "winners" ? "Hiện người tham gia" : `Mở danh sách trúng thưởng (${winnerCount})`}
+        </Button>
+
         {/* KẾT QUẢ NGƯỜI TRÚNG THƯỞNG */}
-        {winner ? (
+        {activeWinner ? (
           <View style={styles.result}>
-            <Text style={styles.winnerHeading}>Người trúng: {winner.name}</Text>
-            <Text style={styles.winnerPrize}>{winner.prizeName}</Text>
+            <Text style={styles.winnerHeading}>Người trúng: {activeWinner.name}</Text>
+            <Text style={styles.winnerPrize}>{activeWinner.prizeName}</Text>
             <View style={styles.actions}>
               <Button
                 tone="danger"
                 icon={UserMinus}
+                iconSize={15}
                 style={styles.actionBtn}
-                disabled={busy}
-                onPress={closeResult}
+                textStyle={styles.actionBtnText}
+                disabled={!displayOpen || busy}
+                onPress={() => void decideWinner(false)}
               >
                 Loại khỏi vòng quay
               </Button>
               <Button
                 tone="secondary"
                 icon={Check}
+                iconSize={15}
                 style={styles.actionBtn}
-                disabled={busy}
-                onPress={() => void keepWinner()}
+                textStyle={styles.actionBtnText}
+                disabled={!displayOpen || busy}
+                onPress={() => void decideWinner(true)}
               >
                 Giữ lại & Đóng
               </Button>
@@ -346,16 +412,15 @@ export function MeetingDrawRemote({
             {/* Filter Chips trong Bottom Sheet: 4 thẻ trên cùng 1 hàng, cân đối 100% */}
             <View style={styles.filters}>
               {filters.map(({ value, label }) => {
-                const count = roster.filter((person) => matchesFilter(person, value)).length;
+                const count = roster.filter((person) => matchesDrawFilter(person, value)).length;
                 const isActive = filter === value;
                 return (
                   <Pressable
                     key={value}
                     accessibilityRole="button"
                     accessibilityState={{ selected: isActive }}
-                    onPress={() =>
-                      setSelectedFilter(value)
-                    }
+                    disabled={!displayOpen || disabled || busy || !!activeWinner}
+                    onPress={() => void changeFilter(value)}
                     style={[styles.filterChip, isActive && styles.filterChipActive]}
                   >
                     <Text
@@ -375,7 +440,7 @@ export function MeetingDrawRemote({
             {/* Quick Actions (Chọn tất cả / Bỏ chọn) */}
             <View style={styles.sheetMetaRow}>
               <Text style={styles.sheetMetaText}>
-                Đang chọn {selected.length}/{filtered.length} người
+                Đang chọn {selected.length}/{eligible.length} người
               </Text>
               <View style={styles.quickActions}>
                 <Pressable onPress={selectAll}>
@@ -398,12 +463,14 @@ export function MeetingDrawRemote({
                 <Text style={styles.emptyText}>Không có thành viên nào trong nhóm này</Text>
               ) : (
                 filtered.map((person) => {
-                  const checked = !unselected.includes(person.id);
+                  const excluded = excludedWinnerIds.has(person.id);
+                  const checked = !excluded && !unselected.includes(person.id);
                   return (
                     <Pressable
                       key={person.id}
                       accessibilityRole="checkbox"
-                      accessibilityState={{ checked }}
+                      accessibilityState={{ checked, disabled: excluded }}
+                      disabled={excluded}
                       onPress={() => togglePerson(person.id)}
                       style={styles.personRow}
                     >
@@ -425,14 +492,18 @@ export function MeetingDrawRemote({
                       </Text>
                       <Badge
                         tone={
-                          person.kind === "member_present"
+                          excluded
+                            ? "default"
+                            : person.kind === "member_present"
                             ? "success"
                             : person.kind === "guest"
                             ? "warning"
                             : "default"
                         }
                       >
-                        {person.kind === "member_present"
+                        {excluded
+                          ? "Đã loại"
+                          : person.kind === "member_present"
                           ? "Có mặt"
                           : person.kind === "guest"
                           ? "Khách mời"
@@ -445,7 +516,7 @@ export function MeetingDrawRemote({
             </ScrollView>
 
             {/* Nút xác nhận hoàn tất */}
-            <Button fullWidth onPress={() => setSheetOpen(false)} style={styles.confirmBtn}>
+            <Button fullWidth disabled={!displayOpen || busy || disabled} onPress={() => void saveSelection()} style={styles.confirmBtn}>
               Xác nhận ({selected.length} người)
             </Button>
           </View>
@@ -467,6 +538,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   heading: { color: colors.text, fontSize: 15, fontWeight: "800" },
+  rulesLink: { alignSelf: "flex-start", minHeight: 32, justifyContent: "center", paddingRight: spacing.md },
+  rulesLinkText: { color: colors.primaryDark, fontSize: 12, fontWeight: "700", textDecorationLine: "underline" },
   error: { color: colors.danger, fontSize: 13, marginBottom: spacing.xs },
   meta: { color: colors.muted, fontSize: 12, lineHeight: 17 },
 
@@ -495,21 +568,25 @@ const styles = StyleSheet.create({
   changeAction: { flexDirection: "row", alignItems: "center", gap: 2 },
   changeText: { color: colors.primaryDark, fontSize: 13, fontWeight: "700" },
 
-  spinButton: { marginTop: spacing.xs },
+  spinButton: { marginTop: spacing.xs, minHeight: 42, paddingHorizontal: spacing.sm },
+  controlButton: { minHeight: 42, paddingHorizontal: spacing.sm },
+  controlButtonText: { fontSize: 12, textAlign: "center", flexShrink: 1 },
 
   // Winner result
   result: {
     alignItems: "center",
     gap: spacing.xs,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
     backgroundColor: colors.background,
     borderRadius: radius.md,
     marginTop: spacing.xs,
   },
-  winnerHeading: { color: colors.text, fontSize: 16, fontWeight: "800" },
+  winnerHeading: { color: colors.text, fontSize: 14, fontWeight: "800", textAlign: "center" },
   winnerPrize: { color: colors.primaryDark, fontSize: 13, fontWeight: "700" },
-  actions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm },
-  actionBtn: { flex: 1 },
+  actions: { width: "100%", flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm },
+  actionBtn: { flex: 1, minWidth: 0, minHeight: 44, paddingHorizontal: 6 },
+  actionBtnText: { fontSize: 11.5, lineHeight: 15, textAlign: "center", flexShrink: 1 },
 
   // Bottom Sheet
   sheetOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.overlay },
@@ -540,11 +617,13 @@ const styles = StyleSheet.create({
 
   filters: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 6,
     width: "100%",
   },
   filterChip: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: "30%",
     minHeight: 32,
     alignItems: "center",
     justifyContent: "center",

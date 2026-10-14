@@ -6,7 +6,8 @@ type AuthState = {
   isLoading: boolean;
   token: string | null;
   user: UserProfile | null;
-  signIn(identifier: string, password: string): Promise<void>;
+  signIn(identifier: string, password: string): Promise<UserProfile>;
+  activateSession(token: string, profile: UserProfile): void;
   signInWithBiometrics(): Promise<void>;
   signOut(): Promise<void>;
   deleteAccount(password: string): Promise<void>;
@@ -34,6 +35,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const session = await authService.login(identifier, password);
     setToken(session.token);
     setUser(session.user);
+    return session.user;
+  }, []);
+
+  const activateSession = useCallback((nextToken: string, profile: UserProfile) => {
+    setToken(nextToken);
+    setUser(profile);
   }, []);
 
   const signOut = useCallback(async () => {
@@ -66,8 +73,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const value = useMemo(
-    () => ({ isLoading, token, user, signIn, signInWithBiometrics, signOut, deleteAccount, refreshProfile, applyProfile }),
-    [isLoading, token, user, signIn, signInWithBiometrics, signOut, deleteAccount, refreshProfile, applyProfile],
+    () => ({ isLoading, token, user, signIn, activateSession, signInWithBiometrics, signOut, deleteAccount, refreshProfile, applyProfile }),
+    [isLoading, token, user, signIn, activateSession, signInWithBiometrics, signOut, deleteAccount, refreshProfile, applyProfile],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

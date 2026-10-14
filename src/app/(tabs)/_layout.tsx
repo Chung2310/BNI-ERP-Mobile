@@ -1,11 +1,13 @@
 import { Redirect, Tabs } from "expo-router";
 import { useContext } from "react";
-import { CalendarDays, CircleUserRound, Home, MessageCircle, Users, type LucideIcon } from "lucide-react-native";
+import { Building2, CalendarDays, CircleUserRound, Home, LockKeyhole, MessageCircle, Users, type LucideIcon } from "lucide-react-native";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Alert } from "@/components/AppAlert";
 import { useAuth } from "@/context/AuthContext";
 import { ChatUnreadCountContext } from "@/context/ChatUnreadCountContext";
 import { colors } from "@/theme/tokens";
+import { isChapterGuest } from "@/utils/guest";
 
 const icons: Record<string, LucideIcon> = {
   meetings: CalendarDays,
@@ -13,10 +15,12 @@ const icons: Record<string, LucideIcon> = {
   index: Home,
   chat: MessageCircle,
   more: CircleUserRound,
+  chapters: Building2,
 };
 
 export default function TabsLayout() {
-  const { isLoading, token } = useAuth();
+  const { isLoading, token, user } = useAuth();
+  const guest = isChapterGuest(user);
   const chatUnreadCount = useContext(ChatUnreadCountContext);
   const insets = useSafeAreaInsets();
   if (!isLoading && !token) return <Redirect href="/login" />;
@@ -30,7 +34,20 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.brandBlue,
         tabBarInactiveTintColor: colors.muted,
-        tabBarButton: (props) => <Pressable {...props} ref={undefined} android_ripple={{ color: "transparent" }} style={({ pressed }) => [props.style, pressed && styles.tabPressed]} />,
+        tabBarButton: (props) => {
+          const locked = guest && (route.name === "members" || route.name === "chat");
+          const { href, ...buttonProps } = props;
+          return <Pressable
+            {...buttonProps}
+            {...(locked ? {} : { href })}
+            ref={undefined}
+            android_ripple={{ color: "transparent" }}
+            onPress={locked
+              ? () => Alert.alert(route.name === "members" ? "Thành viên" : "Trò chuyện", "Tính năng sẽ mở khi bạn gia nhập Chapter.")
+              : props.onPress}
+            style={({ pressed }) => [props.style, pressed && styles.tabPressed]}
+          />;
+        },
         tabBarStyle: {
           height: 56 + bottomPadding,
           paddingTop: 6,
@@ -56,6 +73,7 @@ export default function TabsLayout() {
                 size={isHome ? (focused ? 24 : 23) : (focused ? 23 : 22)}
                 strokeWidth={focused ? 2.2 : 1.8}
               />
+              {guest && (route.name === "members" || route.name === "chat") ? <LockKeyhole size={12} color={colors.brandBlue} style={styles.lockBadge} /> : null}
             </View>
           );
         },
@@ -69,19 +87,22 @@ export default function TabsLayout() {
           title: "Home",
         }}
       />
+      <Tabs.Screen name="chapters" options={{ title: "Chapter", href: null }} />
       <Tabs.Screen name="chat" options={{
         title: "Trò chuyện",
         tabBarBadge: chatUnreadCount > 0 ? chatUnreadCount >= 100 ? "99+" : chatUnreadCount : undefined,
         tabBarBadgeStyle: styles.chatBadge,
       }} />
       <Tabs.Screen name="more" options={{ title: "Cá nhân" }} />
-      <Tabs.Screen
-        name="statistics"
-        options={{
-          href: null,
-          title: "Thống kê",
-        }}
-      />
+      <Tabs.Protected guard={!guest}>
+        <Tabs.Screen
+          name="statistics"
+          options={{
+            href: null,
+            title: "Thống kê",
+          }}
+        />
+      </Tabs.Protected>
     </Tabs>
   );
 }
@@ -98,4 +119,5 @@ const styles = StyleSheet.create({
   homeIconWrapper: {
     transform: [{ translateY: -4 }],
   },
+  lockBadge: { position: "absolute", right: -4, bottom: -3 },
 });

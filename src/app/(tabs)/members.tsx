@@ -1,12 +1,14 @@
 import { friendlyErrorMessage } from "@/utils/userFacingError";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { Search, X } from "lucide-react-native";
 import { EmptyState, ErrorState, LoadingState, Screen } from "@/components/ui";
 import { BackHeader } from "@/components/BackHeader";
 import { HeaderAddButton } from "@/components/HeaderAddButton";
 import { MemberCard } from "@/components/MemberCard";
+import { GuestLocked } from "@/components/GuestScreens";
+import { isChapterGuest } from "@/utils/guest";
 import { AddMemberModal } from "@/components/AddMemberModal";
 import { useAuth } from "@/context/AuthContext";
 import { userService } from "@/services/users";
@@ -103,8 +105,14 @@ const extractCover = (u: any): string => {
 
 export default function MembersScreen() {
   const { user } = useAuth();
+  return isChapterGuest(user) ? <GuestLocked title="Thành viên" /> : <MemberDirectoryScreen />;
+}
+
+function MemberDirectoryScreen() {
+  const { user } = useAuth();
   const canCreate = canCreateMember(user);
   const [query, setQuery] = useState("");
+  const searchQuery = query.trim();
   const [data, setData] = useState<UserProfile[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -114,15 +122,28 @@ export default function MembersScreen() {
   const [error, setError] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const loadingRef = useRef(false);
+  const requestIdRef = useRef(0);
+
+  const changeQuery = (value: string) => {
+    if (value.trim() !== searchQuery) {
+      requestIdRef.current += 1;
+      loadingRef.current = false;
+      setIsLoading(true);
+      setIsLoadingMore(false);
+    }
+    setQuery(value);
+  };
 
   const loadPage = useCallback(async (nextPage: number, reset = false) => {
-    if (loadingRef.current) return;
+    if (!reset && loadingRef.current) return;
+    const requestId = ++requestIdRef.current;
     loadingRef.current = true;
     if (reset) setIsLoading(true);
     else setIsLoadingMore(true);
     setError("");
     try {
-      const result = await userService.directoryPage(nextPage, PAGE_SIZE);
+      const result = await userService.directoryPage(nextPage, PAGE_SIZE, searchQuery);
+      if (requestId !== requestIdRef.current) return;
       setData((current) => {
         const combined = reset ? result.items : [...current, ...result.items];
         return Array.from(new Map(combined.map((user) => [user.uid, user])).values());
@@ -131,18 +152,24 @@ export default function MembersScreen() {
       setPage(result.page);
       setHasMore(result.hasMore);
     } catch (cause) {
-      setError(friendlyErrorMessage(cause, "Không thể tải danh sách thành viên."));
+      if (requestId === requestIdRef.current) setError(friendlyErrorMessage(cause, "Không thể tải danh sách thành viên."));
     } finally {
-      loadingRef.current = false;
-      setIsLoading(false);
-      setIsLoadingMore(false);
+      if (requestId === requestIdRef.current) {
+        loadingRef.current = false;
+        setIsLoading(false);
+        setIsLoadingMore(false);
+      }
     }
-  }, []);
+  }, [searchQuery]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => void loadPage(1, true), 0);
-    return () => clearTimeout(timer);
-  }, [loadPage]);
+  useFocusEffect(useCallback(() => {
+    const timer = setTimeout(() => void loadPage(1, true), searchQuery ? 250 : 0);
+    return () => {
+      clearTimeout(timer);
+      requestIdRef.current += 1;
+      loadingRef.current = false;
+    };
+  }, [loadPage, searchQuery]));
 
   const reload = useCallback(() => loadPage(1, true), [loadPage]);
   const loadMore = useCallback(() => {
@@ -152,16 +179,6 @@ export default function MembersScreen() {
   const members = useMemo(
     () =>
       data
-        .filter((user: UserProfile) => {
-          const raw = user as Record<string, unknown>;
-          const name = user.displayName || "";
-          const company = extractCompany(raw);
-          const phone = extractPhone(raw);
-          const email = extractEmail(raw);
-          const industry = extractIndustry(raw);
-          const searchTarget = `${name} ${industry} ${company} ${email} ${phone}`.toLowerCase();
-          return searchTarget.includes(query.trim().toLowerCase());
-        })
         .map((user: UserProfile) => {
           const raw = user as Record<string, unknown>;
           const company = extractCompany(raw);
@@ -189,7 +206,7 @@ export default function MembersScreen() {
             coverUrl: coverUrl || undefined,
           };
         }),
-    [data, query]
+    [data]
   );
 
   const isSearching = Boolean(query.trim());
@@ -205,7 +222,7 @@ export default function MembersScreen() {
             isLoading || error
               ? undefined
               : isSearching
-              ? `Tìm thấy ${members.length} thành viên`
+              ? `Tìm thấy ${total} thành viên`
               : `${total} thành viên`
           }
           action={canCreate ? (
@@ -223,14 +240,14 @@ export default function MembersScreen() {
           <Search size={18} color={colors.muted} strokeWidth={2.2} />
           <TextInput
             value={query}
-            onChangeText={setQuery}
+            onChangeText={changeQuery}
             placeholder="Tìm kiếm thành viên..."
             placeholderTextColor={colors.muted}
             style={styles.searchInput}
             returnKeyType="search"
           />
           {query.length > 0 ? (
-            <Pressable onPress={() => setQuery("")} hitSlop={8} style={styles.clearBtn}>
+            <Pressable onPress={() => changeQuery("")} hitSlop={8} style={styles.clearBtn}>
               <X size={16} color={colors.muted} />
             </Pressable>
           ) : null}
@@ -264,8 +281,8 @@ export default function MembersScreen() {
         </View>
       )}
 
-      {/* Nút Xem thêm chỉ hiện khi KHÔNG tìm kiếm và còn dữ liệu để tải */}
-      {!isLoading && hasMore && !isSearching ? (
+      {/* Tải trang tiếp theo cho cả danh sách và kết quả tìm kiếm. */}
+      {!isLoading && hasMore ? (
         <View style={styles.loadMoreContainer}>
           {isLoadingMore ? (
             <View style={styles.loadingMoreRow}>

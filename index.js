@@ -1,9 +1,10 @@
 import { isRunningInExpoGo } from "expo";
+import { Platform } from "react-native";
 
-// Remote push notifications are unavailable in Expo Go on Android (SDK 53+).
-// Keep the background task enabled for development/release builds only.
-if (!isRunningInExpoGo()) {
+// Remote notifications are unavailable in Expo Go; importing the module there
+// throws before the app can render. Development builds still register early.
+if (Platform.OS !== "web" && !isRunningInExpoGo()) {
   require("./src/services/backgroundNotifications");
 }
 
-import "expo-router/entry";
+require("expo-router/entry");

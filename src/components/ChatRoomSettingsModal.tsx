@@ -1,7 +1,7 @@
 import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { Alert } from "@/components/AppAlert";
 import { useState } from 'react';
-import * as ImagePicker from 'expo-image-picker';
+import { chooseImageSource, pickImages, type ImageSource } from '@/utils/imageSource';
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardResponsiveView } from '@/components/KeyboardResponsiveView';
@@ -56,9 +56,9 @@ export function ChatRoomSettingsModal({ room, currentUserId, onClose, onUpdated,
     }
   };
 
-  const updateAvatar = async () => {
+  const updateAvatar = async (source: ImageSource) => {
     try {
-      const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
+      const picked = await pickImages(source, { mediaTypes: ['images'], quality: 0.8 });
       if (picked.canceled) return;
       const image = picked.assets[0];
       await run(async () => {
@@ -140,7 +140,7 @@ export function ChatRoomSettingsModal({ room, currentUserId, onClose, onUpdated,
                 {isAdmin ? <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Quản lý nhóm</Text>
                   <View style={styles.group}>
-                    <Action icon={ImagePlus} label='Đổi ảnh nhóm' disabled={busy} divider onPress={() => void updateAvatar()} />
+                    <Action icon={ImagePlus} label='Đổi ảnh nhóm' disabled={busy} divider onPress={() => chooseImageSource((source) => void updateAvatar(source))} />
                     <View style={[styles.settingRow, styles.divider]}>
                       <View style={styles.iconBox}><Pencil size={18} color={colors.primaryDark} /></View>
                       <TextInput accessibilityLabel='Tên nhóm' value={name} onChangeText={setName} placeholder='Tên nhóm' placeholderTextColor={colors.muted} maxLength={80} style={styles.renameInput} />

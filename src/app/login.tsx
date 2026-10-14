@@ -144,6 +144,15 @@ export default function LoginScreen() {
           >
             Đăng nhập
           </Button>
+          <View style={styles.registerRow}>
+            <Text style={styles.registerPrompt}>Bạn chưa có tài khoản?</Text>
+            <Pressable accessibilityRole="link" onPress={() => router.push("/register")} style={styles.registerLink}>
+              <Text style={styles.registerAction}>Tạo tài khoản ngay</Text>
+            </Pressable>
+          </View>
+          <Pressable accessibilityRole="link" onPress={() => router.push("/wheel-rules")} style={styles.rulesLink}>
+            <Text style={styles.rulesLinkText}>Thể lệ vòng quay may mắn</Text>
+          </Pressable>
           {canUseBiometrics ? (
             <Button
               icon={Fingerprint}
@@ -329,6 +338,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingBottom: Platform.OS === "ios" ? spacing.sm : spacing.lg,
   },
+  registerRow: { minHeight: 44, flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: spacing.sm, marginTop: spacing.sm },
+  registerLink: { minHeight: 44, alignItems: "center", justifyContent: "center" },
+  registerPrompt: { color: "#000000", fontWeight: "400" },
+  registerAction: { color: "#FFFFFF", fontWeight: "400" },
   mainLoginButton: {
     backgroundColor: colors.brandBlue,
     minHeight: 52,
@@ -481,5 +494,17 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 8,
     marginBottom: 4,
+  },
+  rulesLink: {
+    alignSelf: "center",
+    minHeight: 40,
+    justifyContent: "center",
+    paddingHorizontal: spacing.md,
+  },
+  rulesLinkText: {
+    color: colors.primaryDark,
+    fontSize: 12,
+    fontWeight: "700",
+    textDecorationLine: "underline",
   },
 });

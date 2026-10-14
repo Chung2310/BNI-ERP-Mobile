@@ -1,30 +1,51 @@
 import { useContext } from 'react';
 import { router, type Href } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { CalendarCheck, CalendarPlus, ChartNoAxesCombined, MessageSquareMore, Podium, Settings, Users, type LucideIcon } from 'lucide-react-native';
+import { UtilityIcon, UtilityLockIcon, type UtilityIconName } from '@/components/UtilityIcon';
+import { Alert } from '@/components/AppAlert';
+import { isChapterGuest } from '@/utils/guest';
 import { ChatUnreadCountContext } from '@/context/ChatUnreadCountContext';
 import type { UserProfile } from '@/types';
 import { colors, radius, spacing } from '@/theme/tokens';
 import { canCreateMeeting } from '@/utils/permissions';
 
 interface QuickActionDef {
-  icon: LucideIcon;
+  icon: UtilityIconName;
   title: string;
   href: Href;
-  color: string;
   unreadCount?: number;
+  locked?: boolean;
 }
 
-function ActionItem({ icon: Icon, title, href, color, unreadCount = 0 }: QuickActionDef) {
+const iconColors: Record<UtilityIconName, { color: string; accent: string; background: string }> = {
+  schedule: { color: '#00ADFC', accent: '#78D9FF', background: '#E8F8FF' },
+  statistics: { color: '#718BED', accent: '#70D7FC', background: '#EEF2FF' },
+  chapter: { color: '#00A9DE', accent: '#87D9F6', background: '#E7F8FF' },
+  members: { color: '#54A9F0', accent: '#9CB7F5', background: '#EDF6FF' },
+  createMeeting: { color: '#369EEF', accent: '#94D8FF', background: '#EAF5FF' },
+  chat: { color: '#688CE6', accent: '#72D2FF', background: '#EEF2FF' },
+  ranking: { color: '#6D91EA', accent: '#93CEFF', background: '#ECF3FF' },
+  settings: { color: '#69A5E1', accent: '#6ED3E8', background: '#EAF7FD' },
+};
+
+function ActionItem({ icon, title, href, unreadCount = 0, locked = false }: QuickActionDef) {
+  const palette = iconColors[icon];
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={unreadCount > 0 ? `${title}, ${unreadCount} tin nhắn chưa đọc` : title}
+      accessibilityLabel={unreadCount > 0
+        ? `${title}, ${unreadCount} ${icon === 'chapter' ? 'đơn xin gia nhập chưa xử lý' : 'tin nhắn chưa đọc'}`
+        : title}
       style={({ pressed }) => [styles.item, pressed && styles.pressed]}
-      onPress={() => router.push(href)}
+      onPress={() => locked ? Alert.alert(title, 'Tính năng sẽ mở khi bạn gia nhập Chapter.') : router.push(href)}
     >
       <View style={styles.iconBox}>
-        <Icon color={color} size={25} strokeWidth={2.2} />
+        <View style={[styles.iconDepth, { backgroundColor: palette.color }]} />
+        <View style={[styles.iconFace, { backgroundColor: palette.background, shadowColor: palette.color }]}>
+          <View style={styles.iconShine} />
+          <UtilityIcon name={icon} color={palette.color} accent={palette.accent} />
+        </View>
+        {locked ? <View style={styles.lockBadge}><UtilityLockIcon /></View> : null}
         {unreadCount > 0 ? (
           <View style={styles.unreadBadge}>
             <Text style={styles.unreadBadgeText}>{unreadCount >= 100 ? '99+' : unreadCount}</Text>
@@ -40,68 +61,77 @@ function ActionItem({ icon: Icon, title, href, color, unreadCount = 0 }: QuickAc
 
 export function DashboardQuickActions({
   user,
+  pendingChapterApplications = 0,
 }: {
   user: UserProfile | null;
   liveMeetingId?: string;
+  pendingChapterApplications?: number;
 }) {
   const showCreateMeeting = canCreateMeeting(user);
+  const guest = isChapterGuest(user);
   const chatUnreadCount = useContext(ChatUnreadCountContext);
 
   const actions: QuickActionDef[] = [];
 
   // Thêm Lịch trình lên đầu tiện ích (dẫn đến tab cuộc họp/lịch trình)
   actions.push({
-    icon: CalendarCheck,
+    icon: 'schedule',
     title: 'Lịch trình',
     href: '/(tabs)/meetings',
-    color: colors.brandBlue,
   });
 
   // Thêm Thống kê vào tiện ích
   actions.push({
-    icon: ChartNoAxesCombined,
+    icon: 'statistics',
     title: 'Thống kê',
     href: '/(tabs)/statistics',
-    color: colors.brandBlue,
+    locked: guest,
   });
+
+  if (user) {
+    actions.push({
+      icon: 'chapter',
+      title: 'Chapter',
+      href: guest ? '/(tabs)/chapters' : '/chapter',
+      unreadCount: user.role === 'admin' ? pendingChapterApplications : 0,
+    });
+  }
 
   if (user && user.role !== 'admin') {
     actions.push({
-      icon: Users,
+      icon: 'members',
       title: 'Thành viên',
       href: '/(tabs)/members',
-      color: colors.brandBlue,
+      locked: guest,
     });
   }
 
   if (showCreateMeeting) {
     actions.push({
-      icon: CalendarPlus,
+      icon: 'createMeeting',
       title: 'Tạo cuộc họp',
       href: '/meeting/create',
-      color: colors.brandBlue,
     });
   }
 
   actions.push(
     {
-      icon: MessageSquareMore,
+      icon: 'chat',
       title: 'Trò chuyện',
       href: '/(tabs)/chat',
-      color: colors.brandBlue,
       unreadCount: chatUnreadCount,
+      locked: guest,
     },
     {
-      icon: Podium,
+      icon: 'ranking',
       title: 'Xếp hạng',
       href: '/rankings',
-      color: colors.brandBlue,
+      locked: guest,
     },
     {
-      icon: Settings,
+      icon: 'settings',
       title: 'Cài đặt',
       href: '/settings',
-      color: colors.brandBlue,
     }
   );
 
@@ -139,13 +169,43 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   iconBox: {
-    width: 40,
-    height: 40,
-    backgroundColor: 'transparent',
+    width: 46,
+    height: 46,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'visible',
     zIndex: 1,
+  },
+  iconDepth: {
+    position: 'absolute',
+    top: 3,
+    width: 46,
+    height: 46,
+    borderRadius: radius.md,
+    opacity: 0.22,
+  },
+  iconFace: {
+    width: 46,
+    height: 46,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  iconShine: {
+    position: 'absolute',
+    top: 3,
+    left: 5,
+    width: 28,
+    height: 11,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    opacity: 0.55,
   },
   unreadBadge: {
     position: 'absolute',
@@ -163,6 +223,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
     elevation: 2,
   },
+  lockBadge: { position: 'absolute', right: -4, bottom: -3, borderRadius: 8, backgroundColor: colors.surface, padding: 2 },
   unreadBadgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' },
   itemTitle: {
     marginTop: 2,

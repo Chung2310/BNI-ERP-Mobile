@@ -1,12 +1,15 @@
 import * as SecureStore from "expo-secure-store";
 import * as LocalAuthentication from "expo-local-authentication";
-import { apiRequest, getApiAccessToken, setApiAccessToken, setApiTokenPersister } from "@/services/api";
+import type { ImagePickerAsset } from "expo-image-picker";
+import { Platform } from "react-native";
+import { ApiError, apiRequest, getApiAccessToken, setApiAccessToken, setApiTokenPersister } from "@/services/api";
 import { galleryImagesFrom } from "@/utils/media";
 import { unregisterCurrentDeviceFromPush } from "@/services/pushNotifications";
 import type { UserProfile } from "@/types";
 
 const ACCESS_TOKEN_KEY = "igen_access_token";
 const PROFILE_KEY = "igen_user_profile";
+export const MAX_SELF_PROFILE_IMAGE_BASE64_LENGTH = Math.ceil((5 * 1024 * 1024) / 3) * 4;
 const DEVICE_KEY = "igen_device_id";
 const BIOMETRIC_KEY = "igen_biometric_enabled";
 const BIOMETRIC_METHOD_KEY = "igen_biometric_method";
@@ -94,6 +97,52 @@ async function clearLocalSession() {
 }
 
 export const authService = {
+  register(data: { displayName: string; email: string; phone: string; companyName: string; industry: string; password: string }) {
+    return apiRequest("/api/v1/auth/register", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+  async uploadRegistrationAvatar(asset: ImagePickerAsset): Promise<string> {
+    const form = new FormData();
+    const name = asset.fileName || "avatar.jpg";
+    if (Platform.OS === "web" && asset.file) {
+      form.append("avatar", asset.file, name);
+    } else {
+      form.append("avatar", { uri: asset.uri, name, type: asset.mimeType || "image/jpeg" } as unknown as Blob);
+    }
+    const response = await apiRequest<{ data: { photoURL: string } }>("/api/v1/auth/profile/avatar", {
+      method: "POST",
+      body: form,
+      timeoutMs: 120000,
+    });
+    if (!response.data?.photoURL) throw new Error("Máy chủ chưa lưu ảnh đại diện. Vui lòng thử lại.");
+    return response.data.photoURL;
+  },
+  async uploadSelfProfileImage(base64: string, kind: "avatar" | "cover", asset?: ImagePickerAsset): Promise<string> {
+    if (!base64) throw new Error("Không đọc được dữ liệu ảnh. Vui lòng chọn lại.");
+    if (base64.length > MAX_SELF_PROFILE_IMAGE_BASE64_LENGTH) throw new Error("Ảnh hồ sơ tối đa 5 MB. Vui lòng chọn ảnh nhỏ hơn.");
+    let response: { data: { photoURL?: string; coverImage?: string } };
+    try {
+      response = await apiRequest("/api/v1/auth/profile/image", {
+        method: "POST",
+        body: JSON.stringify({ kind, file: `data:image/jpeg;base64,${base64}` }),
+        timeoutMs: 120000,
+      });
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 404) {
+        if (kind === "avatar" && asset) return this.uploadRegistrationAvatar(asset);
+        throw new Error("Máy chủ chưa cập nhật chức năng tải ảnh bìa. Vui lòng thử lại sau khi cập nhật máy chủ.");
+      }
+      throw cause;
+    }
+    const url = kind === "avatar" ? response.data?.photoURL : response.data?.coverImage;
+    if (!url) throw new Error("Máy chủ chưa lưu ảnh hồ sơ. Vui lòng thử lại.");
+    return url;
+  },
+  async cacheProfile(profile: UserProfile): Promise<void> {
+    await SecureStore.setItemAsync(PROFILE_KEY, JSON.stringify(profile));
+  },
   async getProfile(): Promise<UserProfile> {
     const response = await apiRequest<{ user: LoginResponse["user"] }>("/api/v1/auth/me");
     const user = normalizeUser(response.user);
@@ -101,13 +150,13 @@ export const authService = {
     return user;
   },
 
-  async updateProfile(data: {
+  async updateProfile(data: Partial<{
     displayName: string; email: string; phone: string; companyName: string; industry: string;
     address: string; targetMarket: string; birthDate: string; gender: string;
     photoURL?: string; photoUploadToken?: string; coverImage?: string; coverUploadToken?: string;
     galleryImages?: string[];
     galleryUploadTokens?: { index: number; uploadToken: string }[];
-  }): Promise<UserProfile> {
+  }>): Promise<UserProfile> {
     const response = await apiRequest<{ user: LoginResponse["user"] }>("/api/v1/auth/profile", {
       method: "PATCH",
       body: JSON.stringify(data),

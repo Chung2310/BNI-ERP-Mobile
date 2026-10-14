@@ -5,15 +5,33 @@ import { BackHeader } from "@/components/BackHeader";
 import { HeaderRefreshAction } from "@/components/HeaderRefreshAction";
 import { Avatar, Card, EmptyState, ErrorState, LoadingState, Screen } from "@/components/ui";
 import { useAsyncData } from "@/hooks/useAsyncData";
-import { meetingService, type LuckyDrawWinner } from "@/services/meeting";
+import { meetingService, type LuckyDrawWinner, type Meeting } from "@/services/meeting";
 import { colors, spacing } from "@/theme/tokens";
 
 const initials = (name: string) => name.split(" ").filter(Boolean).map((part) => part[0]).slice(-2).join("").toUpperCase();
 
+function getWheelWinners(meeting?: Meeting | null): LuckyDrawWinner[] {
+  const winners = new Map<string, LuckyDrawWinner>();
+
+  for (const winner of meeting?.gameWinners || []) {
+    if (winner.source === "wheel") winners.set(winner.id, winner);
+  }
+
+  for (const prize of meeting?.luckyDraw?.prizes || []) {
+    for (const winner of prize.winners) {
+      winners.set(winner.id, { ...winner, prizeName: winner.prizeName || prize.name });
+    }
+  }
+
+  return [...winners.values()].sort((a, b) =>
+    (Date.parse(b.wonAt) || 0) - (Date.parse(a.wonAt) || 0)
+  );
+}
+
 export default function MeetingGameResultsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: meeting, error, isLoading, reload } = useAsyncData(() => meetingService.get(id), id);
-  const winners = (meeting?.gameWinners || []).filter((winner) => winner.source === "wheel").slice().reverse();
+  const winners = getWheelWinners(meeting);
 
   return <Screen style={styles.screen}>
     <BackHeader title="Kết quả quay thưởng" subtitle={meeting?.title} compact action={<HeaderRefreshAction label="Làm mới kết quả quay thưởng" disabled={isLoading} onPress={() => void reload()} />} />

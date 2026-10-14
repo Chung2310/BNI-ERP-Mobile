@@ -1,7 +1,7 @@
 import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { Alert } from "@/components/AppAlert";
 import { useMemo, useState, type ReactNode } from "react";
-import * as ImagePicker from "expo-image-picker";
+import { chooseImageSource, pickImages, type ImageSource } from "@/utils/imageSource";
 import * as Location from "expo-location";
 import { Redirect, router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -108,12 +108,10 @@ function CreateMeetingForm() {
     }
   };
 
-  const pickCover = async () => {
+  const pickCover = async (source: ImageSource) => {
     setError("");
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) throw new Error("Bạn cần cấp quyền thư viện ảnh để chọn ảnh bìa.");
-      const result = await ImagePicker.launchImageLibraryAsync({
+      const result = await pickImages(source, {
         mediaTypes: ["images"],
         allowsEditing: false,
         quality: 0.85,
@@ -248,7 +246,7 @@ function CreateMeetingForm() {
             <Image accessibilityLabel="Ảnh bìa cuộc họp" source={coverImage ? { uri: coverImage } : defaultMeetingCoverSource} style={styles.cover} resizeMode="cover" />
           </View>
           {!coverImage ? <Text style={styles.help}>Đang dùng ảnh bìa mặc định.</Text> : null}
-          <Button icon={Upload} tone="secondary" fullWidth disabled={uploading} onPress={pickCover} style={styles.actionBtn}>{uploading ? "Đang tải ảnh…" : "Chọn ảnh bìa khác"}</Button>
+          <Button icon={Upload} tone="secondary" fullWidth disabled={uploading} onPress={() => chooseImageSource((source) => void pickCover(source))} style={styles.actionBtn}>{uploading ? "Đang tải ảnh…" : "Chọn ảnh bìa khác"}</Button>
         </FormSection>
 
         <FormSection title="Nhắc hẹn">

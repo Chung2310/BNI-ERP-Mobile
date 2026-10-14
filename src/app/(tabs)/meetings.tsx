@@ -20,6 +20,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Avatar, EmptyState } from "@/components/ui";
+import { isChapterGuest } from "@/utils/guest";
 import { useAuth } from "@/context/AuthContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import {
@@ -65,7 +66,12 @@ function formatMeetingTime(startsAt: string, endsAt?: string): string {
 }
 
 export default function MeetingsScreen() {
+  return <MemberMeetingsScreen />;
+}
+
+function MemberMeetingsScreen() {
   const { user } = useAuth();
+  const guest = isChapterGuest(user);
   const insets = useSafeAreaInsets();
   const canCreateMeeting = canCreateMeetingForUser(user);
 
@@ -81,14 +87,15 @@ export default function MeetingsScreen() {
     setData,
     reload,
   } = useAsyncData(async () => {
+    if (guest) return [];
     const results = await Promise.allSettled([meetingService.list(), meetingService.history()]);
     const combined = results.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
     return [...new Map(combined.map((meeting) => [meeting._id, meeting])).values()];
   });
 
   const { data: monthData, setData: setMonthData, reload: reloadMonth } = useAsyncData(
-    () => meetingService.list(monthKey),
-    monthKey,
+    () => guest ? Promise.resolve([]) : meetingService.list(monthKey),
+    `${monthKey}:${guest}`,
   );
 
   const hasFocused = useRef(false);
@@ -104,11 +111,12 @@ export default function MeetingsScreen() {
   );
 
   useEffect(() => {
+    if (guest) return;
     return subscribeMeetingChanges((change) => {
       setData((current) => applyMeetingChange(current, change));
       setMonthData((current) => applyMeetingChange(current, change));
     });
-  }, [setData, setMonthData]);
+  }, [guest, setData, setMonthData]);
 
   const meetings = useMemo(() => data || [], [data]);
   const calendarMeetings = useMemo(
