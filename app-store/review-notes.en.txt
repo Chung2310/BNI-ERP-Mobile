@@ -1,0 +1,37 @@
+iGen Connect is a Vietnamese-language app for Chapter members to manage meetings, view member profiles, communicate and share resources. A Chapter is a member group managed by its administrators.
+
+FREE ACCESS
+The app and all Chapter access are completely free. There are no paid features, subscriptions, in-app purchases or external payment requirements.
+
+SIGN-IN
+Use the demo username and password entered in App Store Connect's Sign-in Information fields. The demo account has already been approved to join a Chapter. It does not need to submit a new membership request.
+
+NAVIGATION AND REVIEW STEPS
+1. Tap “Đăng nhập” and sign in with the supplied demo credentials.
+2. Open “Cuộc họp” in the bottom navigation to view meetings. Select a meeting to view its schedule, venue, participants and speaking information.
+3. Open “Thành viên” to view Chapter members and their profiles.
+4. Open “Trò chuyện” to view conversations and send messages. Long-press another user's message to access reporting and blocking actions.
+5. Open “Cá nhân”, then tap the settings icon labelled “Cài đặt”. This screen contains notification settings, optional biometric authentication, “An toàn nội dung” (content safety), the privacy policy and account deletion.
+
+QR AND LOCATION CHECK-IN
+Meeting check-in validates the device's GPS location against the meeting venue and configured check-in time. The QR scanning flow additionally requires camera access and a valid QR for the selected meeting. Successful check-in requires the device to be within the configured venue radius while the check-in window is open. Signing in and browsing other available features do not require a successful check-in. The app does not continuously track location in the background.
+
+FACE ID AND TOUCH ID
+Biometric authentication is optional. Enable it in “Cài đặt” on a supported device with biometrics enrolled, then complete the system authentication prompt. Password sign-in remains available. The app receives the authentication result and does not receive or store facial or fingerprint templates.
+
+CONTENT SAFETY
+Users can report messages, member profiles and resources, and block other users. “Cài đặt” → “An toàn nội dung” provides the blocked-user list. Chapter users with moderation permission can also access the moderation queue there. Newly submitted media may remain pending until approved by a Chapter moderator.
+
+RANDOM NAME PICKER
+The meeting wheel selects participant names or participation order for meeting activities. It does not sell entries, accept bets or award money or items.
+
+ACCOUNT DELETION
+Open “Cá nhân” → “Cài đặt” → “Quản lý tài khoản” → “Xóa tài khoản và dữ liệu”. Enter the current password and confirm deletion. The app signs out when the request is accepted and displays deletion progress. An email request is not required. Chapter administrators may need to transfer administration through the on-screen process before deleting their account.
+
+NOTIFICATIONS
+Notifications are optional. Allow them when prompted or register them from “Cài đặt”. Push notifications contain generic service text; detailed content is available inside the authenticated app.
+
+CONTACT AND PRIVACY
+Support email: igen.work99@gmail.com
+Privacy policy and contact information: https://bni.igentechnology.net/privacy-policy
+Account deletion guidance and status: https://bni.igentechnology.net/user-data-deletion
