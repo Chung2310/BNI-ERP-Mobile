@@ -38,7 +38,7 @@ export default function AccountDeletionStatusScreen() {
       <Text accessibilityRole="header" style={styles.title}>{status?.state === "completed" ? "Đã xóa tài khoản và dữ liệu" : "Theo dõi yêu cầu xóa"}</Text>
       {status ? <Text style={styles.body}>{status.state === "completed" ? `Hoàn tất: ${new Date(status.completedAt || status.requestedAt).toLocaleString("vi-VN")}` : "Yêu cầu đã được tiếp nhận. Tài khoản đã ngừng sử dụng; dữ liệu đang được xử lý tự động."}</Text> : null}
       <Text style={styles.body}>Thông thường mất vài phút. Khi dịch vụ lưu trữ gặp lỗi, hệ thống sẽ tiếp tục thử lại. Nếu quá 24 giờ vẫn chưa hoàn tất, bạn có thể liên hệ igen.work99@gmail.com kèm mã theo dõi.</Text>
-      {receipt ? <><Text style={styles.body}>Mã theo dõi (giữ riêng):</Text><Text selectable style={styles.receipt}>{receipt}</Text><Text style={styles.body}>Mã được lưu trên thiết bị và có hiệu lực đến 30 ngày sau khi hoàn tất. Có thể tra cứu trên erp.igentechnology.net/user-data-deletion.</Text></> : null}
+      {receipt ? <><Text style={styles.body}>Mã theo dõi (giữ riêng):</Text><Text selectable style={styles.receipt}>{receipt}</Text><Text style={styles.body}>Mã được lưu trên thiết bị và có hiệu lực đến 30 ngày sau khi hoàn tất. Có thể tra cứu trên bni.igentechnology.net/user-data-deletion.</Text></> : null}
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
       <Button tone="secondary" disabled={busy} onPress={() => void refresh()}>{busy ? "Đang tải..." : "Cập nhật trạng thái"}</Button>
       <Button onPress={() => router.replace("/login")}>Về đăng nhập</Button>

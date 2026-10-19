@@ -8,6 +8,6 @@ export default function PrivacyPolicyScreen() {
     updatedAt={privacyPolicy.updatedAt}
     sections={privacyPolicy.sections}
     related={{ label: "Quy tắc cộng đồng", href: "/community-rules" }}
-    publicUrl="https://erp.igentechnology.net/privacy-policy"
+    publicUrl="https://bni.igentechnology.net/privacy-policy"
   />;
 }

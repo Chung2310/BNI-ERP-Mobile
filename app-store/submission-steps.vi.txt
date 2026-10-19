@@ -1,0 +1,78 @@
+HỒ SƠ APP STORE — igen connect 1.0.0
+Chuẩn bị ngày 15/10/2026. Bundle ID: com.igen.bni.
+Domain production được chủ dự án xác nhận: https://bni.igentechnology.net.
+Chủ dự án xác nhận ngày 15/10/2026: đã có bản TestFlight và tài khoản demo đã duyệt Chapter; ứng dụng và quyền sử dụng Chapter miễn phí toàn bộ. Chưa đối chiếu đăng nhập hoặc số build trong App Store Connect từ môi trường làm việc này.
+
+Đây là bộ nội dung để nhập thủ công, không phải cấu hình EAS Metadata hoặc bằng chứng Apple đã nhận hồ sơ.
+
+1. TẠO VÀ DÙNG BUILD MỚI TRÊN GITHUB MAC
+Các sửa đổi mã nguồn sau bản TestFlight cũ cần được đóng vào build mới. Cấu hình Variables/Secrets theo README.md, đặt IOS_BUILD_NUMBER_BASE bằng build cao nhất hiện có, rồi chạy workflow iOS App Store build and upload trên nhánh production. Workflow dùng macOS của GitHub để sinh project iOS, ký và build bằng Xcode, sau đó tải IPA lên App Store Connect.
+Chờ Apple xử lý xong build mới rồi chọn đúng build trong phiên bản 1.0.0. Không dùng lại build TestFlight cũ để gửi duyệt các sửa đổi lần này. Các lần chỉ thay đổi metadata sau đó không cần build lại.
+Không đưa file .p8, certificate hoặc mật khẩu vào repo. Upload build và gửi App Review là hai thao tác riêng.
+
+2. APP INFORMATION VÀ PHIÊN BẢN
+App Store Connect → Apps → igen connect → App Information:
+- Đối chiếu bundle ID com.igen.bni và tên app.
+- Ngôn ngữ hồ sơ chính: Vietnamese nếu đó là ngôn ngữ đã chọn khi tạo app.
+- Gợi ý danh mục: Business; có thể thêm Social Networking nếu đúng định vị.
+- Hoàn tất Content Rights theo quyền nội dung thực có; tên, logo và ảnh phải được phép sử dụng.
+- Trả lời Age Rating: có User-Generated Content và Messaging/Chat. Vòng quay chọn tên không phải gambling. Apple tính rating từ toàn bộ câu trả lời; không tự gán một mức tuổi cố định trong tài liệu này.
+
+Ở phiên bản iOS 1.0.0, copy name/subtitle/description/keywords/promotionalText và các URL trong listing.vi-VN.json vào đúng trường. Copyright dùng năm và tên cá nhân/pháp nhân có quyền sở hữu thực tế. Chỉ tạo localization tiếng Anh nếu có nội dung sản phẩm tiếng Anh tương ứng.
+
+Support URL: https://bni.igentechnology.net/privacy-policy (trang hiện có chứa thông tin liên hệ hỗ trợ)
+Privacy Policy URL: https://bni.igentechnology.net/privacy-policy
+Privacy Choices URL (tùy chọn): https://bni.igentechnology.net/user-data-deletion
+
+3. APP PRIVACY
+Đọc privacy-declaration.vi.txt, đối chiếu nhà cung cấp và backend đang triển khai rồi nhập/publish phần App Privacy. Các nhãn ở đây là bản chuẩn bị theo source, không được tự động gửi Apple. Không chọn “Data Not Collected”.
+
+4. ẢNH CHỤP
+Chụp giao diện từ app thật có dữ liệu demo và đã được phép sử dụng. Không dùng wireframe, ảnh trình duyệt web hoặc màn hình dữ liệu cá nhân của khách hàng.
+- iPhone Dynamic Island medium: ví dụ 1206 × 2622 hoặc 1179 × 2556, đúng nhóm kích thước trong App Store Connect.
+- iPhone Dynamic Island large: có thể thêm bộ 1320 × 2868 nếu App Store Connect yêu cầu hoặc bạn muốn bộ riêng.
+- iPad 13 inch (app đang supportsTablet=true): 2064 × 2752 hoặc 2048 × 2732.
+- Có thể dùng ảnh landscape với chiều rộng/cao đảo lại. PNG/JPEG không có alpha; 1–10 ảnh cho mỗi nhóm thiết bị/localization được khai.
+- Gợi ý 5 cảnh: Home có lịch họp; chi tiết cuộc họp/check-in; danh sách thành viên; trò chuyện demo; Cá nhân/Cài đặt.
+Đọc lại bảng kích thước Apple nếu giao diện upload thay đổi. Không ép kéo giãn ảnh điện thoại thành ảnh iPad. App Preview video là tùy chọn.
+
+5. APP REVIEW INFORMATION
+Nhập họ tên, email và số điện thoại liên hệ thực, có người theo dõi trong thời gian review.
+Bật Sign-in required. Điền tài khoản/mật khẩu demo trực tiếp vào các trường riêng của App Store Connect.
+Chuẩn bị tài khoản thành viên đã duyệt vào Chapter, một admin kiểm duyệt, một người dùng thứ hai để chat và một tài khoản có thể xóa. Không cho reviewer tài khoản admin toàn hệ thống hoặc dữ liệu khách hàng thật.
+review-notes.en.txt đã điền các thông tin xác nhận và không còn chỗ giữ trống. Phần QR/GPS hiện mô tả đúng điều kiện của tính năng; chưa có tên cuộc họp, QR hoặc cách để reviewer hoàn tất check-in từ xa vì chủ app chưa cung cấp dữ liệu này. Bổ sung thông tin thật và đính kèm QR hợp lệ khi chuẩn bị quyền truy cập tính năng cho reviewer; điều kiện thời gian/vị trí phải dùng được khi Apple review. Không chỉ gửi video thay tài khoản hoạt động.
+Business model đã được chủ app xác nhận: miễn phí toàn bộ, không có chức năng trả phí hoặc yêu cầu thanh toán để mở quyền. Ghi chú reviewer đã có mô tả này.
+
+6. BUILD VÀ THÔNG TIN TUÂN THỦ
+Workflow GitHub Actions chạy trên macOS 26, kiểm tra Xcode 26+ và iOS SDK 26+, ký IPA bằng Apple Distribution certificate/App Store provisioning profile, rồi upload qua App Store Connect API. Đặt IOS_BUILD_NUMBER_BASE bằng build cao nhất hiện có trong App Store Connect trước lần chạy đầu. Chọn build mới sau khi Apple xử lý xong; kiểm tra bundle ID, build number, chữ ký và trạng thái upload.
+Export compliance: source dùng HTTPS và lưu trữ bảo mật của hệ điều hành, khai ITSAppUsesNonExemptEncryption=false. Chỉ dùng câu trả lời tương ứng khi bản phát hành thực tế vẫn không có mã hóa riêng/không thuộc diện miễn; chủ app xác nhận phần khai báo này.
+Không đánh dấu hỗ trợ các tính năng Accessibility chưa kiểm tra trên thiết bị.
+
+7. PRICING, AVAILABILITY VÀ RELEASE
+Đặt giá tải app là Free (miễn phí) theo xác nhận của chủ app, rồi chọn quốc gia phân phối. Nếu phát hành EU, hoàn tất trạng thái trader và thông tin DSA mà Apple yêu cầu. Xác nhận các agreements còn hiệu lực; thông tin thuế/ngân hàng bổ sung nếu mô hình phát hành yêu cầu.
+Chọn Manually release this version nếu muốn tự quyết định thời điểm public sau khi Apple duyệt. Chỉ đổi sang auto release khi chủ app muốn phát hành ngay sau phê duyệt.
+
+8. GỬI DUYỆT
+Mở từng URL bằng trình duyệt chưa đăng nhập và kiểm tra nội dung thực, không chỉ mã HTTP 200.
+Hoàn tất mọi trường bắt buộc, chọn build đúng, nhập review access và bổ sung thông tin cuộc họp/QR/GPS thực tế cần cho việc kiểm tra tính năng.
+Nhấn Add for Review → xem Draft Submission → Submit for Review.
+Theo dõi App Review/Resolution Center, email và khả năng đăng nhập tài khoản demo trong toàn bộ thời gian review.
+
+CHỦ APP CÒN CẦN CUNG CẤP/XÁC NHẬN
+[x] Chủ app xác nhận đã có bản TestFlight cũ. Không dùng build đó cho source mới; chọn build GitHub Actions sau khi Apple xử lý xong.
+[ ] Cấu hình GitHub Variables/Secrets cho signing và App Store Connect API; chạy workflow để tạo build iOS mới.
+[ ] Tên chủ sở hữu copyright; tên/email/số điện thoại liên hệ review.
+[x] Chủ app xác nhận đã có tài khoản demo được duyệt Chapter. Điền credentials trực tiếp vào App Store Connect; hoàn tất Notes và điều kiện cuộc họp/QR/GPS trước khi gửi.
+[ ] Ảnh iPhone và iPad thật từ phiên bản gửi duyệt.
+[x] Chủ app xác nhận miễn phí toàn bộ. Còn cần chọn Free, phạm vi phát hành và khai quyền dùng nội dung trên App Store Connect.
+[ ] App Privacy/age rating/export compliance được người vận hành xác nhận.
+[ ] Support/Privacy/Deletion URL hiện có mở được và chứa nội dung tương ứng. Không dùng /support vì bộ metadata này không thêm trang web mới.
+
+NGUỒN CHÍNH THỨC
+App Review: https://developer.apple.com/app-store/review/guidelines/
+Gửi phiên bản: https://developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/submit-an-app/
+App Privacy: https://developer.apple.com/app-store/app-privacy-details/
+Kích thước ảnh: https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/
+Các trường hồ sơ: https://developer.apple.com/help/app-store-connect/reference/app-information/platform-version-information/
+Yêu cầu SDK: https://developer.apple.com/news/upcoming-requirements/
+GitHub-hosted runners: https://docs.github.com/en/actions/reference/runners/github-hosted-runners
