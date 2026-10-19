@@ -176,7 +176,7 @@ export default function SignInScreen() {
 
               <View style={styles.registerRow}>
                 <Text style={styles.registerPrompt}>Bạn chưa có tài khoản?</Text>
-                <Pressable accessibilityRole="link" disabled={submitting} onPress={() => router.push("/register")} style={styles.registerLink}>
+                <Pressable accessibilityRole="link" disabled={submitting} onPress={() => router.replace("/register")} style={styles.registerLink}>
                   <Text style={styles.registerAction}>Tạo tài khoản ngay</Text>
                 </Pressable>
               </View>

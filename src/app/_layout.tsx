@@ -22,7 +22,7 @@ function AppNavigator() {
     <Stack.Screen name="community-rules" />
     <Stack.Screen name="delete-account" />
     <Stack.Screen name="account-deletion" />
-    <Stack.Screen name="(tabs)" />
+    <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
     <Stack.Screen name="settings" />
     <Stack.Screen name="profile" />
     <Stack.Screen name="notifications" />

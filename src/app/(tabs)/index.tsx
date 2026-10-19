@@ -362,7 +362,7 @@ function MemberHomeScreen() {
     !hasPermission(user, "meetings:manage", "access:manage") &&
     meetingCheckInAvailability(featuredMeeting, currentTime.getTime()) === "open"
   );
-  const featuredActionLabel = isFeaturedLive || featuredCanCheckIn ? "Vào ngay" : "Xem chi tiết";
+  const featuredActionLabel = isFeaturedLive ? "Vào cuộc họp ngay" : featuredCanCheckIn ? "Check-in ngay" : "Xem chi tiết";
   const featuredSchedule = featuredMeeting
     ? formatMeetingDetails(featuredMeeting.startsAt, featuredMeeting.endsAt)
     : null;
@@ -448,7 +448,7 @@ function MemberHomeScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`${featuredActionLabel} cuộc họp: ${featuredMeeting.title}`}
-              style={styles.heroCompact}
+              style={styles.featuredMeetingCard}
               onPress={() =>
                 router.push({
                   pathname: "/meeting/[id]",
@@ -457,64 +457,60 @@ function MemberHomeScreen() {
               }
             >
               <View style={styles.heroInnerCard}>
-                <View style={styles.heroLeft}>
-                  <View style={styles.heroTagRow}>
-                    <View style={[styles.liveTagBadge, !isFeaturedLive && styles.upcomingTagBadge]}>
-                      <View style={styles.liveDotWrapper}>
-                        <View style={[styles.liveStatusDot, !isFeaturedLive && styles.upcomingStatusDot]} />
-                      </View>
-                      <Text style={[styles.heroTagText, !isFeaturedLive && styles.upcomingTagText]}>
-                        {isFeaturedLive ? "Đang diễn ra" : "Sắp diễn ra"}
-                      </Text>
+                <View style={styles.heroTagRow}>
+                  <View style={[styles.liveTagBadge, !isFeaturedLive && styles.upcomingTagBadge]}>
+                    <View style={styles.liveDotWrapper}>
+                      <View style={[styles.liveStatusDot, !isFeaturedLive && styles.upcomingStatusDot]} />
                     </View>
-                  </View>
-
-                  <View style={styles.titleWithMic}>
-                    <View style={styles.heroIconSlot}>
-                      <Mic color={colors.brandBlue} size={14} strokeWidth={2.4} />
-                    </View>
-                    <Text style={styles.heroTitleCompact} numberOfLines={1}>
-                      {featuredMeeting.title}
+                    <Text style={[styles.heroTagText, !isFeaturedLive && styles.upcomingTagText]}>
+                      {isFeaturedLive ? "ĐANG DIỄN RA" : "CUỘC HỌP TIẾP THEO"}
                     </Text>
-                  </View>
-
-                  {!isFeaturedLive && featuredSchedule ? (
-                    <View style={styles.heroMetaRow}>
-                      <View style={styles.heroIconSlot}>
-                        <Clock color={colors.brandBlue} size={14} strokeWidth={2.2} />
-                      </View>
-                      <Text style={styles.heroMetaCompact} numberOfLines={1}>
-                        {featuredSchedule.dateStr} · {featuredSchedule.timeRange}
-                      </Text>
-                    </View>
-                  ) : null}
-
-                  <View style={styles.heroMetaRow}>
-                    <View style={styles.heroIconSlot}>
-                      <MapPin color={colors.brandBlue} size={14} strokeWidth={2.2} />
-                    </View>
-                    <Text style={styles.heroMetaCompact} numberOfLines={1}>
-                      {featuredMeeting.location?.trim() || "Chưa xác định"}
-                    </Text>
-                  </View>
-                  {isFeaturedLive ? (
-                    <View style={styles.heroMetaRow}>
-                      <View style={styles.heroIconSlot}>
-                        <Fingerprint color={colors.brandBlue} size={14} strokeWidth={2.2} />
-                      </View>
-                      <Text style={styles.heroMetaCompact} numberOfLines={1}>
-                        {featuredMeeting.speakers.length} người đã check-in
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-
-                <View style={[styles.heroRight, isFeaturedLive && styles.heroRightLive]}>
-                  <View style={styles.heroActionBtn}>
-                    <Text style={styles.heroActionBtnText}>{featuredActionLabel}</Text>
-                    <ArrowRight color="#FFFFFF" size={13} strokeWidth={2.6} />
                   </View>
                   {isFeaturedLive ? <LiveWaveform /> : null}
+                </View>
+
+                <View style={styles.titleWithMic}>
+                  <View style={styles.heroIconSlot}>
+                    <Mic color="#7DD3FC" size={19} strokeWidth={2.4} />
+                  </View>
+                  <Text style={styles.featuredMeetingTitle} numberOfLines={2}>
+                    {featuredMeeting.title}
+                  </Text>
+                </View>
+
+                {!isFeaturedLive && featuredSchedule ? (
+                  <View style={styles.heroMetaRow}>
+                    <View style={styles.heroIconSlot}>
+                      <Clock color="#7DD3FC" size={16} strokeWidth={2.2} />
+                    </View>
+                    <Text style={styles.featuredMeetingMeta} numberOfLines={1}>
+                      {featuredSchedule.dateStr} · {featuredSchedule.timeRange}
+                    </Text>
+                  </View>
+                ) : null}
+
+                <View style={styles.heroMetaRow}>
+                  <View style={styles.heroIconSlot}>
+                    <MapPin color="#7DD3FC" size={16} strokeWidth={2.2} />
+                  </View>
+                  <Text style={styles.featuredMeetingMeta} numberOfLines={1}>
+                    {featuredMeeting.location?.trim() || "Chưa xác định địa điểm"}
+                  </Text>
+                </View>
+                {isFeaturedLive ? (
+                  <View style={styles.heroMetaRow}>
+                    <View style={styles.heroIconSlot}>
+                      <Fingerprint color="#7DD3FC" size={16} strokeWidth={2.2} />
+                    </View>
+                    <Text style={styles.featuredMeetingMeta} numberOfLines={1}>
+                      {featuredMeeting.speakers.length} người đã check-in
+                    </Text>
+                  </View>
+                ) : null}
+
+                <View style={styles.featuredMeetingAction}>
+                  <Text style={styles.featuredMeetingActionText}>{featuredActionLabel}</Text>
+                  <ArrowRight color="#075985" size={18} strokeWidth={2.6} />
                 </View>
               </View>
             </Pressable>
@@ -900,50 +896,45 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
-  /* Banner cuộc họp trực tiếp - Nền nhạt đồng bộ màu thương hiệu brandBlue #00ADFC */
-  heroCompact: {
-    backgroundColor: "#CEEEFD",
-    borderRadius: radius.lg,
+  /* Thẻ cuộc họp nổi bật trên trang chủ */
+  featuredMeetingCard: {
+    backgroundColor: "#073B5A",
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: "#E8F8FF",
-    paddingVertical: 9,
-    paddingHorizontal: 11,
-    marginBottom: 6,
-    shadowColor: "#257FA9",
-    shadowOffset: { width: 0, height: 7 },
-    shadowOpacity: 0.22,
-    shadowRadius: 14,
-    elevation: 6,
+    borderColor: "#0B557A",
+    paddingVertical: 18,
+    paddingHorizontal: 18,
+    marginBottom: 16,
+    shadowColor: "#082F49",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.24,
+    shadowRadius: 16,
+    elevation: 8,
   },
   heroInnerCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-  },
-  heroLeft: {
-    flex: 1,
-    gap: 4.5,
+    alignItems: "stretch",
+    gap: 12,
   },
   heroTagRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    justifyContent: "space-between",
+    gap: 8,
   },
   liveTagBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#DCFCE7",
+    backgroundColor: "#14532D",
     borderWidth: 1,
-    borderColor: "#86EFAC",
-    paddingHorizontal: 7.5,
-    paddingVertical: 2.5,
+    borderColor: "#22C55E",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: radius.pill,
     gap: 4.5,
   },
   upcomingTagBadge: {
-    backgroundColor: "rgba(0, 173, 252, 0.12)",
-    borderColor: "rgba(0, 173, 252, 0.25)",
+    backgroundColor: "#0B5273",
+    borderColor: "#38BDF8",
   },
   liveDotWrapper: {
     width: 10,
@@ -961,12 +952,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#00ADFC",
   },
   heroTagText: {
-    color: "#15803D",
-    fontSize: 10,
+    color: "#DCFCE7",
+    fontSize: 10.5,
     fontWeight: "800",
   },
   upcomingTagText: {
-    color: "#00ADFC",
+    color: "#BAE6FD",
   },
   liveWave: {
     height: 20,
@@ -984,19 +975,20 @@ const styles = StyleSheet.create({
   titleWithMic: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 10,
   },
   heroIconSlot: {
-    width: 16,
-    height: 16,
+    width: 20,
+    height: 20,
     alignItems: "center",
     justifyContent: "center",
   },
-  heroTitleCompact: {
-    color: "#0B2B33",
-    fontSize: 14.5,
+  featuredMeetingTitle: {
+    color: "#FFFFFF",
+    fontSize: 20,
     fontWeight: "800",
-    letterSpacing: -0.2,
+    letterSpacing: -0.35,
+    lineHeight: 25,
     flex: 1,
   },
   heroMetaRow: {
@@ -1004,37 +996,27 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
-  heroMetaCompact: {
-    color: "#4A6E78",
-    fontSize: 11.5,
+  featuredMeetingMeta: {
+    color: "#D8EAF4",
+    fontSize: 13,
     fontWeight: "500",
     flex: 1,
+    lineHeight: 18,
   },
-  heroRight: {
-    alignItems: "center",
-    gap: 5,
-  },
-  heroRightLive: {
-    alignSelf: "stretch",
-    justifyContent: "space-between",
-  },
-  heroActionBtn: {
+  featuredMeetingAction: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.brandBlue,
-    borderRadius: radius.pill,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    gap: 4,
-    shadowColor: colors.brandBlue,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35,
-    shadowRadius: 5,
-    elevation: 3,
+    justifyContent: "space-between",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    minHeight: 52,
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+    marginTop: 4,
   },
-  heroActionBtnText: {
-    color: "#FFFFFF",
-    fontSize: 12,
+  featuredMeetingActionText: {
+    color: "#075985",
+    fontSize: 15,
     fontWeight: "800",
   },
   link: {
