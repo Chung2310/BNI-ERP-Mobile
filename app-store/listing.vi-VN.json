@@ -1,0 +1,35 @@
+{
+  "status": "draft-for-manual-entry",
+  "locale": "vi-VN",
+  "bundleIdentifier": "com.igen.bni",
+  "version": "1.0.0",
+  "name": "igen connect",
+  "subtitle": "Kết nối Chapter và cuộc họp",
+  "primaryCategorySuggestion": "Business",
+  "secondaryCategorySuggestion": "Social Networking",
+  "confirmedBusinessModel": "App download and all Chapter access are free; no paid features or subscriptions.",
+  "suggestedDownloadPrice": "Free",
+  "promotionalText": "Kết nối thành viên Chapter, theo dõi cuộc họp, check-in QR/GPS và trao đổi thông tin trong cùng một ứng dụng.",
+  "keywords": "chapter,cuoc hop,thanh vien,check-in,ket noi,doanh nghiep,nhom",
+  "description": "iGen Connect giúp thành viên và người quản lý Chapter kết nối, tổ chức cuộc họp và trao đổi thông tin trên iPhone và iPad.\n\nỨng dụng và quyền sử dụng Chapter miễn phí toàn bộ.\n\nCUỘC HỌP VÀ CHECK-IN\nTheo dõi lịch họp, xem nội dung cuộc họp và check-in bằng mã QR kết hợp vị trí GPS theo điều kiện của ban tổ chức. Người có quyền có thể quản lý cuộc họp, người tham dự và lượt phát biểu.\n\nKẾT NỐI THÀNH VIÊN\nXem danh sách thành viên, hồ sơ và thông tin Chapter trong phạm vi được cấp quyền. Quản lý thông tin hồ sơ cá nhân ngay trong ứng dụng.\n\nTRÒ CHUYỆN VÀ TÀI NGUYÊN\nTrao đổi tin nhắn, chia sẻ ảnh, video, ghi âm và tệp với những người có quyền truy cập. Theo dõi thông báo và tài nguyên của Chapter.\n\nHOẠT ĐỘNG CUỘC HỌP\nTheo dõi các lượt phát biểu, tương tác và sử dụng vòng quay chọn người phục vụ hoạt động nhóm. Vòng quay dùng để chọn tên hoặc thứ tự tham gia.\n\nQUẢN LÝ TÀI KHOẢN\nBật Face ID hoặc Touch ID trên thiết bị hỗ trợ, quản lý quyền thông báo, báo cáo nội dung, chặn người dùng và khởi tạo xóa tài khoản cùng dữ liệu trong ứng dụng.\n\nBạn có thể tạo tài khoản trong ứng dụng. Các chức năng dành cho thành viên phụ thuộc trạng thái gia nhập Chapter, cấu hình của đơn vị và quyền được quản trị viên cấp.\n\nCamera và vị trí được yêu cầu khi sử dụng check-in; ảnh và micro được yêu cầu khi bạn chọn chia sẻ nội dung tương ứng. Bạn có thể quản lý các quyền trong Cài đặt thiết bị.\n\nHỗ trợ: igen.work99@gmail.com\nChính sách bảo mật: https://bni.igentechnology.net/privacy-policy",
+  "supportUrl": "https://bni.igentechnology.net/privacy-policy",
+  "privacyPolicyUrl": "https://bni.igentechnology.net/privacy-policy",
+  "privacyChoicesUrl": "https://bni.igentechnology.net/user-data-deletion",
+  "copyright": null,
+  "reviewContact": {
+    "firstName": null,
+    "lastName": null,
+    "email": null,
+    "phone": null
+  },
+  "reviewNotesFile": "review-notes.en.txt",
+  "ownerMustProvide": [
+    "Processed build number visible in App Store Connect",
+    "Copyright owner's legal name and year",
+    "App Review contact name, reachable email and phone",
+    "Demo credentials entered directly into App Store Connect",
+    "Review Chapter and accessible meeting details for the review notes",
+    "Real iPhone and iPad screenshots",
+    "Confirmed App Privacy, age rating, content rights and availability; select Free pricing"
+  ]
+}

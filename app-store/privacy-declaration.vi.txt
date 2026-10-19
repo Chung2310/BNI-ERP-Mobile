@@ -1,0 +1,66 @@
+APP PRIVACY — BẢN CHUẨN BỊ THEO SOURCE MOBILE/BACKEND
+Ngày rà soát: 15/10/2026. Chủ app cần xác nhận backend, hạ tầng và SDK của bản gửi duyệt trước khi publish nhãn trong App Store Connect.
+
+Nguồn thuật ngữ và quy tắc khai: https://developer.apple.com/app-store/app-privacy-details/
+Quyền trong Info.plist và privacy manifest không tự thay thế phần App Privacy trên App Store Connect.
+
+HƯỚNG KHAI CHO SOURCE HIỆN TẠI
+Data Collected: Yes.
+Các loại dữ liệu bên dưới gắn với tài khoản nên Linked to the User: Yes.
+Mục đích dự kiến: App Functionality. Hoạt động chống lạm dụng và vận hành nằm trong mục đích này. Chỉ thêm Analytics/Product Personalization/Marketing nếu phía vận hành hoặc SDK thực tế dùng theo mục đích đó.
+Used for Tracking: No theo source mobile được rà; cần xác nhận thêm thực tế các nhà cung cấp. Không có quảng cáo/IDFA trong dependencies mobile hiện tại. Việc bật NSPrivacyTracking=false tự nó không chứng minh mọi SDK đều không tracking.
+
+CONTACT INFO
+- Name: họ tên đăng ký, hồ sơ, thành viên và người tham dự.
+- Email Address: đăng ký, đăng nhập, thông tin liên hệ.
+- Phone Number: người dùng tùy chọn nhập số điện thoại trong hồ sơ/đăng ký.
+- Physical Address: trường “Địa chỉ” trong hồ sơ được gửi và lưu theo tài khoản. Địa chỉ/tọa độ của địa điểm họp được đánh giá riêng với dữ liệu vị trí.
+Evidence: src/app/register.tsx, src/app/profile.tsx, src/services/auth.ts; backend server/model/user.model.ts.
+
+IDENTIFIERS
+- User ID: định danh tài khoản/Chapter và liên kết thông báo.
+- Device ID: mã thiết bị/phiên đăng nhập và token thông báo liên kết tài khoản.
+Evidence: src/services/auth.ts (deviceId), src/services/pushNotifications.ts; backend server/service/mobile-push.service.ts và model phiên.
+
+USER CONTENT
+- Emails or Text Messages: nội dung trò chuyện, gồm tin nhắn trong app.
+- Photos or Videos: ảnh hồ sơ, ảnh bìa, gallery, ảnh/video chat và tài nguyên được tải lên.
+- Audio Data: tin nhắn thoại/ghi âm người dùng gửi.
+- Other User Content: tệp, mô tả hồ sơ, câu trả lời tương tác, báo cáo nội dung và nội dung tự nhập khác.
+- Customer Support: dữ liệu gửi trong yêu cầu hỗ trợ/báo cáo nếu lưu gắn tài khoản. Không mặc định miễn khai mọi email hỗ trợ; chỉ áp dụng Optional Disclosure nếu đáp ứng đầy đủ điều kiện Apple.
+Evidence: src/services/chat.ts, src/services/contentSafety.ts, src/services/resources.ts; backend content-safety, chat và resource models/services.
+
+USAGE DATA VÀ DIAGNOSTICS
+- Product Interaction/Other Usage Data: lịch sử thao tác, tham gia cuộc họp, check-in và hoạt động tài khoản được lưu theo user. Chọn subtype đúng bản triển khai.
+- Other Diagnostic Data: trạng thái/kết quả yêu cầu, thông tin kết nối và nhật ký lỗi/kỹ thuật gắn tài khoản.
+- Performance Data: đối chiếu việc giữ durationMs của API và mục đích sử dụng với phần khai diagnostics.
+- Search History: source đánh dấu hành động search nhưng không lưu giá trị truy vấn trong user-activity event. Chỉ khai Search History nếu bản triển khai/nhà cung cấp giữ nội dung tìm kiếm.
+Evidence: server/middleware/user-activity.ts và server/model/user-activity-event.model.ts: userId, route, sourceIp, userAgent, result, durationMs, TTL 90 ngày.
+Không tự thêm Crash Data nếu không có thu crash report; không bỏ Diagnostics chỉ vì mobile không cài dịch vụ crash riêng.
+
+LOCATION — CẦN ĐỐI CHIẾU GIỮ LIỆU
+- App gửi GPS chính xác đến API để xác minh check-in; người quản lý có thể lấy GPS để lưu tọa độ cuộc họp. Precise Location là mục cần đánh giá, gắn user và phục vụ App Functionality nếu được giữ lại.
+- Luồng check-in source kiểm tra khoảng cách và không có trường lưu tọa độ người tham dự trong meeting speaker schema. Không chỉ dựa vào đó để khẳng định vị trí hoàn toàn không được thu: cần kiểm tra log request, proxy, ảnh/file có metadata vị trí và nhà cung cấp.
+- Nếu mọi GPS chỉ được xử lý tức thời cho một yêu cầu rồi loại bỏ, không có nhà cung cấp giữ quá thời gian phục vụ yêu cầu, đối chiếu ngoại lệ xử lý tạm thời của Apple trước khi khai.
+- Tọa độ cuộc họp lấy từ GPS thiết bị người tổ chức và lưu trên backend cũng phải được tính đến. Không miễn toàn bộ Location chỉ vì luồng check-in không lưu tọa độ người tham dự.
+Evidence: mobile src/app/meeting/create.tsx, edit.tsx, check-in.tsx; server/modules/meetings/meeting.model.ts và validateCheckInLocation trong meeting.service.ts.
+
+KHÔNG TỰ KHAI LÀ DỮ LIỆU THU CHỈ VÌ CÓ QUYỀN
+- Face ID/Touch ID xử lý trên thiết bị; source nhận kết quả xác thực, không nhận mẫu mặt/vân tay. Ảnh đại diện tự tải lên vẫn thuộc Photos or Videos.
+- NSMotionUsageDescription cần cho native expo-location có Core Motion APIs. Source mobile hiện không gọi getMotionActivityAsync/watchMotionActivityAsync hoặc gửi số đo chuyển động; không tự chọn Fitness/Health Data vì có purpose string.
+- Một quyền camera không đồng nghĩa app lưu toàn bộ luồng camera; khai ảnh/video/QR thực tế đã gửi và giữ.
+
+OTHER DATA TYPES
+- Hồ sơ mobile có ngày sinh, giới tính, công ty/lĩnh vực và thị trường mục tiêu được gửi về API. Khai các trường có cấu trúc này theo subtype Apple tương ứng; những dữ liệu chưa có subtype riêng thuộc Other Data Types. Các trường tùy chọn vẫn là dữ liệu thu khi người dùng điền, không tự động được miễn khai.
+Evidence: src/app/profile.tsx và src/services/auth.ts (updateProfile).
+
+CÁC MỤC CHỈ THÊM KHI THỰC TẾ CÓ
+- Gameplay Content: đối chiếu nếu triển khai có lưu dữ liệu trò chơi thực; vòng quay chọn thứ tự người tham gia cuộc họp không tự biến thành gambling.
+- Financial Info/Purchase History: đối chiếu nếu bản mobile hoặc webview trong app truy cập hội phí, giao dịch hoặc mua dịch vụ. Backend ERP có module tài chính không đủ để kết luận mobile thu mọi dữ liệu tài chính đó.
+- Browsing History: chỉ thêm nếu thực sự thu lịch sử duyệt, không suy ra từ việc có thư viện mở web.
+
+NHÀ CUNG CẤP CẦN XÁC NHẬN
+Cloudinary (media), Expo Push Service và Apple APNs (push iOS), hạ tầng API/database/log, Google Drive khi Chapter kết nối. Firebase/FCM dùng cho Android theo source; rà SDK iOS thực tế trong build được chọn. Không đưa toàn bộ tích hợp AI/TikTok/Meta của ERP web vào nhãn mobile nếu mobile không thu/chia sẻ dữ liệu qua chúng.
+
+ĐIỂM PHẢI CHỐT
+Chốt các subtype có điều kiện trên với người vận hành; kiểm tra privacy policy đã công khai và khớp cách xử lý thực tế. Điền App Privacy trên App Store Connect rồi publish; file này chưa phải nhãn đã công bố.

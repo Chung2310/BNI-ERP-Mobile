@@ -18,10 +18,10 @@ export default function LoginScreen() {
         <View style={styles.contentSpacer} />
 
         <View style={[styles.actions, { paddingBottom: Math.min(96, Math.max(spacing.xxl, height * 0.08)) }]}>
-          <Button fullWidth onPress={() => router.push("/sign-in")} style={styles.loginButton} textStyle={styles.loginButtonText}>Đăng nhập</Button>
+          <Button fullWidth onPress={() => router.replace("/sign-in")} style={styles.loginButton} textStyle={styles.loginButtonText}>Đăng nhập</Button>
           <View style={styles.registerRow}>
             <Text style={styles.registerPrompt}>Bạn chưa có tài khoản?</Text>
-            <Pressable accessibilityRole="link" onPress={() => router.push("/register")} style={styles.registerLink}>
+            <Pressable accessibilityRole="link" onPress={() => router.replace("/register")} style={styles.registerLink}>
               <Text style={styles.registerAction}>Tạo tài khoản ngay</Text>
             </Pressable>
           </View>

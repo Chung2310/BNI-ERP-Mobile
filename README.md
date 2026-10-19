@@ -37,36 +37,51 @@ Camera, vị trí và Face ID cần kiểm thử bằng development build trên 
 
 ## Thông báo đẩy trên iPhone
 
-iOS dùng Expo Push Service để chuyển thông báo tới APNs; Android tiếp tục dùng FCM trực tiếp. Thông báo dạng có tiêu đề và nội dung được iOS hiển thị ở Notification Center khi app ở nền hoặc đã đóng. Chạm vào thông báo sẽ mở màn hình đích trong app. Việc chạy JavaScript âm thầm khi app ở nền do iOS quyết định và không được đảm bảo.
+iOS hiện dùng Expo Push Service để chuyển thông báo tới APNs; Android tiếp tục dùng FCM trực tiếp. Thay đổi runner build không thay đổi dịch vụ gửi push: project ID Expo Push vẫn nằm trong `app.json` tại `expo.extra.eas.projectId`, và APNs key cần được cấu hình trong Expo Push Service. Provisioning profile dùng cho GitHub Actions phải có entitlement push production. Muốn bỏ cả Expo Push Service thì cần chuyển riêng luồng đăng ký token và gửi push sang APNs trực tiếp.
 
-Để bật push iOS:
-
-1. Tạo/liên kết ứng dụng với một EAS project và đặt UUID của project vào `EXPO_PUBLIC_EAS_PROJECT_ID` trong môi trường build hoặc `.env`.
-2. Trong EAS, cấu hình Apple Push Notifications service key (APNs) cho bundle ID `com.igen.bni`. Cần Apple Developer account trả phí.
-3. Cài app bằng development/release build trên iPhone thật và chấp nhận quyền thông báo. Expo Go không đăng ký push trong app này.
-4. Backend cần có `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64`; backend dùng thông tin này cho FCM Android, còn iOS được gửi qua Expo Push Service.
-
-`app.json` đã bật `enableBackgroundRemoteNotifications`; sau khi thay đổi cấu hình native, cần tạo lại build iOS. Push token iOS được đăng ký với backend dưới dạng Expo token, không phải APNs token thô.
+Thông báo có tiêu đề và nội dung xuất hiện trong Notification Center khi app ở nền hoặc đã đóng. app.json bật nhận thông báo nền; iOS quyết định việc chạy JavaScript âm thầm và không đảm bảo luôn chạy.
 
 ## CI/CD iOS lên App Store Connect
 
-Workflow [iOS App Store build and upload](.github/workflows/ios-app-store.yml) chạy khi push lên nhánh `production` hoặc khi chạy thủ công trên nhánh này. Workflow chạy lint/typecheck, build iOS bằng EAS, rồi upload bản `.ipa` lên App Store Connect.
+Workflow [iOS App Store build and upload](.github/workflows/ios-app-store.yml) chạy trên GitHub-hosted macOS 26 khi push lên nhánh `production` hoặc chạy thủ công trên nhánh đó. Workflow dùng Expo SDK/config plugins tại chỗ để sinh project native iOS, cài CocoaPods, archive/export bằng Xcode và tải IPA lên App Store Connect/TestFlight. Workflow không gọi EAS Build/Submit, không cần `EXPO_TOKEN`, và không tự gửi bản lên App Review.
 
-Thiết lập trong GitHub repository, tại **Settings → Secrets and variables → Actions**:
+Thiết lập trong GitHub repository, tại **Settings → Secrets and variables → Actions**.
 
-- Variables: `EAS_PROJECT_ID`, `ASC_APP_ID`, `ASC_API_KEY_ID`, `ASC_API_KEY_ISSUER_ID`, `EXPO_PUBLIC_API_URL` (URL API production dạng HTTPS).
-- Secrets: `EXPO_TOKEN` (Expo access token), `ASC_API_KEY_P8` (toàn bộ nội dung file App Store Connect `.p8`).
+Variables:
 
-Trước lần chạy đầu, cấu hình iOS Distribution certificate/provisioning profile và APNs key cho bundle ID `com.igen.bni` trong EAS. Workflow mặc định upload build lên App Store Connect/TestFlight; gửi bản lên Apple App Review để phát hành công khai vẫn cần thao tác trong App Store Connect.
+- `EXPO_PUBLIC_API_URL`: API production dạng HTTPS.
+- `IOS_TEAM_ID`: Apple Developer Team ID gồm 10 ký tự.
+- `IOS_BUILD_NUMBER_BASE`: build number cao nhất đã tải lên App Store Connect. Workflow cộng số lần chạy GitHub vào giá trị này để tạo build number mới.
+- `ASC_API_KEY_ID` và `ASC_API_KEY_ISSUER_ID`: thông tin App Store Connect API key.
 
-Build thủ công cũng dùng môi trường EAS `production`. Đặt `EXPO_PUBLIC_API_URL` (ví dụ `https://erp.igentechnology.net`) trong môi trường đó; giá trị phải trùng GitHub variable tương ứng. Build production thiếu API HTTPS sẽ dừng tại bước cấu hình. Workflow lưu ID build vừa hoàn tất rồi submit đúng ID, tránh chọn nhầm build khác.
+Secrets:
+
+- `IOS_DISTRIBUTION_CERTIFICATE_BASE64`: certificate Apple Distribution dạng P12, đã mã hóa Base64.
+- `IOS_DISTRIBUTION_CERTIFICATE_PASSWORD`: mật khẩu P12.
+- `IOS_APP_STORE_PROFILE_BASE64`: App Store provisioning profile cho bundle ID `com.igen.bni`, đã mã hóa Base64 và có entitlement push production.
+- `ASC_API_KEY_P8`: toàn bộ nội dung file App Store Connect `.p8`.
+
+Dùng PowerShell để mã hóa certificate và profile thành Base64. Chạy từng lệnh riêng và dán clipboard sau mỗi lệnh vào GitHub Secret tương ứng:
 
 ```powershell
-npx eas-cli@latest env:create --environment production --name EXPO_PUBLIC_API_URL --value https://erp.igentechnology.net --visibility plaintext
-npx eas-cli@latest build --platform ios --profile production
+[Convert]::ToBase64String([IO.File]::ReadAllBytes(".\ios_distribution.p12")) | Set-Clipboard
+[Convert]::ToBase64String([IO.File]::ReadAllBytes(".\ios_app_store.mobileprovision")) | Set-Clipboard
 ```
 
-Nếu biến đã tồn tại, sửa trong Expo dashboard thay vì tạo lại. API URL là thông tin công khai được nhúng vào ứng dụng; không đặt mật khẩu hoặc API secret trong biến `EXPO_PUBLIC_*`.
+Certificate P12 phải chứa Apple Distribution certificate cùng private key tương ứng; provisioning profile phải thuộc cùng Apple Developer Team và có App ID `com.igen.bni`. Không đưa các file này hoặc `.p8` vào repository. Đặt `IOS_BUILD_NUMBER_BASE` bằng build TestFlight/App Store gần nhất trước khi chạy workflow lần đầu.
+
+Workflow lưu file IPA làm GitHub Actions artifact và tải một bản lên App Store Connect. Chờ Apple xử lý xong rồi chọn build đó trong phiên bản App Store Connect; bước upload không tự gửi App Review.
+
+## Hồ sơ gửi App Review
+
+Bộ nội dung chuẩn bị cho phiên bản 1.0.0 nằm trong [app-store](app-store/):
+
+- [Các bước gửi duyệt và mục chủ app cần hoàn tất](app-store/submission-steps.vi.txt).
+- [Tên, mô tả, từ khóa và URL để điền App Store Connect](app-store/listing.vi-VN.json).
+- [Ghi chú tiếng Anh cho reviewer](app-store/review-notes.en.txt): đã điền các thông tin xác nhận, điền mật khẩu trực tiếp vào App Store Connect. Thông tin cuộc họp/QR cụ thể cần dữ liệu thực từ chủ app nếu bổ sung hướng dẫn check-in cho reviewer.
+- [Bản đối chiếu App Privacy theo source](app-store/privacy-declaration.vi.txt): xác nhận cách vận hành thực tế rồi publish nhãn trên App Store Connect.
+
+Các file này dùng để nhập thủ công trên App Store Connect. Sửa mô tả, từ khóa hoặc ghi chú reviewer không yêu cầu sửa mã nguồn hoặc build lại app. Chủ app xác nhận đã có bản TestFlight, tài khoản demo và dịch vụ miễn phí toàn bộ. Điền thông tin liên hệ, copyright và ảnh chụp thực; chọn build đã xử lý xong rồi thực hiện **Add for Review → Submit for Review** trong App Store Connect. Support URL có thể dùng trang chính sách công khai hiện có chứa thông tin liên hệ hỗ trợ; không cần tạo route mới cho bộ metadata này.
 
 ## Kiểm duyệt nội dung
 
