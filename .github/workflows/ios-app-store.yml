@@ -152,7 +152,24 @@ jobs:
           echo "IOS_PROFILE_UUID=$profile_uuid" >> "$GITHUB_ENV"
 
       - name: Generate iOS project
-        run: npx expo prebuild --platform ios --clean --no-install
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const configPath = "app.json";
+          const appConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
+          const buildNumber = process.env.IOS_BUILD_NUMBER;
+          if (!/^\d+$/.test(buildNumber ?? "")) {
+            throw new Error("IOS_BUILD_NUMBER must be a numeric iOS build number.");
+          }
+          if (!appConfig.expo?.ios) {
+            throw new Error("app.json must define expo.ios before setting the iOS build number.");
+          }
+          appConfig.expo.ios.buildNumber = buildNumber;
+          fs.writeFileSync(configPath, `${JSON.stringify(appConfig, null, 2)}\n`);
+          console.log(`Generating iOS project with build number ${buildNumber}.`);
+          NODE
+          npx expo prebuild --platform ios --clean --no-install
 
       - name: Install CocoaPods dependencies
         run: pod install --project-directory=ios
@@ -234,9 +251,15 @@ jobs:
             exit 1
           fi
           ARCHIVE_BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_PATH/Info.plist")"
+          ARCHIVE_BUILD_NUMBER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP_PATH/Info.plist")"
           echo "Archived app bundle ID: $ARCHIVE_BUNDLE_ID"
           if [[ "$ARCHIVE_BUNDLE_ID" != "com.igen.bni" ]]; then
             echo "::error title=Wrong Xcode archive::Expected com.igen.bni but found $ARCHIVE_BUNDLE_ID."
+            exit 1
+          fi
+          echo "Archived app build number: $ARCHIVE_BUILD_NUMBER"
+          if [[ "$ARCHIVE_BUILD_NUMBER" != "$IOS_BUILD_NUMBER" ]]; then
+            echo "::error title=Wrong archive build number::Expected $IOS_BUILD_NUMBER but found $ARCHIVE_BUILD_NUMBER."
             exit 1
           fi
 
