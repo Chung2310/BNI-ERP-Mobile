@@ -14,7 +14,7 @@ type Props = { name: UtilityIconName; color: string; accent: string };
 
 // Original pictograms for iGen Connect. Each icon repeats a small connected node.
 export function UtilityIcon({ name, color, accent }: Props) {
-  const common = { width: 32, height: 32, viewBox: "0 0 48 48" } as const;
+  const common = { width: 38, height: 38, viewBox: "0 0 48 48" } as const;
 
   switch (name) {
     case "schedule":

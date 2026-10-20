@@ -6,7 +6,7 @@ import { Alert } from '@/components/AppAlert';
 import { isChapterGuest } from '@/utils/guest';
 import { ChatUnreadCountContext } from '@/context/ChatUnreadCountContext';
 import type { UserProfile } from '@/types';
-import { colors, radius, spacing } from '@/theme/tokens';
+import { colors, radius } from '@/theme/tokens';
 import { canCreateMeeting } from '@/utils/permissions';
 
 interface QuickActionDef {
@@ -18,14 +18,14 @@ interface QuickActionDef {
 }
 
 const iconColors: Record<UtilityIconName, { color: string; accent: string; background: string }> = {
-  schedule: { color: '#00ADFC', accent: '#78D9FF', background: '#E8F8FF' },
-  statistics: { color: '#718BED', accent: '#70D7FC', background: '#EEF2FF' },
-  chapter: { color: '#00A9DE', accent: '#87D9F6', background: '#E7F8FF' },
+  schedule: { color: '#079BFA', accent: '#75D3FF', background: '#E6F6FF' },
+  statistics: { color: '#7552E9', accent: '#B5A1FF', background: '#F1EEFF' },
+  chapter: { color: '#10AB87', accent: '#8EE5CC', background: '#E6F8F1' },
   members: { color: '#54A9F0', accent: '#9CB7F5', background: '#EDF6FF' },
-  createMeeting: { color: '#369EEF', accent: '#94D8FF', background: '#EAF5FF' },
-  chat: { color: '#688CE6', accent: '#72D2FF', background: '#EEF2FF' },
-  ranking: { color: '#6D91EA', accent: '#93CEFF', background: '#ECF3FF' },
-  settings: { color: '#69A5E1', accent: '#6ED3E8', background: '#EAF7FD' },
+  createMeeting: { color: '#FFA31A', accent: '#FFD48D', background: '#FFF4E5' },
+  chat: { color: '#FC5E7E', accent: '#FFB0C0', background: '#FFF0F3' },
+  ranking: { color: '#FFA51F', accent: '#FFCC76', background: '#FFF5E7' },
+  settings: { color: '#6795C8', accent: '#AACBE9', background: '#EFF5FC' },
 };
 
 function ActionItem({ icon, title, href, unreadCount = 0, locked = false }: QuickActionDef) {
@@ -149,10 +149,10 @@ export function DashboardQuickActions({
 const styles = StyleSheet.create({
   container: {
     borderWidth: 0,
-    borderRadius: radius.lg,
+    borderRadius: 24,
     backgroundColor: colors.surface,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: 2,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
   },
   grid: {
     flexDirection: 'row',
@@ -163,14 +163,14 @@ const styles = StyleSheet.create({
     width: '25%',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingVertical: 4,
+    paddingVertical: 2,
     paddingHorizontal: 2,
-    marginBottom: 2,
+    marginBottom: 10,
     overflow: 'visible',
   },
   iconBox: {
-    width: 46,
-    height: 46,
+    width: 58,
+    height: 58,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'visible',
@@ -179,29 +179,29 @@ const styles = StyleSheet.create({
   iconDepth: {
     position: 'absolute',
     top: 3,
-    width: 46,
-    height: 46,
+    width: 58,
+    height: 58,
     borderRadius: radius.md,
     opacity: 0.22,
   },
   iconFace: {
-    width: 46,
-    height: 46,
-    borderRadius: radius.md,
+    width: 58,
+    height: 58,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.18,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
   },
   iconShine: {
     position: 'absolute',
     top: 3,
     left: 5,
-    width: 28,
+    width: 38,
     height: 11,
     borderRadius: 8,
     backgroundColor: '#FFFFFF',
@@ -226,12 +226,12 @@ const styles = StyleSheet.create({
   lockBadge: { position: 'absolute', right: -4, bottom: -3, borderRadius: 8, backgroundColor: colors.surface, padding: 2 },
   unreadBadgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' },
   itemTitle: {
-    marginTop: 2,
-    color: colors.text,
-    fontSize: 10,
-    fontWeight: '600',
+    marginTop: 7,
+    color: '#081735',
+    fontSize: 11.5,
+    fontWeight: '700',
     textAlign: 'center',
-    lineHeight: 13,
+    lineHeight: 15,
   },
   pressed: {
     opacity: 0.65,
