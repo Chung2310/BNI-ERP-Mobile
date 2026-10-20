@@ -243,7 +243,7 @@ function MemberHomeScreen() {
   const [currentTime, setCurrentTime] = useState(() => new Date());
 
   // Trạng thái thu gọn/mở rộng các mục lịch họp
-  const [isUpcomingOpen, setIsUpcomingOpen] = useState(true);
+  const [isUpcomingOpen, setIsUpcomingOpen] = useState(false);
   const [isThisWeekOpen, setIsThisWeekOpen] = useState(false);
   const [visibleUpcomingCount, setVisibleUpcomingCount] = useState(10);
 
