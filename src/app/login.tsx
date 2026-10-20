@@ -43,5 +43,5 @@ const styles = StyleSheet.create({
   registerRow: { minHeight: 44, flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: spacing.sm, marginTop: spacing.sm },
   registerLink: { minHeight: 44, alignItems: "center", justifyContent: "center" },
   registerPrompt: { color: "#000000", fontSize: 13 },
-  registerAction: { color: colors.text, fontSize: 13, fontWeight: "700", textDecorationLine: "underline" },
+  registerAction: { color: colors.text, fontSize: 13, fontWeight: "700" },
 });

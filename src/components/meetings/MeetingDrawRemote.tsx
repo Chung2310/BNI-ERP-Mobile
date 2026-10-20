@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
   },
   heading: { color: colors.text, fontSize: 15, fontWeight: "800" },
   rulesLink: { alignSelf: "flex-start", minHeight: 32, justifyContent: "center", paddingRight: spacing.md },
-  rulesLinkText: { color: colors.primaryDark, fontSize: 12, fontWeight: "700", textDecorationLine: "underline" },
+  rulesLinkText: { color: colors.primaryDark, fontSize: 12, fontWeight: "700" },
   error: { color: colors.danger, fontSize: 13, marginBottom: spacing.xs },
   meta: { color: colors.muted, fontSize: 12, lineHeight: 17 },
 
