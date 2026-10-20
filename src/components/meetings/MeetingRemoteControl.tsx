@@ -1262,7 +1262,7 @@ function StagePreview({
             <Text key={item.id} numberOfLines={2} style={styles.responsePreviewQuestion}>
               {item.order}. {item.text}
             </Text>
-          )) : <Text style={styles.stageCompany}>Chưa có câu hỏi</Text>}
+          )) : <Text style={styles.responsePreviewEmpty}>Chưa có câu hỏi</Text>}
         </View>
       );
     }
@@ -1580,6 +1580,7 @@ const styles = StyleSheet.create({
   responseStageTitle: { color: colors.surface, fontSize: 15, fontWeight: "800", textAlign: "center" },
   responsePreviewHeading: { color: colors.text, fontSize: 13, fontWeight: "800", textAlign: "center" },
   responsePreviewQuestion: { color: colors.text, fontSize: 10, fontWeight: "600", textAlign: "center" },
+  responsePreviewEmpty: { color: colors.muted, fontSize: 12, textAlign: "center" },
   responseStageQrFrame: { padding: 4, borderRadius: radius.sm, backgroundColor: colors.surface },
   responseStageTimer: { color: "#A5F3FC", fontSize: 12, fontWeight: "700" },
   stageName: { color: colors.text, fontSize: 15, fontWeight: "700" },

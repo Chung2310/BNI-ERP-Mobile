@@ -24,7 +24,7 @@ import { useAuth } from "@/context/AuthContext";
 import { meetingService, type MeetingPoint, type MeetingRecurrence, type SpeakingTimeSlot } from "@/services/meeting";
 import { colors, radius, shadow, spacing } from "@/theme/tokens";
 import { defaultSpeakingTimeSlots, parseVietnamDateTime, recurringMeetingDates, twoHoursAfter, validateSpeakingTimeSlots } from "@/utils/meetingForm";
-import { defaultMeetingCoverSource, uploadDefaultMeetingCover } from "@/utils/defaultMeetingCover";
+import { defaultMeetingCoverSource, resolveMeetingCoverForCreate } from "@/utils/defaultMeetingCover";
 import { canCreateMeeting } from "@/utils/permissions";
 
 type CreateMode = "single" | "recurring";
@@ -171,7 +171,7 @@ function CreateMeetingForm() {
         if (title.trim().length > 200) throw new Error("Tên cuộc họp không được vượt quá 200 ký tự.");
         if (!start || !end) throw new Error("Thời gian phải theo định dạng YYYY-MM-DD HH:mm.");
         if (end <= start) throw new Error("Giờ kết thúc phải sau giờ bắt đầu.");
-        const coverImageUrl = common.coverImage || await uploadDefaultMeetingCover();
+        const coverImageUrl = await resolveMeetingCoverForCreate(common.coverImage);
         const meeting = await meetingService.create({ ...common, coverImage: coverImageUrl, title: title.trim(), startsAt: start.toISOString(), endsAt: end.toISOString() });
         router.replace({ pathname: "/meeting/[id]", params: { id: meeting._id } });
       } else {
@@ -180,7 +180,7 @@ function CreateMeetingForm() {
         if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(recurrence.time)) throw new Error("Giờ bắt đầu phải theo định dạng HH:mm.");
         if (!Number.isInteger(recurrence.durationMinutes) || recurrence.durationMinutes < 1 || recurrence.durationMinutes > 1440) throw new Error("Thời lượng mỗi buổi phải từ 1 đến 1440 phút.");
         if (!preview.length) throw new Error("Không có buổi họp nào trong chu kỳ đã chọn.");
-        const coverImageUrl = common.coverImage || await uploadDefaultMeetingCover();
+        const coverImageUrl = await resolveMeetingCoverForCreate(common.coverImage);
         const meetings = await meetingService.createSeries({ ...common, coverImage: coverImageUrl, recurrence });
         Alert.alert("Tạo lịch thành công", `Đã tạo ${meetings.length} buổi họp định kỳ.`, [
           { text: "Xem lịch", onPress: () => router.replace("/meetings") },
