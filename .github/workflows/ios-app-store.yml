@@ -167,17 +167,41 @@ jobs:
             exit 1
           fi
           xcodebuild -list -json -workspace "$workspace_path" > "$RUNNER_TEMP/ios-workspace.json"
-          scheme="$(node -e '
-            const project = require(process.argv[1]);
-            const schemes = project.workspace?.schemes ?? project.project?.schemes ?? [];
-            const scheme = schemes.find((name) => !/pods/i.test(name)) ?? schemes[0];
-            if (!scheme) process.exit(1);
-            process.stdout.write(scheme);
-          ' "$RUNNER_TEMP/ios-workspace.json")"
+          scheme=""
+          while IFS= read -r candidate; do
+            settings_path="$RUNNER_TEMP/xcode-settings-${candidate//[^A-Za-z0-9_-]/_}.json"
+            if ! xcodebuild -showBuildSettings -json \
+              -workspace "$workspace_path" \
+              -scheme "$candidate" \
+              -configuration Release > "$settings_path"; then
+              continue
+            fi
+            if node -e '
+              const result = require(process.argv[1]);
+              const targets = Array.isArray(result)
+                ? result
+                : result.buildSettings
+                  ? [result]
+                  : Object.values(result);
+              const hasApp = targets.some(({ buildSettings = {} }) =>
+                buildSettings.PRODUCT_BUNDLE_IDENTIFIER === "com.igen.bni" &&
+                buildSettings.WRAPPER_EXTENSION === "app"
+              );
+              process.exit(hasApp ? 0 : 1);
+            ' "$settings_path"; then
+              scheme="$candidate"
+              break
+            fi
+          done < <(node -e '
+            const workspace = require(process.argv[1]);
+            const schemes = workspace.workspace?.schemes ?? workspace.project?.schemes ?? [];
+            process.stdout.write(schemes.join("\n"));
+          ' "$RUNNER_TEMP/ios-workspace.json")
           if [[ -z "$scheme" ]]; then
-            echo "::error title=Missing Xcode scheme::No app scheme was found in the generated workspace."
+            echo "::error title=Missing iOS app scheme::No scheme produces the com.igen.bni app target."
             exit 1
           fi
+          echo "Selected app scheme: $scheme"
           echo "workspace=$workspace_path" >> "$GITHUB_OUTPUT"
           echo "scheme=$scheme" >> "$GITHUB_OUTPUT"
 
@@ -187,12 +211,13 @@ jobs:
           IOS_WORKSPACE: ${{ steps.project.outputs.workspace }}
           IOS_SCHEME: ${{ steps.project.outputs.scheme }}
         run: |
+          ARCHIVE_PATH="$RUNNER_TEMP/iGenConnect.xcarchive"
           xcodebuild \
             -workspace "$IOS_WORKSPACE" \
             -scheme "$IOS_SCHEME" \
             -configuration Release \
             -destination "generic/platform=iOS" \
-            -archivePath "$RUNNER_TEMP/iGenConnect.xcarchive" \
+            -archivePath "$ARCHIVE_PATH" \
             -derivedDataPath "$RUNNER_TEMP/ios-derived-data" \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
@@ -201,6 +226,19 @@ jobs:
             CURRENT_PROJECT_VERSION="$IOS_BUILD_NUMBER" \
             OTHER_CODE_SIGN_FLAGS="--keychain $IOS_KEYCHAIN_PATH" \
             archive
+
+          APP_PATH="$(find "$ARCHIVE_PATH/Products/Applications" -maxdepth 1 -type d -name '*.app' -print -quit 2>/dev/null || true)"
+          if [[ -z "$APP_PATH" ]]; then
+            echo "::error title=Invalid Xcode archive::Scheme '$IOS_SCHEME' did not produce an iOS app. Archive products:"
+            find "$ARCHIVE_PATH/Products" -maxdepth 3 -print 2>/dev/null || true
+            exit 1
+          fi
+          ARCHIVE_BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_PATH/Info.plist")"
+          echo "Archived app bundle ID: $ARCHIVE_BUNDLE_ID"
+          if [[ "$ARCHIVE_BUNDLE_ID" != "com.igen.bni" ]]; then
+            echo "::error title=Wrong Xcode archive::Expected com.igen.bni but found $ARCHIVE_BUNDLE_ID."
+            exit 1
+          fi
 
       - name: Export signed IPA
         shell: bash
