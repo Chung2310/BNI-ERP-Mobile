@@ -2,6 +2,7 @@ import { router, useFocusEffect } from "expo-router";
 import {
   ArrowRight,
   Bell,
+  CalendarDays,
   ChevronDown,
   ChevronRight,
   Clock,
@@ -17,16 +18,16 @@ import {
   ErrorState,
   LoadingState,
   Screen,
-  SectionTitle,
 } from "@/components/ui";
 import { DashboardQuickActions } from "@/components/DashboardQuickActions";
 import { GreetingIcon } from "@/components/GreetingIcon";
+import { GreetingWaves, MeetingArtwork, MeetingMicGradient } from "@/components/HomeArtwork";
 import { isChapterGuest } from "@/utils/guest";
 import { useAuth } from "@/context/AuthContext";
 import { useNotifications } from "@/context/NotificationContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { applyMeetingChange, meetingService, subscribeMeetingChanges, type Meeting } from "@/services/meeting";
-import { colors, radius, shadow, spacing } from "@/theme/tokens";
+import { colors, radius, shadow } from "@/theme/tokens";
 import { meetingCheckInAvailability } from "@/utils/meetingCheckIn";
 import { hasPermission } from "@/utils/permissions";
 
@@ -180,49 +181,42 @@ function ScheduleMeetingCard({
   );
 }
 
-const waveHeights = [
-  [0.45, 1, 0.65, 0.35, 0.45],
-  [0.7, 0.45, 1, 0.55, 0.7],
-  [1, 0.6, 0.35, 0.8, 1],
-  [0.55, 0.9, 0.5, 1, 0.55],
-  [0.4, 0.65, 1, 0.6, 0.4],
+const liveWaveHeights = [
+  [0.35, 0.7, 0.45, 0.9, 0.35],
+  [0.65, 1, 0.55, 0.8, 0.65],
+  [0.45, 0.8, 1, 0.55, 0.45],
+  [0.8, 0.45, 0.75, 1, 0.8],
+  [0.35, 0.65, 0.4, 0.75, 0.35],
 ];
 
 function LiveWaveform() {
   const [progress] = useState(() => new Animated.Value(0));
 
-  useFocusEffect(
-    useCallback(() => {
+  useFocusEffect(useCallback(() => {
+    const wave = Animated.loop(Animated.timing(progress, {
+      toValue: 1,
+      duration: 1500,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    }));
+    wave.start();
+    return () => {
+      wave.stop();
       progress.setValue(0);
-      const wave = Animated.loop(
-        Animated.timing(progress, {
-          toValue: 1,
-          duration: 1600,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        }),
-      );
-      wave.start();
-      return () => wave.stop();
-    }, [progress]),
-  );
+    };
+  }, [progress]));
 
   return (
     <View accessible={false} style={styles.liveWave}>
-      {waveHeights.map((heights, index) => (
+      {liveWaveHeights.map((heights, index) => (
         <Animated.View
           key={index}
-          style={[
-            styles.liveWaveBar,
-            {
-              transform: [{
-                scaleY: progress.interpolate({
-                  inputRange: [0, 0.25, 0.5, 0.75, 1],
-                  outputRange: heights,
-                }),
-              }],
-            },
-          ]}
+          style={[styles.liveWaveBar, {
+            transform: [{ scaleY: progress.interpolate({
+              inputRange: [0, 0.25, 0.5, 0.75, 1],
+              outputRange: heights,
+            }) }],
+          }]}
         />
       ))}
     </View>
@@ -388,9 +382,10 @@ function MemberHomeScreen() {
   }, [guest, user?.role]);
 
   return (
-    <Screen>
+    <Screen style={styles.homeContent}>
       {/* Header Card phong cách ảnh 1: Lời chào, Tên, Chức vụ, Avatar, Đồng hồ số lớn & Ngày */}
       <View style={styles.headerHeroCard}>
+        <View pointerEvents="none" style={styles.greetingWaves}><GreetingWaves /></View>
         <View style={styles.headerHeroTop}>
           <View style={styles.headerHeroInfo}>
             <View style={styles.greetingRow}>
@@ -413,7 +408,7 @@ function MemberHomeScreen() {
               onPress={() => router.push("/notifications")}
               style={({ pressed }) => [styles.notificationButton, pressed && styles.cardPressed]}
             >
-              <Bell color={colors.brandBlue} size={20} strokeWidth={2} />
+              <Bell color="#0795F3" size={24} strokeWidth={2.1} />
               {unreadCount > 0 ? (
                 <View style={styles.notificationBadge}>
                   <Text style={styles.notificationBadgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
@@ -426,7 +421,7 @@ function MemberHomeScreen() {
               onPress={() => router.push("/profile")}
               style={({ pressed }) => [styles.avatarPressable, pressed && styles.cardPressed]}
             >
-              <Avatar initials={userInitials} url={user?.photoURL} size={54} />
+              <Avatar initials={userInitials} url={user?.photoURL} size={54} style={styles.headerAvatar} />
             </Pressable>
           </View>
         </View>
@@ -456,22 +451,25 @@ function MemberHomeScreen() {
                 })
               }
             >
+              <View pointerEvents="none" style={styles.meetingArtwork}><MeetingArtwork /></View>
               <View style={styles.heroInnerCard}>
                 <View style={styles.heroTagRow}>
-                  <View style={[styles.liveTagBadge, !isFeaturedLive && styles.upcomingTagBadge]}>
+                  <View style={styles.liveTagBadge}>
+                    <CalendarDays color="#078FFA" size={15} strokeWidth={2.1} />
                     <View style={styles.liveDotWrapper}>
-                      <View style={[styles.liveStatusDot, !isFeaturedLive && styles.upcomingStatusDot]} />
+                      <View style={styles.liveStatusDot} />
                     </View>
-                    <Text style={[styles.heroTagText, !isFeaturedLive && styles.upcomingTagText]}>
-                      {isFeaturedLive ? "ĐANG DIỄN RA" : "CUỘC HỌP TIẾP THEO"}
+                    <Text style={styles.heroTagText}>
+                      {isFeaturedLive ? "Đang diễn ra" : "Cuộc họp sắp tới"}
                     </Text>
                   </View>
                   {isFeaturedLive ? <LiveWaveform /> : null}
                 </View>
 
                 <View style={styles.titleWithMic}>
-                  <View style={styles.heroIconSlot}>
-                    <Mic color="#7DD3FC" size={19} strokeWidth={2.4} />
+                  <View style={[styles.heroIconSlot, styles.heroMicSlot]}>
+                    <MeetingMicGradient />
+                    <Mic color="#FFFFFF" size={26} strokeWidth={2.2} />
                   </View>
                   <Text style={styles.featuredMeetingTitle} numberOfLines={2}>
                     {featuredMeeting.title}
@@ -481,7 +479,7 @@ function MemberHomeScreen() {
                 {!isFeaturedLive && featuredSchedule ? (
                   <View style={styles.heroMetaRow}>
                     <View style={styles.heroIconSlot}>
-                      <Clock color="#7DD3FC" size={16} strokeWidth={2.2} />
+                      <Clock color="#078FFA" size={20} strokeWidth={2.2} />
                     </View>
                     <Text style={styles.featuredMeetingMeta} numberOfLines={1}>
                       {featuredSchedule.dateStr} · {featuredSchedule.timeRange}
@@ -491,7 +489,7 @@ function MemberHomeScreen() {
 
                 <View style={styles.heroMetaRow}>
                   <View style={styles.heroIconSlot}>
-                    <MapPin color="#7DD3FC" size={16} strokeWidth={2.2} />
+                    <MapPin color="#078FFA" size={20} strokeWidth={2.2} />
                   </View>
                   <Text style={styles.featuredMeetingMeta} numberOfLines={1}>
                     {featuredMeeting.location?.trim() || "Chưa xác định địa điểm"}
@@ -500,7 +498,7 @@ function MemberHomeScreen() {
                 {isFeaturedLive ? (
                   <View style={styles.heroMetaRow}>
                     <View style={styles.heroIconSlot}>
-                      <Fingerprint color="#7DD3FC" size={16} strokeWidth={2.2} />
+                      <Fingerprint color="#078FFA" size={20} strokeWidth={2.2} />
                     </View>
                     <Text style={styles.featuredMeetingMeta} numberOfLines={1}>
                       {featuredMeeting.speakers.length} người đã check-in
@@ -510,13 +508,13 @@ function MemberHomeScreen() {
 
                 <View style={styles.featuredMeetingAction}>
                   <Text style={styles.featuredMeetingActionText}>{featuredActionLabel}</Text>
-                  <ArrowRight color="#075985" size={18} strokeWidth={2.6} />
+                  <ArrowRight color="#FFFFFF" size={19} strokeWidth={2.2} />
                 </View>
               </View>
             </Pressable>
           ) : null}
 
-          <SectionTitle>Tiện ích</SectionTitle>
+          <Text style={styles.utilitySectionTitle}>Tiện ích</Text>
           <DashboardQuickActions user={user} pendingChapterApplications={pendingChapterApplications} />
 
           {/* Phần Danh sách cuộc họp (Thay thế lịch cũ theo mẫu ảnh 1) */}
@@ -527,7 +525,7 @@ function MemberHomeScreen() {
               hitSlop={8}
               onPress={() => router.push("/(tabs)/meetings")}
             >
-              <Text style={styles.link}>Tất cả ({activeMeetings.length})</Text>
+              <View style={styles.allMeetingsLink}><Text style={styles.link}>Tất cả ({activeMeetings.length})</Text><ChevronRight color="#078FFA" size={20} strokeWidth={2.5} /></View>
             </Pressable>
           </View>
 
@@ -618,26 +616,30 @@ function MemberHomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  homeContent: { paddingHorizontal: 10, paddingTop: 8, gap: 11 },
   /* Header Hero Card kiểu ảnh 1 */
   headerHeroCard: {
-    backgroundColor: "#C9EDFC",
-    borderRadius: 32,
+    backgroundColor: "#E4F5FE",
+    borderRadius: 30,
     borderWidth: 1,
-    borderColor: "#E8F8FF",
-    padding: 16,
-    gap: 12,
-    marginTop: 2,
-    marginBottom: 10,
-    shadowColor: "#257FA9",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.24,
-    shadowRadius: 16,
-    elevation: 7,
+    borderColor: "#FFFFFF",
+    paddingHorizontal: 18,
+    paddingTop: 13,
+    paddingBottom: 10,
+    minHeight: 158,
+    overflow: "hidden",
+    shadowColor: "#39A9F0",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.17,
+    shadowRadius: 14,
+    elevation: 5,
   },
+  greetingWaves: { position: "absolute", left: 0, right: 0, bottom: 0, height: 91 },
   headerHeroTop: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    minHeight: 72,
   },
   headerHeroInfo: {
     flex: 1,
@@ -647,11 +649,11 @@ const styles = StyleSheet.create({
   headerHeroActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
+    gap: 12,
   },
   notificationButton: {
-    width: 36,
-    height: 36,
+    width: 38,
+    height: 38,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -680,46 +682,45 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   greetingText: {
-    color: "#64748B",
-    fontSize: 12.5,
-    fontWeight: "500",
+    color: "#5F748D",
+    fontSize: 14,
+    fontWeight: "600",
   },
   userNameText: {
-    color: "#0F172A",
-    fontSize: 19,
+    color: "#081735",
+    fontSize: 22,
     fontWeight: "800",
     letterSpacing: -0.2,
   },
   userRoleText: {
-    color: "#64748B",
-    fontSize: 12.5,
-    fontWeight: "500",
+    color: "#5F748D",
+    fontSize: 13,
+    fontWeight: "600",
   },
   avatarPressable: {
-    borderRadius: 30,
-    borderWidth: 2,
+    borderRadius: 34,
+    borderWidth: 3,
     borderColor: "#FFFFFF",
     ...shadow,
   },
+  headerAvatar: { backgroundColor: "#B8E7FC", borderWidth: 0 },
   headerHeroBottom: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
+    alignItems: "flex-start",
     paddingTop: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(0, 173, 252, 0.28)",
+    marginTop: 2,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(76, 177, 237, 0.18)",
   },
   digitalClockText: {
-    color: "#0F172A",
-    fontSize: 27,
+    color: "#081735",
+    fontSize: 28,
     fontWeight: "900",
     letterSpacing: 0.6,
   },
   todayDateText: {
-    color: "#475569",
-    fontSize: 12.5,
+    color: "#64758E",
+    fontSize: 14,
     fontWeight: "600",
-    paddingBottom: 2,
   },
 
   /* Tiêu đề & Thu gọn danh sách cuộc họp */
@@ -727,15 +728,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 10,
+    marginTop: 8,
     marginBottom: 4,
     paddingHorizontal: 4,
   },
   scheduleSectionTitle: {
     color: colors.text,
-    fontSize: 13.5,
-    fontWeight: "700",
+    fontSize: 17,
+    fontWeight: "800",
   },
+  utilitySectionTitle: { color: "#081735", fontSize: 17, fontWeight: "800", marginTop: 8, marginLeft: 4 },
   accordionHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -898,22 +900,26 @@ const styles = StyleSheet.create({
 
   /* Thẻ cuộc họp nổi bật trên trang chủ */
   featuredMeetingCard: {
-    backgroundColor: "#073B5A",
-    borderRadius: 24,
+    backgroundColor: "#DDEFFF",
+    borderRadius: 28,
     borderWidth: 1,
-    borderColor: "#0B557A",
-    paddingVertical: 18,
+    borderColor: "#D0E8FF",
+    paddingVertical: 12,
     paddingHorizontal: 18,
-    marginBottom: 16,
-    shadowColor: "#082F49",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.24,
-    shadowRadius: 16,
-    elevation: 8,
+    minHeight: 218,
+    overflow: "hidden",
+    shadowColor: "#5C9FDE",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    elevation: 5,
   },
+  meetingArtwork: { position: "absolute", right: 7, bottom: 58, width: 130, height: 130, opacity: 0.95 },
   heroInnerCard: {
     alignItems: "stretch",
-    gap: 12,
+    gap: 6,
+    flex: 1,
+    justifyContent: "space-between",
   },
   heroTagRow: {
     flexDirection: "row",
@@ -924,82 +930,62 @@ const styles = StyleSheet.create({
   liveTagBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#14532D",
-    borderWidth: 1,
-    borderColor: "#22C55E",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    backgroundColor: "rgba(255, 255, 255, 0.55)",
+    paddingHorizontal: 9,
+    paddingVertical: 4,
     borderRadius: radius.pill,
-    gap: 4.5,
-  },
-  upcomingTagBadge: {
-    backgroundColor: "#0B5273",
-    borderColor: "#38BDF8",
+    gap: 5,
   },
   liveDotWrapper: {
-    width: 10,
-    height: 10,
+    width: 8,
+    height: 8,
     alignItems: "center",
     justifyContent: "center",
   },
   liveStatusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#22C55E",
-  },
-  upcomingStatusDot: {
-    backgroundColor: "#00ADFC",
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: "#078FFA",
   },
   heroTagText: {
-    color: "#DCFCE7",
-    fontSize: 10.5,
-    fontWeight: "800",
+    color: "#0C1F3F",
+    fontSize: 10,
+    fontWeight: "700",
   },
-  upcomingTagText: {
-    color: "#BAE6FD",
-  },
-  liveWave: {
-    height: 20,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginBottom: -4,
-  },
-  liveWaveBar: {
-    width: 4,
-    height: 18,
-    borderRadius: 2,
-    backgroundColor: colors.brandBlue,
-  },
+  liveWave: { height: 15, flexDirection: "row", alignItems: "center", gap: 2, marginRight: 7 },
+  liveWaveBar: { width: 2.5, height: 13, borderRadius: 2, backgroundColor: "#078FFA" },
   titleWithMic: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    maxWidth: "68%",
   },
   heroIconSlot: {
-    width: 20,
-    height: 20,
+    width: 27,
+    height: 27,
     alignItems: "center",
     justifyContent: "center",
   },
+  heroMicSlot: { width: 38, height: 38, borderRadius: 11, overflow: "hidden", backgroundColor: "#0DA8FC", shadowColor: "#078FFA", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.22, shadowRadius: 5, elevation: 3 },
   featuredMeetingTitle: {
-    color: "#FFFFFF",
-    fontSize: 20,
+    color: "#081735",
+    fontSize: 22,
     fontWeight: "800",
     letterSpacing: -0.35,
-    lineHeight: 25,
+    lineHeight: 27,
     flex: 1,
   },
   heroMetaRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 9,
+    maxWidth: "68%",
   },
   featuredMeetingMeta: {
-    color: "#D8EAF4",
-    fontSize: 13,
-    fontWeight: "500",
+    color: "#5D738E",
+    fontSize: 13.5,
+    fontWeight: "600",
     flex: 1,
     lineHeight: 18,
   },
@@ -1007,22 +993,28 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    minHeight: 52,
-    paddingVertical: 13,
-    paddingHorizontal: 16,
-    marginTop: 4,
+    backgroundColor: "#0BA7F0",
+    borderRadius: 15,
+    minHeight: 43,
+    paddingVertical: 9,
+    paddingHorizontal: 15,
+    marginTop: 3,
+    shadowColor: "#087FCB",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   featuredMeetingActionText: {
-    color: "#075985",
+    color: "#FFFFFF",
     fontSize: 15,
-    fontWeight: "800",
-  },
-  link: {
-    color: colors.primaryDark,
-    fontSize: 11.5,
     fontWeight: "700",
   },
+  link: {
+    color: "#078FFA",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  allMeetingsLink: { flexDirection: "row", alignItems: "center", gap: 1 },
 
 });

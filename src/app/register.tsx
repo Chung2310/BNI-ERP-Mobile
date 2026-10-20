@@ -179,6 +179,6 @@ const styles = StyleSheet.create({
   checkbox: { width: 20, height: 20, borderWidth: 1.5, borderColor: colors.muted, borderRadius: 4, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface },
   checkboxChecked: { borderColor: colors.brandBlue, backgroundColor: colors.brandBlue },
   consentText: { flex: 1, color: colors.text, fontSize: 12, lineHeight: 18 },
-  consentLink: { color: "#0075A8", fontWeight: "700", textDecorationLine: "underline" },
+  consentLink: { color: "#0075A8", fontWeight: "700" },
   submitButton: { minHeight: 48 },
 });
