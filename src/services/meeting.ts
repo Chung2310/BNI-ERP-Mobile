@@ -315,5 +315,6 @@ export const meetingService = {
   uploadCover: (base64: string, mimeType: "image/jpeg" | "image/png" = "image/jpeg") => apiRequest<{ url: string }>("/api/v1/media/upload", {
     method: "POST",
     body: JSON.stringify({ file: `data:${mimeType};base64,${base64}`, folder: "igen_erp/meetings" }),
+    timeoutMs: 300000,
   }).then((payload) => payload.url),
 };
