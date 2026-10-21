@@ -48,7 +48,7 @@ export const privacyPolicy = {
     {
       title: "6. Thông báo và dữ liệu kỹ thuật",
       paragraphs: [
-        "Nếu cho phép thông báo, ứng dụng gửi mã đăng ký thông báo của thiết bị đến máy chủ và liên kết với tài khoản để gửi thông báo liên quan đến dịch vụ. Push hiển thị tên iGen Connect cùng nội dung chung về tin nhắn hoặc thông báo mới, kèm mã định danh và đường dẫn để mở màn hình phù hợp. Nội dung chi tiết, tên người gửi, tên phòng và thông tin tài chính được xem trong ứng dụng sau khi đăng nhập.",
+        "Nếu cho phép thông báo, ứng dụng gửi mã đăng ký thông báo của thiết bị đến máy chủ và liên kết với tài khoản để gửi thông báo liên quan đến dịch vụ. Thông báo tin nhắn và thông báo thông thường chỉ hiển thị nội dung chung; thông tin chi tiết được xem trong ứng dụng sau khi đăng nhập. Riêng thông báo cuộc họp bắt đầu, kết quả trúng thưởng và duyệt gia nhập Chapter có thể hiển thị tên cuộc họp, tên giải hoặc tên Chapter trên màn hình khóa của thiết bị nhận. Bạn có thể thay đổi cách hiển thị bản xem trước trong cài đặt thông báo của thiết bị.",
         "Địa chỉ IP, mã tài khoản/thiết bị, thời điểm truy cập, lỗi và nhật ký kỹ thuật có thể được xử lý để duy trì phiên đăng nhập, bảo vệ hệ thống và khắc phục sự cố. Bạn có thể thu hồi quyền thông báo trong cài đặt hệ điều hành; thông báo push không bắt buộc để sử dụng ứng dụng.",
         "Nhật ký hoạt động tài khoản có thể ghi nhận nhóm thao tác, kết quả, đường dẫn chức năng, thời gian xử lý và thông tin kết nối để hỗ trợ kiểm tra truy cập hoặc sự cố. Nhật ký hoạt động này được đặt thời hạn hết hạn 90 ngày từ thời điểm ghi nhận và được gỡ trong luồng xóa tài khoản. Thời hạn này không phải cam kết cho mọi loại nhật ký do nhà cung cấp hạ tầng quản lý.",
       ],

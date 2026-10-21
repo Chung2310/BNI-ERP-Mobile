@@ -40,7 +40,7 @@ export async function getChapterNotifications(user: UserProfile): Promise<Chapte
     chapterService.leaveRequests(),
   ]);
   const resolved = applications.filter((application) =>
-    application.status === "approved" || application.status === "rejected" || application.status === "withdrawn",
+    application.status === "rejected" || application.status === "withdrawn",
   );
   const approvedLeaves = leaves.filter((request) => request.status === "approved");
   if (!resolved.length && !approvedLeaves.length) return [];
@@ -53,16 +53,13 @@ export async function getChapterNotifications(user: UserProfile): Promise<Chapte
     const status = application.status;
     return {
       _id: `chapter-${status}:${application._id}`,
-      title: status === "approved" ? "Đơn gia nhập Chapter đã được duyệt"
-        : status === "rejected" ? "Đơn gia nhập Chapter bị từ chối" : "Đơn gia nhập Chapter đã hủy",
-      body: status === "approved"
-        ? `Bạn đã được duyệt trở thành thành viên Chapter ${chapterName}. Chúc bạn có những kết nối tuyệt vời!`
-        : status === "rejected" ? `Đơn gia nhập Chapter ${chapterName} của bạn đã bị từ chối.`
-          : `Đơn gia nhập Chapter ${chapterName} của bạn đã được hủy.`,
+      title: status === "rejected" ? "Đơn gia nhập Chapter bị từ chối" : "Đơn gia nhập Chapter đã hủy",
+      body: status === "rejected" ? `Đơn gia nhập Chapter ${chapterName} của bạn đã bị từ chối.`
+        : `Đơn gia nhập Chapter ${chapterName} của bạn đã được hủy.`,
       type: "he-thong" as const,
       read: false,
       createdAt: application.decidedAt || applicationTime(application),
-      destination: status === "approved" ? "/chapter" as const : "/(tabs)/chapters" as const,
+      destination: "/(tabs)/chapters" as const,
     };
   });
   const leaveNotices: ChapterNotification[] = approvedLeaves.map((request) => ({

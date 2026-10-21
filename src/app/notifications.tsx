@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo } from "react";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, type Href } from "expo-router";
 import { Bell, BriefcaseBusiness, CheckCheck, GraduationCap, Package, Settings } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
@@ -7,14 +7,13 @@ import { Button, Card, EmptyState, ErrorState, LoadingState, Screen } from "@/co
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { useNotifications } from "@/context/NotificationContext";
 import { useAuth } from "@/context/AuthContext";
-import { isChapterGuest } from "@/utils/guest";
-import { notificationService, type NotificationItem, type NotificationList } from "@/services/notifications";
+import { notificationService, type NotificationItem } from "@/services/notifications";
 import { colors, spacing } from "@/theme/tokens";
 
 const notificationIcons = { kho: Package, task: BriefcaseBusiness, training: GraduationCap, "he-thong": Settings } as const;
-const emptyNotificationList: NotificationList = { data: [], total: 0, unreadCount: 0, page: 1, limit: 50 };
 
 function isChapterRequestNotification(item: NotificationItem) {
+  if (item.action?.kind === "chapter_approved") return true;
   if (item._id.startsWith("chapter-")) return true;
   const content = `${item.title} ${item.body}`;
   return /chapter/i.test(content) && /(đơn|gia nhập|rời|duyệt)/i.test(content);
@@ -22,16 +21,16 @@ function isChapterRequestNotification(item: NotificationItem) {
 
 export default function NotificationsScreen() {
   const { user, refreshProfile } = useAuth();
-  const guest = isChapterGuest(user);
   const { data, setData, error, isLoading, reload } = useAsyncData(
-    () => guest ? Promise.resolve(emptyNotificationList) : notificationService.list(),
-    String(guest),
+    () => notificationService.list(),
+    user?.uid || "",
   );
   const { unreadCount, chapterNotifications, markRead: markReadRealtime, markAllRead, markChapterRead, markAllChapterRead, refreshChapterNotifications, revision, isRealtimeConnected, pushError } = useNotifications();
 
   useFocusEffect(useCallback(() => {
     void refreshChapterNotifications().catch(() => undefined);
-  }, [refreshChapterNotifications]));
+    void reload();
+  }, [refreshChapterNotifications, reload]));
 
   useEffect(() => {
     if (revision > 0) void reload();
@@ -53,6 +52,13 @@ export default function NotificationsScreen() {
   };
   const openNotification = async (item: NotificationItem) => {
     await markRead(item).catch(() => undefined);
+    if (item.action?.meetingId) {
+      const destination = item.action.kind === "draw_winner"
+        ? `/meeting/${item.action.meetingId}/game-results`
+        : `/meeting/${item.action.meetingId}`;
+      router.push(destination as Href);
+      return;
+    }
     if (!isChapterRequestNotification(item)) return;
     const profile = await refreshProfile().catch(() => user);
     requestAnimationFrame(() => {
@@ -61,13 +67,13 @@ export default function NotificationsScreen() {
   };
   const markAll = async () => {
     markAllChapterRead();
-    if (!guest && (data?.unreadCount || 0) > 0) { await markAllRead(); await reload(); }
+    if ((data?.unreadCount || 0) > 0) { await markAllRead(); await reload(); }
   };
   return (
     <Screen>
       <BackHeader title="Thông báo" subtitle={`${unreadCount} mục chưa đọc`} compact />
-      {!guest && pushError ? <Card style={styles.diagnostic}><Text style={styles.diagnosticTitle}>Thông báo nền chưa hoạt động</Text><Text style={styles.diagnosticText}>{pushError}</Text></Card> : null}
-      {!guest && !isRealtimeConnected ? <Text style={styles.realtimeWarning}>Đang kết nối lại thông báo realtime…</Text> : null}
+      {pushError ? <Card style={styles.diagnostic}><Text style={styles.diagnosticTitle}>Thông báo nền chưa hoạt động</Text><Text style={styles.diagnosticText}>{pushError}</Text></Card> : null}
+      {!isRealtimeConnected ? <Text style={styles.realtimeWarning}>Đang kết nối lại thông báo realtime…</Text> : null}
       {unreadCount > 0 ? <Button icon={CheckCheck} tone="secondary" onPress={markAll}>Đánh dấu tất cả đã đọc</Button> : null}
       {isLoading && !visibleItems.length ? <LoadingState /> : error && !visibleItems.length ? <ErrorState message={error} onRetry={reload} /> : !visibleItems.length ? <EmptyState title="Không có thông báo" message="Các cập nhật mới sẽ xuất hiện tại đây." /> : <Card style={styles.list}>{visibleItems.map((item) => { const Icon = item._id.startsWith("chapter-") ? Bell : notificationIcons[item.type] || Bell; return <Pressable key={item._id} onPress={() => void openNotification(item)} style={styles.item}><View style={styles.icon}><Icon color={colors.primaryDark} size={20} /></View><View style={styles.grow}><Text style={styles.title}>{item.title}</Text><Text style={styles.meta}>{item.body}</Text><Text style={styles.time}>{new Date(item.createdAt).toLocaleString("vi-VN")}</Text></View>{!item.read ? <View style={styles.unread} /> : null}</Pressable>; })}</Card>}
     </Screen>
