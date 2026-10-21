@@ -100,15 +100,13 @@ function EditMemberContent({ member, onClose, onUpdated }: Omit<Props, "visible"
   const [loading, setLoading] = useState(false);
 
   const uploadImage = async (base64: string, folder: string): Promise<string> => {
-    try {
-      const res = await apiRequest<{ url: string }>("/api/v1/media/upload", {
-        method: "POST",
-        body: JSON.stringify({ file: `data:image/jpeg;base64,${base64}`, folder }),
-      });
-      return res.url;
-    } catch {
-      return `data:image/jpeg;base64,${base64}`;
-    }
+    const res = await apiRequest<{ url: string }>("/api/v1/media/upload", {
+      method: "POST",
+      body: JSON.stringify({ file: `data:image/jpeg;base64,${base64}`, folder }),
+      timeoutMs: 120000,
+    });
+    if (!res.url) throw new Error("Máy chủ chưa lưu ảnh. Vui lòng chọn lại ảnh.");
+    return res.url;
   };
 
   const pickCover = async (source: ImageSource) => {
