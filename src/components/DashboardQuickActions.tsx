@@ -6,7 +6,7 @@ import { Alert } from '@/components/AppAlert';
 import { isChapterGuest } from '@/utils/guest';
 import { ChatUnreadCountContext } from '@/context/ChatUnreadCountContext';
 import type { UserProfile } from '@/types';
-import { colors, radius } from '@/theme/tokens';
+import { colors } from '@/theme/tokens';
 import { canCreateMeeting } from '@/utils/permissions';
 
 interface QuickActionDef {
@@ -40,9 +40,7 @@ function ActionItem({ icon, title, href, unreadCount = 0, locked = false }: Quic
       onPress={() => locked ? Alert.alert(title, 'Tính năng sẽ mở khi bạn gia nhập Chapter.') : router.push(href)}
     >
       <View style={styles.iconBox}>
-        <View style={[styles.iconDepth, { backgroundColor: palette.color }]} />
-        <View style={[styles.iconFace, { backgroundColor: palette.background, shadowColor: palette.color }]}>
-          <View style={styles.iconShine} />
+        <View style={[styles.iconFace, { backgroundColor: palette.background }]}>
           <UtilityIcon name={icon} color={palette.color} accent={palette.accent} />
         </View>
         {locked ? <View style={styles.lockBadge}><UtilityLockIcon /></View> : null}
@@ -176,36 +174,12 @@ const styles = StyleSheet.create({
     overflow: 'visible',
     zIndex: 1,
   },
-  iconDepth: {
-    position: 'absolute',
-    top: 3,
-    width: 52,
-    height: 52,
-    borderRadius: radius.md,
-    opacity: 0.22,
-  },
   iconFace: {
     width: 52,
     height: 52,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  iconShine: {
-    position: 'absolute',
-    top: 3,
-    left: 5,
-    width: 33,
-    height: 9,
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
-    opacity: 0.55,
   },
   unreadBadge: {
     position: 'absolute',
@@ -224,12 +198,12 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   lockBadge: { position: 'absolute', right: -4, bottom: -3, borderRadius: 8, backgroundColor: colors.surface, padding: 2 },
-  unreadBadgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' },
+  unreadBadgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '600' },
   itemTitle: {
     marginTop: 6,
     color: '#081735',
     fontSize: 11.5,
-    fontWeight: '700',
+    fontWeight: '400',
     textAlign: 'center',
     lineHeight: 15,
   },
