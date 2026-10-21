@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocalSearchParams } from "expo-router";
-import { Check, CheckCircle2, Users } from "lucide-react-native";
+import { CheckCircle2, Users } from "lucide-react-native";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { HeaderRefreshAction } from "@/components/HeaderRefreshAction";
@@ -87,7 +87,7 @@ export default function MeetingGameResultsScreen() {
             hitSlop={4}
             onPress={() => void saveCutoff()}
             style={({ pressed }) => [styles.saveButton, saveDisabled && styles.saveButtonDisabled, pressed && styles.saveButtonPressed]}
-          >{savingCutoff ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Check color="#FFFFFF" size={18} strokeWidth={2.5} />}</Pressable>
+          >{savingCutoff ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.saveButtonText}>Lưu</Text>}</Pressable>
         </View>
         {cutoffError ? <Text style={styles.errorText}>{cutoffError}</Text> : null}
       </Card> : <Text style={styles.description}>Thành viên check-in đến hết {currentCutoff} được tham gia vòng quay.</Text>}
@@ -117,7 +117,8 @@ const styles = StyleSheet.create({
   configCard: { gap: spacing.sm },
   description: { color: colors.muted, fontSize: 12, lineHeight: 18 },
   cutoffRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  saveButton: { width: 48, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 999, backgroundColor: colors.brandBlue },
+  saveButton: { minWidth: 64, height: 40, paddingHorizontal: spacing.sm, alignItems: "center", justifyContent: "center", borderRadius: 999, backgroundColor: colors.brandBlue },
+  saveButtonText: { color: "#FFFFFF", fontSize: 14, fontWeight: "600" },
   saveButtonDisabled: { opacity: 0.45 },
   saveButtonPressed: { opacity: 0.75 },
   errorText: { color: colors.danger, fontSize: 12 },

@@ -344,11 +344,7 @@ function MemberMeetingsScreen() {
               accessibilityLabel="Quay lại"
               hitSlop={8}
               onPress={() => {
-                if (router.canGoBack()) {
-                  router.back();
-                } else {
-                  router.navigate("/(tabs)");
-                }
+                router.navigate("/(tabs)");
               }}
               style={({ pressed }) => [styles.headerBackBtn, pressed && styles.pressed]}
             >

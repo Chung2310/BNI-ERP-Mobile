@@ -17,7 +17,6 @@ import { apiConfig, getApiAccessToken } from "@/services/api";
 import { notificationService, type NotificationItem } from "@/services/notifications";
 import { getChapterNotifications, type ChapterNotification } from "@/services/chapterNotifications";
 import { getDevicePushPermission, getPushNotificationsModule, registerCurrentDeviceForPush, updateAppBadge } from "@/services/pushNotifications";
-import { isChapterGuest } from "@/utils/guest";
 
 type NotificationResponse = import("expo-notifications").NotificationResponse;
 
@@ -50,7 +49,7 @@ function routeFromResponse(response: NotificationResponse) {
 export function NotificationProvider({ children }: PropsWithChildren) {
   const { token: sessionToken, user } = useAuth();
   const userId = user?.uid;
-  const token = isChapterGuest(user) ? null : sessionToken;
+  const token = sessionToken;
   const [unreadCount, setUnreadCount] = useState(0);
   const [chapterItems, setChapterItems] = useState<ChapterNotification[]>([]);
   const [chapterItemsOwner, setChapterItemsOwner] = useState<string | null>(null);

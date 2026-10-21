@@ -120,6 +120,7 @@ export default function MeetingDetailScreen() {
   const attendancePosition = attendance ? meeting.speakers.findIndex((speaker) => speaker.id === attendance.id) + 1 : 0;
   const meetingOpen = ["scheduled", "live", "paused"].includes(meeting.status);
   const currentSpeaker = meeting.currentIndex >= 0 ? meeting.speakers[meeting.currentIndex] : undefined;
+  const completedSpeakers = meeting.speakers.filter((speaker) => speaker.spokenSeconds != null).length;
 
   const closeSettings = () => {
     if (actionPending.current) return;
@@ -176,8 +177,8 @@ export default function MeetingDetailScreen() {
 
       <View style={styles.metrics}>
         <Metric label="CHECK-IN" value={String(meeting.speakers.length)} />
-        <Metric label="ĐÃ PHÁT BIỂU" value={`${meeting.speakers.filter((speaker) => (speaker.spokenSeconds || 0) > 0).length}/${meeting.speakers.length}`} />
-        <Metric label="CÒN LẠI" value={String(meeting.speakers.filter((speaker) => !(speaker.spokenSeconds || 0)).length)} />
+        <Metric label="ĐÃ PHÁT BIỂU" value={`${completedSpeakers}/${meeting.speakers.length}`} />
+        <Metric label="CÒN LẠI" value={String(meeting.speakers.length - completedSpeakers)} />
       </View>
 
       {!manage ? (

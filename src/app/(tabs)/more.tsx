@@ -116,8 +116,7 @@ export default function PersonalScreen() {
         onPress: () => {
           setIsSigningOut(true);
           void signOut()
-            .catch(() => undefined)
-            .finally(() => router.replace("/login"));
+            .catch(() => undefined);
         },
       },
     ]);

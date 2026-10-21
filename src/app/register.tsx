@@ -96,7 +96,6 @@ export default function RegisterScreen() {
     }
     setSubmitting(false);
     activateSession(session.token, signedInUser);
-    router.replace("/(tabs)");
     if (avatarError) Alert.alert("Tài khoản đã được tạo", avatarError);
   };
 

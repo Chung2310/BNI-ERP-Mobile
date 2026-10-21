@@ -38,7 +38,6 @@ export default function SignInScreen() {
     try {
       await signIn(identifier.trim(), password);
       Keyboard.dismiss();
-      router.replace("/(tabs)");
     } catch (cause) {
       setError(friendlyErrorMessage(cause, "Đăng nhập thất bại. Vui lòng thử lại."));
     } finally {
@@ -55,7 +54,6 @@ export default function SignInScreen() {
     try {
       await signInWithBiometrics();
       Keyboard.dismiss();
-      router.replace("/(tabs)");
     } catch (cause) {
       setError(friendlyErrorMessage(cause, "Không thể xác thực sinh trắc học."));
     } finally {

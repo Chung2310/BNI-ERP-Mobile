@@ -7,7 +7,7 @@ export type NotificationItem = {
   type: "kho" | "task" | "training" | "he-thong";
   read: boolean;
   createdAt: string;
-  action?: { tab?: string; subTab?: string; feeId?: string };
+  action?: { tab?: string; subTab?: string; feeId?: string; meetingId?: string; applicationId?: string; kind?: "meeting_started" | "draw_winner" | "chapter_approved" };
 };
 export type NotificationList = { data: NotificationItem[]; total: number; unreadCount: number; page: number; limit: number };
 
