@@ -1315,7 +1315,7 @@ function StagePreview({
             compact
           />
         ) : (
-          <Text style={styles.stageCompany}>Tạo câu hỏi trong mục Thu ý kiến của cuộc họp</Text>
+          <Text style={styles.responsePreviewEmpty}>Tạo câu hỏi trong mục Thu ý kiến của cuộc họp</Text>
         )}
       </View>
     );
