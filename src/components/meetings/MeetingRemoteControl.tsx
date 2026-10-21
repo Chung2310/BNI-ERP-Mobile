@@ -66,7 +66,7 @@ import type { UserProfile } from "@/types";
 const views: { value: PresentationView; label: string; icon: LucideIcon }[] = [
   { value: "checkin", label: "QR Check-in", icon: QrCode },
   { value: "speaker", label: "Phát biểu", icon: Users },
-  { value: "luckyDraw", label: "Chọn người", icon: RotateCw },
+  { value: "luckyDraw", label: "Vòng quay", icon: RotateCw },
   { value: "audienceResponses", label: "Câu trả lời", icon: MessageCircle },
   { value: "activeMembers", label: "Xếp hạng", icon: Trophy },
   { value: "waiting", label: "Màn chờ", icon: Monitor },

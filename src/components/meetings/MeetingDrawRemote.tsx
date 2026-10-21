@@ -9,7 +9,7 @@ import { drawParticipants, excludedDrawWinnerIds } from "@/components/meetings/d
 import { meetingService, meetingVersion, type LuckyDrawWinner, type Meeting } from "@/services/meeting";
 import { colors, radius, spacing } from "@/theme/tokens";
 import type { UserProfile } from "@/types";
-import { WHEEL_SELECTION_NAME } from "@/data/wheel-selection";
+import { WHEEL_SELECTION_NAME, wheelDisplayName } from "@/data/wheel-selection";
 import { DEFAULT_DRAW_CUTOFF_TIME } from "@/utils/earlyCheckIn";
 
 export function MeetingDrawRemote({
@@ -132,7 +132,7 @@ export function MeetingDrawRemote({
         prize = config.prizes.find((item) => item.name === WHEEL_SELECTION_NAME && item.winners.length < item.quantity);
         current = await meetingService.get(id);
       }
-      if (!prize) throw new Error("Không tạo được lượt chọn để quay.");
+      if (!prize) throw new Error("Không tạo được lượt quay để quay.");
       await ensureDisplayOpen();
       const result = await meetingService.presentationDraw(id, prize.id, meetingVersion(current), "present_members", selected.map((person) => person.id));
       setWinner(result.winner);
@@ -188,10 +188,10 @@ export function MeetingDrawRemote({
         </Card>
       ) : null}
 
-      {/* CARD ĐIỀU KHIỂN QUAY CHỌN NGƯỜI CHÍNH (GỌN GÀNG, KHÔNG XỔ DANH SÁCH CHECKBOX) */}
+      {/* CARD ĐIỀU KHIỂN QUAY MAY MẮN CHÍNH (GỌN GÀNG, KHÔNG XỔ DANH SÁCH CHECKBOX) */}
       <Card style={styles.card}>
         <View style={styles.headingRow}>
-          <Text style={styles.heading}>Điều khiển Vòng quay chọn người</Text>
+          <Text style={styles.heading}>Điều khiển vòng quay may mắn</Text>
           <Badge tone={displayOpen && canProject ? "success" : "default"}>
             {displayOpen && canProject ? "SẴN SÀNG QUAY" : "CHƯA SẴN SÀNG"}
           </Badge>
@@ -245,7 +245,7 @@ export function MeetingDrawRemote({
         {activeWinner ? (
           <View style={styles.result}>
             <Text style={styles.winnerHeading}>Người được chọn: {activeWinner.name}</Text>
-            <Text style={styles.winnerPrize}>{activeWinner.prizeName}</Text>
+            <Text style={styles.winnerPrize}>{wheelDisplayName(activeWinner.prizeName)}</Text>
             <View style={styles.actions}>
               <Button
                 tone="danger"
