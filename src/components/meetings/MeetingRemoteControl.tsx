@@ -124,6 +124,15 @@ export function MeetingRemoteControl({
   const [now, setNow] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchCheckin, setSearchCheckin] = useState("");
+  const controlsScrollRef = useRef<ScrollView>(null);
+  const checkinCardYRef = useRef(0);
+  const checkinSearchFocusedRef = useRef(false);
+  const revealCheckinSearch = useCallback(() => {
+    controlsScrollRef.current?.scrollTo({
+      y: Math.max(0, checkinCardYRef.current - spacing.sm),
+      animated: true,
+    });
+  }, []);
   const [viewOverride, setViewOverride] = useState<PresentationView | null>(
     initialPanel === "responses" ? "audienceResponses" : null
   );
@@ -435,6 +444,7 @@ export function MeetingRemoteControl({
         </View>
 
         <ScrollView
+          ref={controlsScrollRef}
           style={styles.controls}
           contentContainerStyle={[
             styles.controlsContent,
@@ -442,6 +452,11 @@ export function MeetingRemoteControl({
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          onLayout={() => {
+            if (checkinSearchFocusedRef.current) {
+              requestAnimationFrame(revealCheckinSearch);
+            }
+          }}
         >
           {/* HÀNG 6 NÚT CHUYỂN MÀN HÌNH: 3 NÚT MỖI HÀNG (TỔNG 6 NÚT) */}
           <Text style={styles.inlineLabel}>Chế độ trình chiếu</Text>
@@ -475,7 +490,12 @@ export function MeetingRemoteControl({
 
           {/* 1. MẶC ĐỊNH HOẶC KHI CHỌN QR CHECK-IN: HIỂN THỊ DS ĐÃ CHECK-IN */}
           {view === "checkin" ? (
-            <Card style={styles.checkinCard}>
+            <View
+              onLayout={(event) => {
+                checkinCardYRef.current = event.nativeEvent.layout.y;
+              }}
+            >
+              <Card style={styles.checkinCard}>
               <View style={styles.checkinHeaderRow}>
                 <View style={styles.row}>
                   <QrCode color={colors.primaryDark} size={20} />
@@ -490,6 +510,13 @@ export function MeetingRemoteControl({
                 <TextInput
                   value={searchCheckin}
                   onChangeText={setSearchCheckin}
+                  onFocus={() => {
+                    checkinSearchFocusedRef.current = true;
+                    requestAnimationFrame(revealCheckinSearch);
+                  }}
+                  onBlur={() => {
+                    checkinSearchFocusedRef.current = false;
+                  }}
                   placeholder="Tìm thành viên hoặc khách mời..."
                   placeholderTextColor={colors.muted}
                   style={styles.searchInput}
@@ -617,7 +644,8 @@ export function MeetingRemoteControl({
                   })}
                 </View>
               )}
-            </Card>
+              </Card>
+            </View>
           ) : null}
 
           {/* 2. CHẾ ĐỘ PHÁT BIỂU */}
