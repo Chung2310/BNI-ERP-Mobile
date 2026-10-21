@@ -1684,7 +1684,7 @@ const styles = StyleSheet.create({
   },
   finishText: { color: colors.danger, fontSize: 13, fontWeight: "700" },
   inlineLabel: {
-    color: colors.muted,
+    color: "#000000",
     fontSize: 12,
     fontWeight: "700",
     paddingHorizontal: spacing.xs,
