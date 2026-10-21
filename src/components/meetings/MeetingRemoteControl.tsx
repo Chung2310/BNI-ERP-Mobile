@@ -453,9 +453,7 @@ export function MeetingRemoteControl({
                     disabled && styles.disabled,
                   ]}
                 >
-                  <View style={[styles.modeIconCircle, active && styles.modeIconCircleActive]}>
-                    <Icon color={active ? "#FFFFFF" : brandBlue} size={18} />
-                  </View>
+                  <Icon color={active ? "#FFFFFF" : brandBlue} size={22} />
                   <Text numberOfLines={1} style={[styles.modeLabel, active && styles.modeLabelActive]}>
                     {label}
                   </Text>
@@ -1431,7 +1429,7 @@ function CompactAction({
         pressed && styles.compactPressed,
       ]}
     >
-      <Icon color={primary ? "#FFFFFF" : brandBlue} size={18} />
+      <Icon color={primary ? "#FFFFFF" : brandBlue} size={22} />
       <Text
         numberOfLines={1}
         style={[styles.compactActionText, primary && styles.compactPrimaryText]}
@@ -1669,7 +1667,7 @@ const styles = StyleSheet.create({
   },
   modeCard: {
     width: "31.8%",
-    minHeight: 56,
+    minHeight: 72,
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
@@ -1682,29 +1680,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   modeCardActive: {
-    borderColor: colors.primaryDark,
-    backgroundColor: colors.primarySoft,
-  },
-  modeIconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: radius.pill,
-    backgroundColor: brandSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modeIconCircleActive: {
+    borderColor: colors.brandBlue,
     backgroundColor: colors.brandBlue,
   },
   modeLabel: {
     color: colors.text,
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 12,
+    fontWeight: "400",
     textAlign: "center",
   },
   modeLabelActive: {
-    color: colors.primaryDark,
-    fontWeight: "800",
+    color: "#FFFFFF",
   },
 
   disabled: { opacity: 0.65 },
@@ -1893,7 +1879,7 @@ const styles = StyleSheet.create({
 
   compactGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   compactAction: {
-    minHeight: 50,
+    minHeight: 68,
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
@@ -1909,10 +1895,10 @@ const styles = StyleSheet.create({
   compactActionText: {
     color: colors.text,
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "400",
     textAlign: "center",
   },
-  compactPrimaryText: { color: "#FFFFFF", fontWeight: "800" },
+  compactPrimaryText: { color: "#FFFFFF" },
   compactPressed: { opacity: 0.78 },
 
   people: { gap: spacing.xs },
