@@ -1,14 +1,13 @@
 import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useCallback, useMemo, useState } from "react";
 import { router, useFocusEffect } from "expo-router";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Check, ChevronRight, RotateCw, RefreshCw, List, UserMinus, Users, X } from "lucide-react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Check, RotateCw, RefreshCw, UserMinus, Users } from "lucide-react-native";
 import { Alert } from "@/components/AppAlert";
-import { Avatar, Badge, Button, Card, LoadingState } from "@/components/ui";
+import { Badge, Button, Card, LoadingState } from "@/components/ui";
 import { drawParticipants, excludedDrawWinnerIds } from "@/components/meetings/drawParticipants";
 import { meetingService, meetingVersion, type LuckyDrawWinner, type Meeting } from "@/services/meeting";
-import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
+import { colors, radius, spacing } from "@/theme/tokens";
 import type { UserProfile } from "@/types";
 import { WHEEL_SELECTION_NAME } from "@/data/wheel-selection";
 
@@ -31,13 +30,10 @@ export function MeetingDrawRemote({
   disabled: boolean;
   onRefresh: () => Promise<void>;
 }) {
-  const insets = useSafeAreaInsets();
-  const [unselected, setUnselected] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [winner, setWinner] = useState<LuckyDrawWinner | null>(null);
   const [dismissedWinnerId, setDismissedWinnerId] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [sheetOpen, setSheetOpen] = useState(false);
   const [displayOpen, setDisplayOpen] = useState(false);
 
   const refreshDisplay = useCallback(async () => {
@@ -64,15 +60,9 @@ export function MeetingDrawRemote({
   );
 
   const roster = useMemo(() => drawParticipants(meeting, users), [meeting, users]);
-  const drawPanel = meeting.presentation?.drawPanel || "participants";
-  const winnerCount = meeting.luckyDraw?.prizes.reduce((total, prize) => total + prize.winners.length, 0) || 0;
-  const filtered = roster;
   const excludedWinnerIds = excludedDrawWinnerIds(meeting);
-  const eligible = filtered.filter((person) => !excludedWinnerIds.has(person.id));
-  const projectedIds = meeting.presentation?.drawParticipantIds;
-  const selected = eligible.filter((person) => sheetOpen
-    ? !unselected.includes(person.id)
-    : projectedIds == null || projectedIds.includes(person.id));
+  const eligible = roster.filter((person) => !excludedWinnerIds.has(person.id));
+  const selected = eligible;
   const presentedWinner = meeting.luckyDraw?.prizes
     .flatMap((prize) => prize.winners)
     .find((item) => item.id === meeting.presentation?.drawWinnerId);
@@ -91,29 +81,6 @@ export function MeetingDrawRemote({
 
   const ready =
     displayOpen && !loadingUsers && !usersError && !disabled && !busy && !activeWinner && (meeting.status === "live" || meeting.status === "paused");
-
-  const openSelection = () => {
-    setUnselected(eligible.filter((person) => projectedIds != null && !projectedIds.includes(person.id)).map((person) => person.id));
-    setSheetOpen(true);
-  };
-
-  const toggleWinnerList = async () => {
-    if (!displayOpen || disabled || busy || activeWinner) return;
-    setBusy(true);
-    setError("");
-    try {
-      await ensureDisplayOpen();
-      const current = await meetingService.get(id);
-      const nextPanel = current.presentation?.drawPanel === "winners" ? "participants" : "winners";
-      await meetingService.presentationState(id, { drawPanel: nextPanel }, meetingVersion(current));
-      await onRefresh();
-    } catch (cause) {
-      setError(friendlyErrorMessage(cause, "Không thể chuyển danh sách trên màn chiếu."));
-      void onRefresh();
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const spin = async () => {
     if (!ready) return;
@@ -180,43 +147,6 @@ export function MeetingDrawRemote({
     }
   };
 
-  const selectAll = () => {
-    setUnselected((curr) => curr.filter((id) => !eligible.some((p) => p.id === id)));
-  };
-
-  const deselectAll = () => {
-    setUnselected((curr) => [...new Set([...curr, ...eligible.map((p) => p.id)])]);
-  };
-
-  const togglePerson = (personId: string) => {
-    setUnselected((curr) =>
-      curr.includes(personId) ? curr.filter((id) => id !== personId) : [...curr, personId]
-    );
-  };
-
-  const saveSelection = async () => {
-    if (!displayOpen || disabled || busy || activeWinner) return;
-    setBusy(true);
-    setError("");
-    try {
-      await ensureDisplayOpen();
-      const current = await meetingService.get(id);
-      await meetingService.presentationState(
-        id,
-        { drawFilter: "present_members", drawParticipantIds: selected.map((person) => person.id), drawPanel: "participants" },
-        meetingVersion(current)
-      );
-      await onRefresh();
-      setSheetOpen(false);
-    } catch (cause) {
-      setError(friendlyErrorMessage(cause, "Không thể đồng bộ người được chọn lên màn chiếu."));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const currentFilterLabel = "Thành viên có mặt";
-
   return (
     <View style={styles.container}>
       {loadingUsers ? <LoadingState /> : null}
@@ -250,30 +180,17 @@ export function MeetingDrawRemote({
         </Pressable>
         {!displayOpen ? <Text style={styles.meta}>Mở chế độ màn hình trình chiếu trên web để điều khiển vòng quay.</Text> : null}
         <Text style={styles.meta}>Chỉ quay thành viên có mặt, check-in đến hết 07:00.</Text>
-        {!canProject && eligible.length > 0 ? <Text style={styles.meta}>Chọn ít nhất một người để quay.</Text> : null}
-
-        {/* NÚT MỞ BOTTOM SHEET ĐỂ CHỌN NGƯỜI THAM GIA */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Chọn người tham gia"
-          disabled={!displayOpen || loadingUsers || !!usersError || busy || !!activeWinner}
-          onPress={openSelection}
-          style={styles.participantBar}
-        >
+        <View style={styles.participantBar}>
           <View style={styles.participantIconWrap}>
             <Users color={colors.primaryDark} size={18} />
           </View>
           <View style={styles.grow}>
             <Text style={styles.participantLabel}>Người tham gia quay</Text>
             <Text style={styles.participantValue}>
-              {currentFilterLabel} · {selected.length} người
+              Thành viên có mặt · {eligible.length} người
             </Text>
           </View>
-          <View style={styles.changeAction}>
-            <Text style={styles.changeText}>Tùy chỉnh</Text>
-            <ChevronRight color={colors.primaryDark} size={16} />
-          </View>
-        </Pressable>
+        </View>
 
 
         <Button
@@ -286,19 +203,6 @@ export function MeetingDrawRemote({
           textStyle={styles.controlButtonText}
         >
           {busy ? "Đang gửi lệnh quay..." : "Quay trên màn chiếu"}
-        </Button>
-
-        <Button
-          tone="secondary"
-          icon={drawPanel === "winners" ? Users : List}
-          iconSize={16}
-          fullWidth
-          disabled={!displayOpen || disabled || busy || !!activeWinner}
-          onPress={() => void toggleWinnerList()}
-          style={styles.controlButton}
-          textStyle={styles.controlButtonText}
-        >
-          {drawPanel === "winners" ? "Hiện người tham gia" : `Mở danh sách được chọn (${winnerCount})`}
         </Button>
 
         {/* KẾT QUẢ NGƯỜI TRÚNG THƯỞNG */}
@@ -334,124 +238,7 @@ export function MeetingDrawRemote({
         ) : null}
       </Card>
 
-      {/* BOTTOM SHEET CHỌN NGƯỜI THAM GIA */}
-      <Modal
-        visible={sheetOpen}
-        transparent
-        animationType="slide"
-        statusBarTranslucent
-        onRequestClose={() => setSheetOpen(false)}
-      >
-        <View style={styles.sheetOverlay}>
-          <Pressable style={styles.sheetBackdrop} onPress={() => setSheetOpen(false)} />
-          <View
-            style={[
-              styles.sheetContent,
-              { paddingBottom: Math.max(insets.bottom, spacing.lg) },
-            ]}
-          >
-            {/* Sheet Header */}
-            <View style={styles.sheetHeader}>
-              <View style={styles.sheetTitleRow}>
-                <Users color={colors.primaryDark} size={20} />
-                <Text style={styles.sheetTitle}>Chọn người tham gia</Text>
-              </View>
-              <Pressable
-                accessibilityLabel="Đóng"
-                onPress={() => setSheetOpen(false)}
-                style={styles.sheetClose}
-              >
-                <X color={colors.text} size={20} />
-              </Pressable>
-            </View>
 
-            <Text style={styles.meta}>Thành viên có mặt ({roster.length})</Text>
-
-            {/* Quick Actions (Chọn tất cả / Bỏ chọn) */}
-            <View style={styles.sheetMetaRow}>
-              <Text style={styles.sheetMetaText}>
-                Đang chọn {selected.length}/{eligible.length} người
-              </Text>
-              <View style={styles.quickActions}>
-                <Pressable onPress={selectAll}>
-                  <Text style={styles.quickActionText}>Chọn tất cả</Text>
-                </Pressable>
-                <Text style={styles.quickActionDivider}>•</Text>
-                <Pressable onPress={deselectAll}>
-                  <Text style={styles.quickActionText}>Bỏ chọn</Text>
-                </Pressable>
-              </View>
-            </View>
-
-            {/* Danh sách người tham gia (chỉ hiển thị khi mở Bottom Sheet) */}
-            <ScrollView
-              style={styles.sheetScroll}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
-              {filtered.length === 0 ? (
-                <Text style={styles.emptyText}>Không có thành viên nào trong nhóm này</Text>
-              ) : (
-                filtered.map((person) => {
-                  const excluded = excludedWinnerIds.has(person.id);
-                  const checked = !excluded && !unselected.includes(person.id);
-                  return (
-                    <Pressable
-                      key={person.id}
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked, disabled: excluded }}
-                      disabled={excluded}
-                      onPress={() => togglePerson(person.id)}
-                      style={styles.personRow}
-                    >
-                      <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
-                        {checked ? <Check color="#FFFFFF" size={13} strokeWidth={3} /> : null}
-                      </View>
-                      <Avatar
-                        initials={person.name
-                          .split(" ")
-                          .slice(-2)
-                          .map((p) => p[0])
-                          .join("")
-                          .toUpperCase()}
-                        url={person.photoURL}
-                        size={32}
-                      />
-                      <Text numberOfLines={1} style={styles.personName}>
-                        {person.name}
-                      </Text>
-                      <Badge
-                        tone={
-                          excluded
-                            ? "default"
-                            : person.kind === "member_present"
-                            ? "success"
-                            : person.kind === "guest"
-                            ? "warning"
-                            : "default"
-                        }
-                      >
-                        {excluded
-                          ? "Đã loại"
-                          : person.kind === "member_present"
-                          ? "Có mặt"
-                          : person.kind === "guest"
-                          ? "Khách mời"
-                          : "Vắng mặt"}
-                      </Badge>
-                    </Pressable>
-                  );
-                })
-              )}
-            </ScrollView>
-
-            {/* Nút xác nhận hoàn tất */}
-            <Button fullWidth disabled={!displayOpen || busy || disabled} onPress={() => void saveSelection()} style={styles.confirmBtn}>
-              Xác nhận ({selected.length} người)
-            </Button>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -473,7 +260,6 @@ const styles = StyleSheet.create({
   error: { color: colors.danger, fontSize: 13, marginBottom: spacing.xs },
   meta: { color: colors.muted, fontSize: 12, lineHeight: 17 },
 
-  // Thanh chọn người tham gia mở Bottom Sheet
   participantBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -495,11 +281,7 @@ const styles = StyleSheet.create({
   },
   participantLabel: { color: colors.muted, fontSize: 11, fontWeight: "600" },
   participantValue: { color: colors.text, fontSize: 14, fontWeight: "800", marginTop: 1 },
-  changeAction: { flexDirection: "row", alignItems: "center", gap: 2 },
-  changeText: { color: colors.primaryDark, fontSize: 13, fontWeight: "700" },
-
   spinButton: { marginTop: spacing.xs, minHeight: 42, paddingHorizontal: spacing.sm },
-  controlButton: { minHeight: 42, paddingHorizontal: spacing.sm },
   controlButtonText: { fontSize: 12, textAlign: "center", flexShrink: 1 },
 
   // Winner result
@@ -518,98 +300,4 @@ const styles = StyleSheet.create({
   actionBtn: { flex: 1, minWidth: 0, minHeight: 44, paddingHorizontal: 6 },
   actionBtnText: { fontSize: 11.5, lineHeight: 15, textAlign: "center", flexShrink: 1 },
 
-  // Bottom Sheet
-  sheetOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.overlay },
-  sheetBackdrop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
-  sheetContent: {
-    maxHeight: "85%",
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    gap: spacing.sm,
-  },
-  sheetHeader: {
-    minHeight: touchTarget,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  sheetTitleRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  sheetTitle: { color: colors.text, fontSize: 16, fontWeight: "800" },
-  sheetClose: {
-    width: touchTarget,
-    height: touchTarget,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  filters: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    width: "100%",
-  },
-  filterChip: {
-    flexGrow: 1,
-    flexBasis: "30%",
-    minHeight: 32,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 2,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
-  },
-  filterChipActive: {
-    backgroundColor: colors.brandBlue,
-    borderColor: colors.brandBlue,
-  },
-  filterChipText: {
-    color: colors.text,
-    fontSize: 11,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  filterChipTextActive: { color: "#FFFFFF" },
-
-  sheetMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 2,
-  },
-  sheetMetaText: { color: colors.muted, fontSize: 12, fontWeight: "600" },
-  quickActions: { flexDirection: "row", alignItems: "center", gap: 6 },
-  quickActionText: { color: colors.primaryDark, fontSize: 12, fontWeight: "700" },
-  quickActionDivider: { color: colors.muted },
-
-  sheetScroll: { maxHeight: 320, marginVertical: spacing.xs },
-  personRow: {
-    minHeight: 46,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-    paddingVertical: 6,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  checkboxChecked: {
-    backgroundColor: colors.primaryDark,
-    borderColor: colors.primaryDark,
-  },
-  personName: { flex: 1, color: colors.text, fontSize: 13, fontWeight: "700" },
-  emptyText: { color: colors.muted, fontSize: 13, textAlign: "center", paddingVertical: spacing.lg },
-  confirmBtn: { marginTop: spacing.xs },
 });
