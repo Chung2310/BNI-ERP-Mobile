@@ -283,6 +283,8 @@ export const meetingService = {
   resetWinners: (id: string, prizeId?: string) =>
     apiRequest<{ data: LuckyDrawConfig }>(`/api/v1/meetings/${encodeURIComponent(id)}/lucky-draw/reset`, { method: "POST", body: JSON.stringify(prizeId ? { prizeId } : {}) }).then(unwrap),
   resolveQr: (token: string) => apiRequest<{ data: { id: string; title: string; startsAt: string; location?: string } }>(`/api/v1/meeting-checkin/${encodeURIComponent(token)}`).then(unwrap),
+  reportQrCheckInFailure: (token: string, reason: "location_denied" | "location_unavailable") =>
+    apiRequest<{ success: boolean }>(`/api/v1/meeting-checkin/${encodeURIComponent(token)}/failure`, { method: "POST", body: JSON.stringify({ mode: "app", reason }) }),
   interaction: (id: string) => apiRequest<{ data: MeetingInteraction }>(`/api/v1/meetings/${encodeURIComponent(id)}/interaction`).then(unwrap),
   saveInteraction: (id: string, input: MeetingInteractionInput) =>
     apiRequest<{ data: MeetingInteraction }>(`/api/v1/meetings/${encodeURIComponent(id)}/interaction`, { method: "PUT", body: JSON.stringify(input) }).then(unwrap),
