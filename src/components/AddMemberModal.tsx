@@ -101,15 +101,13 @@ export function AddMemberModal({ visible, onClose, onCreated }: Props) {
 
   // Upload helper
   const uploadImage = async (base64: string, folder: string): Promise<string> => {
-    try {
-      const res = await apiRequest<{ url: string }>("/api/v1/media/upload", {
-        method: "POST",
-        body: JSON.stringify({ file: `data:image/jpeg;base64,${base64}`, folder }),
-      });
-      return res.url;
-    } catch {
-      return `data:image/jpeg;base64,${base64}`;
-    }
+    const res = await apiRequest<{ url: string }>("/api/v1/media/upload", {
+      method: "POST",
+      body: JSON.stringify({ file: `data:image/jpeg;base64,${base64}`, folder }),
+      timeoutMs: 120000,
+    });
+    if (!res.url) throw new Error("Máy chủ chưa lưu ảnh. Vui lòng chọn lại ảnh.");
+    return res.url;
   };
 
   // Chọn ảnh bìa
@@ -237,7 +235,7 @@ export function AddMemberModal({ visible, onClose, onCreated }: Props) {
     const trimmedName = name.trim();
     const trimmedCompany = company.trim();
     const trimmedIndustry = industry.trim();
-    const trimmedEmail = email.trim();
+    const trimmedEmail = email.trim().toLowerCase();
     const trimmedPhone = phone.trim();
 
     if (!trimmedName) {
@@ -256,8 +254,16 @@ export function AddMemberModal({ visible, onClose, onCreated }: Props) {
       Alert.alert("Thiếu thông tin", "Vui lòng nhập email đăng nhập.");
       return;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      Alert.alert("Email chưa hợp lệ", "Vui lòng nhập email đăng nhập đúng định dạng.");
+      return;
+    }
     if (!trimmedPhone) {
       Alert.alert("Thiếu thông tin", "Vui lòng nhập số điện thoại.");
+      return;
+    }
+    if (password.length < 6) {
+      Alert.alert("Mật khẩu chưa hợp lệ", "Mật khẩu khởi tạo cần ít nhất 6 ký tự.");
       return;
     }
 
@@ -268,12 +274,12 @@ export function AddMemberModal({ visible, onClose, onCreated }: Props) {
       const newUser = await userService.create({
         displayName: trimmedName,
         email: trimmedEmail,
+        role: "user",
         companyName: trimmedCompany,
-        company: trimmedCompany,
         industry: trimmedIndustry,
         phone: trimmedPhone,
-        password: password.trim() || undefined,
-        gender: gender || "",
+        password,
+        gender: gender || undefined,
         targetMarket: targetMarket.trim() || undefined,
         address: address.trim() || undefined,
         birthDate: formattedBirthDate,

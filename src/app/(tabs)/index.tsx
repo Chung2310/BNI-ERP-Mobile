@@ -11,7 +11,8 @@ import {
   Mic,
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import {
   Avatar,
   EmptyState,
@@ -228,6 +229,7 @@ export default function HomeScreen() {
 }
 
 function MemberHomeScreen() {
+  const { height: screenHeight } = useWindowDimensions();
   const { user } = useAuth();
   const guest = isChapterGuest(user);
   const { unreadCount, chapterNotifications, refreshChapterNotifications } = useNotifications();
@@ -383,6 +385,18 @@ function MemberHomeScreen() {
 
   return (
     <Screen style={styles.homeContent}>
+      <View pointerEvents="none" style={[styles.topBackground, { height: (screenHeight * 2) / 3 }]}>
+        <Svg width="100%" height="100%" viewBox="0 0 1 1" preserveAspectRatio="none">
+          <Defs>
+            <LinearGradient id="homeTopBackground" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#DFF3FE" />
+              <Stop offset="0.72" stopColor="#E8F7FF" />
+              <Stop offset="1" stopColor="#EAF8FF" />
+            </LinearGradient>
+          </Defs>
+          <Rect width="1" height="1" fill="url(#homeTopBackground)" />
+        </Svg>
+      </View>
       {/* Header Card phong cách ảnh 1: Lời chào, Tên, Chức vụ, Avatar, Đồng hồ số lớn & Ngày */}
       <View style={styles.headerHeroCard}>
         <View pointerEvents="none" style={styles.greetingWaves}><GreetingWaves /></View>
@@ -617,6 +631,15 @@ function MemberHomeScreen() {
 
 const styles = StyleSheet.create({
   homeContent: { paddingHorizontal: 10, paddingTop: 8, gap: 11 },
+  topBackground: {
+    position: "absolute",
+    top: -8,
+    left: -10,
+    right: -10,
+    borderBottomLeftRadius: 36,
+    borderBottomRightRadius: 36,
+    overflow: "hidden",
+  },
   /* Header Hero Card kiểu ảnh 1 */
   headerHeroCard: {
     backgroundColor: "#E4F5FE",
@@ -674,7 +697,7 @@ const styles = StyleSheet.create({
   notificationBadgeText: {
     color: colors.surface,
     fontSize: 8,
-    fontWeight: "900",
+    fontWeight: "700",
   },
   greetingRow: {
     flexDirection: "row",
@@ -684,18 +707,18 @@ const styles = StyleSheet.create({
   greetingText: {
     color: "#5F748D",
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "400",
   },
   userNameText: {
     color: "#081735",
     fontSize: 22,
-    fontWeight: "800",
+    fontWeight: "700",
     letterSpacing: -0.2,
   },
   userRoleText: {
     color: "#5F748D",
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "400",
   },
   avatarPressable: {
     borderRadius: 34,
@@ -714,13 +737,13 @@ const styles = StyleSheet.create({
   digitalClockText: {
     color: "#081735",
     fontSize: 28,
-    fontWeight: "900",
+    fontWeight: "700",
     letterSpacing: 0.6,
   },
   todayDateText: {
     color: "#64758E",
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "400",
   },
 
   /* Tiêu đề & Thu gọn danh sách cuộc họp */
@@ -734,10 +757,10 @@ const styles = StyleSheet.create({
   },
   scheduleSectionTitle: {
     color: colors.text,
-    fontSize: 17,
-    fontWeight: "800",
+    fontSize: 16,
+    fontWeight: "600",
   },
-  utilitySectionTitle: { color: "#081735", fontSize: 17, fontWeight: "800", marginTop: 8, marginLeft: 4 },
+  utilitySectionTitle: { color: "#081735", fontSize: 16, fontWeight: "600", marginTop: 8, marginLeft: 4 },
   accordionHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -754,7 +777,7 @@ const styles = StyleSheet.create({
   accordionTitle: {
     color: "#0F172A",
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "500",
   },
   accordionSubtitle: {
     color: "#64748B",
@@ -774,7 +797,7 @@ const styles = StyleSheet.create({
   accordionBadgeText: {
     color: "#64748B",
     fontSize: 11.5,
-    fontWeight: "700",
+    fontWeight: "500",
   },
   accordionContent: {
     gap: 2,
@@ -798,7 +821,7 @@ const styles = StyleSheet.create({
   loadMoreText: {
     color: colors.brandBlue,
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "500",
   },
 
   /* Card cuộc họp dạng lịch ảnh 1 */
@@ -808,10 +831,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderRadius: 14,
     padding: 12,
-    marginBottom: 8,
+    marginBottom: 5,
     borderWidth: 1,
-    borderColor: "#F1F5F9",
-    ...shadow,
+    borderColor: "#E8EFF3",
   },
   cardPressed: {
     opacity: 0.88,
@@ -834,7 +856,7 @@ const styles = StyleSheet.create({
   dateBadgeHeaderText: {
     color: "#FFFFFF",
     fontSize: 9.5,
-    fontWeight: "800",
+    fontWeight: "600",
     textTransform: "uppercase",
   },
   dateBadgeBody: {
@@ -845,7 +867,7 @@ const styles = StyleSheet.create({
   },
   dateBadgeDayText: {
     fontSize: 19,
-    fontWeight: "800",
+    fontWeight: "600",
     lineHeight: 22,
   },
   cardDetails: {
@@ -874,7 +896,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: "#0F172A",
     fontSize: 13.5,
-    fontWeight: "700",
+    fontWeight: "500",
   },
   statusBadge: {
     paddingHorizontal: 7,
@@ -884,7 +906,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: "500",
   },
   metaRow: {
     flexDirection: "row",
@@ -951,7 +973,7 @@ const styles = StyleSheet.create({
   heroTagText: {
     color: "#0C1F3F",
     fontSize: 10,
-    fontWeight: "700",
+    fontWeight: "500",
   },
   liveWave: { height: 15, flexDirection: "row", alignItems: "center", gap: 2, marginRight: 7 },
   liveWaveBar: { width: 2.5, height: 13, borderRadius: 2, backgroundColor: "#078FFA" },
@@ -971,7 +993,7 @@ const styles = StyleSheet.create({
   featuredMeetingTitle: {
     color: "#081735",
     fontSize: 22,
-    fontWeight: "800",
+    fontWeight: "600",
     letterSpacing: -0.35,
     lineHeight: 27,
     flex: 1,
@@ -985,7 +1007,7 @@ const styles = StyleSheet.create({
   featuredMeetingMeta: {
     color: "#5D738E",
     fontSize: 13.5,
-    fontWeight: "600",
+    fontWeight: "400",
     flex: 1,
     lineHeight: 18,
   },
@@ -1008,12 +1030,12 @@ const styles = StyleSheet.create({
   featuredMeetingActionText: {
     color: "#FFFFFF",
     fontSize: 15,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   link: {
     color: "#078FFA",
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "500",
   },
   allMeetingsLink: { flexDirection: "row", alignItems: "center", gap: 1 },
 

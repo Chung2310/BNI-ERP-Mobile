@@ -3,6 +3,15 @@ import { friendlyErrorMessage } from "@/utils/userFacingError";
 const API_URL = (process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, "");
 const DEFAULT_TIMEOUT_MS = 15000;
 
+function fallbackHttpError(status: number): string {
+  if (status === 401) return "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+  if (status === 403) return "Bạn không có quyền thực hiện thao tác này.";
+  if (status === 404) return "Máy chủ chưa hỗ trợ thao tác này. Vui lòng liên hệ quản trị viên.";
+  if (status === 413) return "Dữ liệu hoặc ảnh quá lớn. Vui lòng chọn ảnh nhỏ hơn rồi thử lại.";
+  if (status >= 500) return "Máy chủ đang gặp sự cố. Vui lòng thử lại sau.";
+  return `Máy chủ từ chối yêu cầu (mã ${status}). Vui lòng kiểm tra thông tin rồi thử lại.`;
+}
+
 let accessToken: string | null = null;
 let refreshPromise: Promise<string | null> | null = null;
 let persistAccessToken: ((token: string) => Promise<void>) | null = null;
@@ -35,6 +44,7 @@ async function parsePayload(response: Response) {
   try {
     return JSON.parse(text) as Record<string, unknown>;
   } catch {
+    if (!response.ok) return {};
     throw new ApiError("Hệ thống đang bận. Vui lòng thử lại sau.", response.status);
   }
 }
@@ -105,7 +115,7 @@ export async function apiRequest<T>(path: string, options: RequestInit & { timeo
 
   if (!response.ok) {
     throw new ApiError(
-      typeof payload.message === "string" ? payload.message : "Không thể kết nối máy chủ.",
+      typeof payload.message === "string" ? payload.message : fallbackHttpError(response.status),
       response.status,
       typeof payload.code === "string" ? payload.code : undefined,
     );
@@ -148,7 +158,7 @@ export async function apiPostWithUploadProgress<T>(path: string, body: string, o
     if (refreshedToken) return apiPostWithUploadProgress<T>(path, body, onProgress, true);
   }
   if (status < 200 || status >= 300) {
-    throw new ApiError(typeof payload.message === "string" ? payload.message : "Không thể tải tệp lên. Vui lòng thử lại.", status);
+    throw new ApiError(typeof payload.message === "string" ? payload.message : fallbackHttpError(status), status);
   }
   return payload as T;
 }

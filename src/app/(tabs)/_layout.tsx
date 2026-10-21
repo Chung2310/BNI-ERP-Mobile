@@ -72,12 +72,11 @@ export default function TabsLayout() {
         },
         tabBarIcon: ({ focused }) => {
           const Icon = icons[route.name] || Home;
-          const isHome = route.name === "index";
           return (
-            <View style={[styles.iconWrapper, isHome && styles.homeIconWrapper, isHome && focused && styles.homeIconActive]}>
+            <View style={styles.iconWrapper}>
               <Icon
-                color={isHome && focused ? "#FFFFFF" : focused ? "#078FFA" : "#798592"}
-                size={isHome ? (focused ? 27 : 23) : (focused ? 24 : 23)}
+                color={focused ? "#078FFA" : "#798592"}
+                size={focused ? 24 : 23}
                 strokeWidth={focused ? 2.2 : 1.8}
               />
               {guest && (route.name === "members" || route.name === "chat") ? <LockKeyhole size={12} color={colors.brandBlue} style={styles.lockBadge} /> : null}
@@ -123,9 +122,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  homeIconWrapper: {
-    transform: [{ translateY: -8 }],
-  },
-  homeIconActive: { width: 46, height: 46, borderRadius: 14, backgroundColor: "#079BFA", shadowColor: "#079BFA", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 7, elevation: 6 },
   lockBadge: { position: "absolute", right: -4, bottom: -3 },
 });
