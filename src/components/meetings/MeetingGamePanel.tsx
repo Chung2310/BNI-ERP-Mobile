@@ -13,27 +13,19 @@ import { WHEEL_SELECTION_NAME } from "@/data/wheel-selection";
 import { colors, radius, spacing } from "@/theme/tokens";
 import type { UserProfile } from "@/types";
 import { hasPermission } from "@/utils/permissions";
+import { checkedInBeforeSeven } from "@/utils/earlyCheckIn";
 
-type Category = "all" | "all_members" | "present" | "guest";
-type Player = { id: string; name: string; photoURL?: string; category: "present" | "absent" | "guest" };
-
-const categoryNames: Record<Category, string> = { all: "Tất cả", all_members: "Tất cả TV", present: "Có mặt", guest: "Khách mời" };
-const playerTypeNames: Record<Player["category"], string> = { present: "Có mặt", absent: "Vắng mặt", guest: "Khách mời" };
+type Player = { id: string; name: string; photoURL?: string };
 const wedgeColors = ["#00ADFC", "#8B5CF6", "#F5B841", "#D97867", "#439B80", "#EC4899"];
 const initials = (name: string) => name.split(" ").filter(Boolean).map((word) => word[0]).slice(-2).join("").toUpperCase();
 
 function roster(meeting: Meeting, users: UserProfile[]): Player[] {
-  const matched = new Set<string>();
-  const members = users.filter((user) => user.uid && user.isActive !== false).map((user) => {
-    const name = user.displayName?.trim() || user.email?.split("@")[0] || "Thành viên";
-    const speaker = meeting.speakers.find((item) => item.userId === user.uid || (!item.userId && item.name.trim().toLocaleLowerCase("vi") === name.toLocaleLowerCase("vi")));
-    if (speaker) matched.add(speaker.id);
-    return { id: speaker?.id || user.uid, name, photoURL: user.photoURL || speaker?.photoURL, category: speaker ? "present" as const : "absent" as const };
-  });
-  const guests = meeting.speakers.filter((speaker) => !speaker.deletedAccount && !matched.has(speaker.id)).map((speaker) => ({
-    id: speaker.id, name: speaker.name.trim(), photoURL: speaker.photoURL, category: (speaker.userId ? "present" : "guest") as Player["category"],
-  }));
-  return [...members, ...guests];
+  return meeting.speakers
+    .filter((speaker) => !speaker.deletedAccount && !!speaker.userId && checkedInBeforeSeven(speaker.checkedInAt))
+    .map((speaker) => {
+      const member = users.find((user) => user.uid === speaker.userId && user.isActive !== false);
+      return { id: speaker.id, name: member?.displayName?.trim() || speaker.name.trim(), photoURL: member?.photoURL || speaker.photoURL };
+    });
 }
 
 function point(angle: number, radius: number) {
@@ -56,10 +48,7 @@ export function MeetingGamePanel({ id, embedded = false }: { id: string; embedde
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [category, setCategory] = useState<Category>("present");
   const [excluded, setExcluded] = useState<string[]>([]);
-  const [customGuests, setCustomGuests] = useState<Player[]>([]);
-  const [guestName, setGuestName] = useState("");
   const [prizeName, setPrizeName] = useState("");
   const [busy, setBusy] = useState(false);
   const [winner, setWinner] = useState<LuckyDrawWinner | null>(null);
@@ -89,14 +78,14 @@ export function MeetingGamePanel({ id, embedded = false }: { id: string; embedde
     return () => { mounted.current = false; rotation.stopAnimation(); };
   }, [refresh, rotation]));
 
-  const players = useMemo(() => meeting ? [...roster(meeting, users), ...customGuests] : [], [meeting, users, customGuests]);
-  const filtered = useMemo(() => players.filter((player) => category === "all" || (category === "all_members" ? player.category !== "guest" : category === "present" ? player.category !== "absent" : player.category === "guest")), [players, category]);
+  const players = useMemo(() => meeting ? roster(meeting, users) : [], [meeting, users]);
+  const filtered = players;
   const eligible = useMemo(() => filtered.filter((player) => !excluded.includes(player.id)), [filtered, excluded]);
   const history = (meeting?.gameWinners || []).filter((entry) => entry.source === "wheel").slice().reverse();
   const size = Math.min(300, width - 76);
   const previousProjectedWinners = new Set(meeting?.luckyDraw?.allowRepeatWinners ? [] : meeting?.luckyDraw?.prizes.flatMap((prize) => prize.winners.map((item) => item.winnerId)) || []);
-  const projectedCandidates = meeting?.speakers.filter((speaker) => !speaker.deletedAccount && !previousProjectedWinners.has(speaker.id)) || [];
-  const canProjectWheel = category === "present" && !customGuests.length && !!meeting?.speakers.length && eligible.length === projectedCandidates.length && projectedCandidates.every((speaker) => eligible.some((player) => player.id === speaker.id));
+  const projectedCandidates = meeting?.speakers.filter((speaker) => !speaker.deletedAccount && !!speaker.userId && checkedInBeforeSeven(speaker.checkedInAt) && !previousProjectedWinners.has(speaker.id)) || [];
+  const canProjectWheel = !!meeting?.speakers.length && eligible.length === projectedCandidates.length && projectedCandidates.every((speaker) => eligible.some((player) => player.id === speaker.id));
   const spin = async () => {
     if (busyRef.current || winner || !meeting || !canManage || !eligible.length || !["live", "paused"].includes(meeting.status)) return;
     busyRef.current = true;
@@ -171,7 +160,7 @@ export function MeetingGamePanel({ id, embedded = false }: { id: string; embedde
       <Card style={styles.stage}>
         <Text style={styles.stageTitle}>Vòng quay chọn người</Text>
         <Text style={styles.muted}>{eligible.length} người đang tham gia · 5 giây</Text>
-        {canManage ? <Text style={styles.muted}>{canProjectWheel ? "Quay đồng bộ với màn chiếu web" : "Bộ lọc này quay trên điện thoại và lưu kết quả; màn chiếu web chưa hỗ trợ đồng bộ."}</Text> : null}
+        {canManage ? <Text style={styles.muted}>{canProjectWheel ? "Quay đồng bộ với màn chiếu web" : "Quay trên điện thoại và lưu kết quả."}</Text> : null}
         <Pressable accessibilityRole="button" accessibilityLabel="Chạm vòng quay để quay" disabled={!canManage || busy || !!winner || !eligible.length || !["live", "paused"].includes(meeting.status)} onPress={() => void spin()} style={[styles.gameView, { width: size, height: size }]}>
           <Animated.View style={{ width: size, height: size, transform: [{ rotate }] }}>
             <Svg width={size} height={size} viewBox="0 0 240 240">
@@ -203,11 +192,8 @@ export function MeetingGamePanel({ id, embedded = false }: { id: string; embedde
       </Card>
 
       {canManage ? <>
-      <SectionTitle>Người tham gia · {eligible.length}/{players.length}</SectionTitle>
-      <View style={styles.categoryRow}>{(Object.keys(categoryNames) as Category[]).map((option) => <Pressable key={option} accessibilityRole="button" accessibilityState={{ selected: category === option }} disabled={busy} onPress={() => setCategory(option)} style={[styles.categoryChip, category === option && styles.categoryChipActive]}><Text numberOfLines={1} style={[styles.categoryChipText, category === option && styles.categoryChipTextActive]}>{categoryNames[option]} ({players.filter((player) => option === "all" || (option === "all_members" ? player.category !== "guest" : option === "present" ? player.category !== "absent" : player.category === "guest")).length})</Text></Pressable>)}</View>
+      <SectionTitle>Thành viên có mặt · {eligible.length}/{players.length}</SectionTitle>
       <Card style={styles.options}>
-        <Text style={styles.label}>Thêm khách mời vào lượt quay</Text>
-        <View style={styles.addGuest}><TextInput value={guestName} onChangeText={setGuestName} editable={!busy} maxLength={150} placeholder="Tên khách mời" style={[styles.input, styles.flex]} /><Button tone="secondary" disabled={busy || !guestName.trim()} onPress={() => { const name = guestName.trim(); if (name) { setCustomGuests((old) => [...old, { id: `custom-${Date.now()}-${old.length}`, name, category: "guest" }]); setGuestName(""); } }}>Thêm</Button></View>
         <View style={styles.chips}><Button tone="secondary" disabled={busy || !filtered.length} onPress={() => setExcluded((old) => old.filter((item) => !filtered.some((player) => player.id === item)))}>Chọn tất cả</Button><Button tone="secondary" disabled={busy || !filtered.length} onPress={() => setExcluded((old) => [...new Set([...old, ...filtered.map((player) => player.id)])])}>Bỏ chọn</Button></View>
       </Card>
       <Card style={styles.players}>{filtered.length ? filtered.map((player) => {
@@ -215,7 +201,7 @@ export function MeetingGamePanel({ id, embedded = false }: { id: string; embedde
         return <Pressable key={player.id} accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: busy || !!winner }} disabled={busy || !!winner} onPress={() => setExcluded((old) => selected ? [...old, player.id] : old.filter((item) => item !== player.id))} style={styles.player}>
           <View style={[styles.checkbox, selected && styles.checked]}>{selected ? <Check color="#FFFFFF" size={15} /> : null}</View>
           <Avatar initials={initials(player.name)} url={player.photoURL} size={34} />
-          <View style={styles.flex}><Text style={styles.playerName} numberOfLines={1}>{player.name}</Text><Text style={styles.muted}>{playerTypeNames[player.category]}</Text></View>
+          <View style={styles.flex}><Text style={styles.playerName} numberOfLines={1}>{player.name}</Text><Text style={styles.muted}>Có mặt</Text></View>
         </Pressable>;
       }) : <Text style={styles.muted}>Chưa có người tham gia trong nhóm này.</Text>}</Card>
       </> : null}
