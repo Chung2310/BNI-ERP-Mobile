@@ -2,7 +2,7 @@ import { friendlyErrorMessage } from "@/utils/userFacingError";
 import { useCallback, useMemo, useState } from "react";
 import { router, useFocusEffect } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Check, RotateCw, RefreshCw, UserMinus, Users } from "lucide-react-native";
+import { Check, List, RotateCw, RefreshCw, UserMinus, Users } from "lucide-react-native";
 import { Alert } from "@/components/AppAlert";
 import { Badge, Button, Card, LoadingState } from "@/components/ui";
 import { drawParticipants, excludedDrawWinnerIds } from "@/components/meetings/drawParticipants";
@@ -60,6 +60,8 @@ export function MeetingDrawRemote({
   );
 
   const roster = useMemo(() => drawParticipants(meeting, users), [meeting, users]);
+  const drawPanel = meeting.presentation?.drawPanel || "participants";
+  const winnerCount = meeting.luckyDraw?.prizes.reduce((total, prize) => total + prize.winners.length, 0) || 0;
   const excludedWinnerIds = excludedDrawWinnerIds(meeting);
   const eligible = roster.filter((person) => !excludedWinnerIds.has(person.id));
   const selected = eligible;
@@ -81,6 +83,24 @@ export function MeetingDrawRemote({
 
   const ready =
     displayOpen && !loadingUsers && !usersError && !disabled && !busy && !activeWinner && (meeting.status === "live" || meeting.status === "paused");
+
+  const toggleWinnerList = async () => {
+    if (!displayOpen || disabled || busy || activeWinner) return;
+    setBusy(true);
+    setError("");
+    try {
+      await ensureDisplayOpen();
+      const current = await meetingService.get(id);
+      const nextPanel = current.presentation?.drawPanel === "winners" ? "participants" : "winners";
+      await meetingService.presentationState(id, { drawPanel: nextPanel }, meetingVersion(current));
+      await onRefresh();
+    } catch (cause) {
+      setError(friendlyErrorMessage(cause, "Không thể chuyển danh sách người trúng trên màn chiếu."));
+      void onRefresh();
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const spin = async () => {
     if (!ready) return;
@@ -205,6 +225,21 @@ export function MeetingDrawRemote({
           {busy ? "Đang gửi lệnh quay..." : "Quay trên màn chiếu"}
         </Button>
 
+        <Button
+          tone="secondary"
+          icon={drawPanel === "winners" ? RotateCw : List}
+          iconSize={16}
+          fullWidth
+          disabled={!displayOpen || disabled || busy || !!activeWinner}
+          onPress={() => void toggleWinnerList()}
+          style={styles.controlButton}
+          textStyle={styles.controlButtonText}
+        >
+          {drawPanel === "winners"
+            ? "Hiện vòng quay trên màn chiếu"
+            : `Hiện người trúng trên màn chiếu (${winnerCount})`}
+        </Button>
+
         {/* KẾT QUẢ NGƯỜI TRÚNG THƯỞNG */}
         {activeWinner ? (
           <View style={styles.result}>
@@ -282,6 +317,7 @@ const styles = StyleSheet.create({
   participantLabel: { color: colors.muted, fontSize: 11, fontWeight: "600" },
   participantValue: { color: colors.text, fontSize: 14, fontWeight: "800", marginTop: 1 },
   spinButton: { marginTop: spacing.xs, minHeight: 42, paddingHorizontal: spacing.sm },
+  controlButton: { minHeight: 42, paddingHorizontal: spacing.sm },
   controlButtonText: { fontSize: 12, textAlign: "center", flexShrink: 1 },
 
   // Winner result
