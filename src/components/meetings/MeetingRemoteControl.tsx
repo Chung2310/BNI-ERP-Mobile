@@ -110,7 +110,7 @@ export function MeetingRemoteControl({
   const [snapshot, setSnapshot] = useState<MeetingLiveSnapshot | null>(null);
   const [interactionPreview, setInteractionPreview] = useState<MeetingInteraction | null>(null);
   const [drawUsers, setDrawUsers] = useState<UserProfile[]>([]);
-  const [drawUsersLoading, setDrawUsersLoading] = useState(true);
+  const [drawUsersLoading, setDrawUsersLoading] = useState(false);
   const [drawUsersError, setDrawUsersError] = useState("");
   const snapshotRef = useRef<MeetingLiveSnapshot | null>(null);
   const activeRef = useRef(false);
@@ -143,7 +143,9 @@ export function MeetingRemoteControl({
       setNow(next.serverNow);
       setSyncError("");
       setLoading(false);
-      setViewOverride(null);
+      setViewOverride((pending) =>
+        pending && next.meeting.presentation?.view !== pending ? pending : null
+      );
     },
     [id]
   );
@@ -233,18 +235,22 @@ export function MeetingRemoteControl({
     }, [id, refresh, token])
   );
 
-  const run = async (task: (meeting: Meeting) => Promise<unknown>) => {
+  const run = async (task: (meeting: Meeting) => Promise<Meeting>) => {
     const current = snapshotRef.current?.meeting;
     if (!canManage || !current || busyRef.current || syncError) return false;
     busyRef.current = true;
     setBusy(true);
     try {
-      await task(current);
-      try {
-        applySnapshot(await meetingService.live(id));
-      } catch {
-        setSyncError("Lệnh đã gửi, nhưng chưa tải được trạng thái mới. Hãy đồng bộ lại.");
+      const updated = await task(current);
+      const cached = snapshotRef.current;
+      if (cached && meetingVersion(updated) >= meetingVersion(cached.meeting)) {
+        applySnapshot({
+          ...cached,
+          meeting: updated,
+          serverNow: now,
+        });
       }
+      void refresh(true);
       return true;
     } catch (cause) {
       Alert.alert("Không thể điều khiển", friendlyErrorMessage(cause, "Vui lòng thử lại."));
@@ -260,6 +266,8 @@ export function MeetingRemoteControl({
     void run((meeting) => meetingService.control(id, action, meetingVersion(meeting)));
 
   const setView = (nextView: PresentationView) => {
+    if (!canManage || !snapshotRef.current || busyRef.current || syncError) return;
+    if (nextView === (viewOverride || snapshotRef.current.meeting.presentation?.view)) return;
     setViewOverride(nextView);
     void run((meeting) =>
       meetingService.presentationState(
@@ -271,7 +279,9 @@ export function MeetingRemoteControl({
           : { view: nextView },
         meetingVersion(meeting)
       )
-    );
+    ).then((saved) => {
+      if (!saved) setViewOverride((pending) => pending === nextView ? null : pending);
+    });
   };
 
   const setAudienceResponsePanel = (panel: "questions" | "prepare" | "qr" | "results") =>
@@ -406,11 +416,10 @@ export function MeetingRemoteControl({
         <View style={styles.previewCard}>
           <StagePreview
             snapshot={snapshot}
+            viewOverride={viewOverride}
             now={now}
             interaction={interactionPreview}
             drawUsers={drawUsers}
-            drawUsersLoading={drawUsersLoading}
-            drawUsersError={drawUsersError}
           />
           <Pressable
             accessibilityRole="button"
@@ -1176,22 +1185,20 @@ function RemoteInteractionPanel({
 
 function StagePreview({
   snapshot,
+  viewOverride,
   now,
   interaction,
   drawUsers,
-  drawUsersLoading,
-  drawUsersError,
 }: {
   snapshot: MeetingLiveSnapshot;
+  viewOverride: PresentationView | null;
   now: number;
   interaction: MeetingInteraction | null;
   drawUsers: UserProfile[];
-  drawUsersLoading: boolean;
-  drawUsersError: string;
 }) {
   const { width: screenWidth } = useWindowDimensions();
   const meeting = snapshot.meeting;
-  const view = meeting.presentation?.view || "checkin";
+  const view = viewOverride || meeting.presentation?.view || "checkin";
   const speaker = meeting.speakers[meeting.currentIndex];
   const slide = snapshot.slides.find((item) => item.id === speaker?.id);
   const elapsed =
@@ -1315,8 +1322,6 @@ function StagePreview({
   }
 
   if (view === "luckyDraw") {
-    if (drawUsersLoading) return <View style={styles.stage}><LoadingState label="Đang tải người tham gia quay..." /></View>;
-    if (drawUsersError) return <View style={styles.stage}><Text style={styles.stageSub}>{drawUsersError}</Text></View>;
     return <MeetingWheelPreview meeting={meeting} now={now} users={drawUsers} fullscreen />;
   }
   if (view === "activeMembers") return <StageRankingPreview meeting={meeting} />;
