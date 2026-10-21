@@ -13,7 +13,7 @@ import { WHEEL_SELECTION_NAME } from "@/data/wheel-selection";
 import { colors, radius, spacing } from "@/theme/tokens";
 import type { UserProfile } from "@/types";
 import { hasPermission } from "@/utils/permissions";
-import { checkedInBeforeSeven } from "@/utils/earlyCheckIn";
+import { checkedInByCutoff, DEFAULT_DRAW_CUTOFF_TIME, validDrawCutoffTime } from "@/utils/earlyCheckIn";
 
 type Player = { id: string; name: string; photoURL?: string };
 const wedgeColors = ["#00ADFC", "#8B5CF6", "#F5B841", "#D97867", "#439B80", "#EC4899"];
@@ -21,7 +21,7 @@ const initials = (name: string) => name.split(" ").filter(Boolean).map((word) =>
 
 function roster(meeting: Meeting, users: UserProfile[]): Player[] {
   return meeting.speakers
-    .filter((speaker) => !speaker.deletedAccount && !!speaker.userId && checkedInBeforeSeven(speaker.checkedInAt))
+    .filter((speaker) => !speaker.deletedAccount && !!speaker.userId && checkedInByCutoff(speaker.checkedInAt, meeting.luckyDraw?.checkInCutoffTime))
     .map((speaker) => {
       const member = users.find((user) => user.uid === speaker.userId && user.isActive !== false);
       return { id: speaker.id, name: member?.displayName?.trim() || speaker.name.trim(), photoURL: member?.photoURL || speaker.photoURL };
@@ -46,6 +46,7 @@ export function MeetingGamePanel({ id, embedded = false }: { id: string; embedde
   const { width } = useWindowDimensions();
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [cutoffInput, setCutoffInput] = useState(DEFAULT_DRAW_CUTOFF_TIME);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [excluded, setExcluded] = useState<string[]>([]);
@@ -62,6 +63,7 @@ export function MeetingGamePanel({ id, embedded = false }: { id: string; embedde
       const [fresh, directory] = await Promise.all([meetingService.get(id), userService.directory().catch(() => [])]);
       if (!mounted.current) return;
       setMeeting(fresh);
+      setCutoffInput(fresh.luckyDraw?.checkInCutoffTime || DEFAULT_DRAW_CUTOFF_TIME);
       setUsers(directory);
       setPrizeName((current) => current || WHEEL_SELECTION_NAME);
       setError("");
@@ -71,6 +73,26 @@ export function MeetingGamePanel({ id, embedded = false }: { id: string; embedde
       if (mounted.current) setLoading(false);
     }
   }, [id]);
+
+  const saveCutoff = async () => {
+    if (!meeting || !canManage || busy) return;
+    if (!validDrawCutoffTime(cutoffInput)) {
+      setError("Nhập giờ theo định dạng HH:mm, ví dụ 07:00.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await meetingService.updateLuckyDrawConfig(id, { checkInCutoffTime: cutoffInput });
+      const fresh = await meetingService.get(id);
+      setMeeting(fresh);
+      setCutoffInput(fresh.luckyDraw?.checkInCutoffTime || DEFAULT_DRAW_CUTOFF_TIME);
+    } catch (cause) {
+      setError(friendlyErrorMessage(cause, "Không lưu được giờ giới hạn check-in."));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   useFocusEffect(useCallback(() => {
     mounted.current = true;
@@ -84,7 +106,7 @@ export function MeetingGamePanel({ id, embedded = false }: { id: string; embedde
   const history = (meeting?.gameWinners || []).filter((entry) => entry.source === "wheel").slice().reverse();
   const size = Math.min(300, width - 76);
   const previousProjectedWinners = new Set(meeting?.luckyDraw?.allowRepeatWinners ? [] : meeting?.luckyDraw?.prizes.flatMap((prize) => prize.winners.map((item) => item.winnerId)) || []);
-  const projectedCandidates = meeting?.speakers.filter((speaker) => !speaker.deletedAccount && !!speaker.userId && checkedInBeforeSeven(speaker.checkedInAt) && !previousProjectedWinners.has(speaker.id)) || [];
+  const projectedCandidates = meeting?.speakers.filter((speaker) => !speaker.deletedAccount && !!speaker.userId && checkedInByCutoff(speaker.checkedInAt, meeting.luckyDraw?.checkInCutoffTime) && !previousProjectedWinners.has(speaker.id)) || [];
   const canProjectWheel = !!meeting?.speakers.length && eligible.length === projectedCandidates.length && projectedCandidates.every((speaker) => eligible.some((player) => player.id === speaker.id));
   const spin = async () => {
     if (busyRef.current || winner || !meeting || !canManage || !eligible.length || !["live", "paused"].includes(meeting.status)) return;
@@ -153,6 +175,12 @@ export function MeetingGamePanel({ id, embedded = false }: { id: string; embedde
     {loading && !meeting ? <LoadingState /> : !meeting ? <ErrorState message={error || "Không tìm thấy cuộc họp."} onRetry={() => void refresh()} /> : <>
       {error ? <Card style={styles.error}><Text style={styles.errorText}>{error}</Text><Button tone="secondary" icon={RefreshCw} onPress={() => { setError(""); void refresh(); }}>Làm mới</Button></Card> : null}
       {canManage ? <Card style={styles.options}>
+        <Text style={styles.label}>Thành viên check-in đến hết giờ nào được quay?</Text>
+        <View style={styles.cutoffRow}>
+          <TextInput accessibilityLabel="Giờ giới hạn check-in" value={cutoffInput} onChangeText={setCutoffInput} editable={!busy} maxLength={5} placeholder="07:00" style={[styles.input, styles.flex]} />
+          <Button tone="secondary" disabled={busy || !validDrawCutoffTime(cutoffInput) || cutoffInput === (meeting.luckyDraw?.checkInCutoffTime || DEFAULT_DRAW_CUTOFF_TIME)} onPress={() => void saveCutoff()}>Lưu giờ</Button>
+        </View>
+        <Text style={styles.muted}>Giờ Việt Nam · mặc định 07:00. Áp dụng cho cả app và màn chiếu.</Text>
         <Text style={styles.label}>Tên lượt chọn</Text>
         <TextInput accessibilityLabel="Tên lượt chọn" value={prizeName} onChangeText={setPrizeName} editable={!busy && !winner} maxLength={200} placeholder="Lượt chọn" style={styles.input} />
         {meeting.luckyDraw?.prizes.length ? <View style={styles.chips}>{meeting.luckyDraw.prizes.map((prize) => <Pressable key={prize.id} accessibilityRole="button" disabled={busy || !!winner} onPress={() => setPrizeName(prize.name)} style={[styles.chip, prizeName === prize.name && styles.chipActive]}><Text style={styles.chipText}>{prize.name}</Text></Pressable>)}</View> : null}
@@ -218,7 +246,7 @@ const styles = StyleSheet.create({
   gameView: { alignItems: "center", justifyContent: "center", marginVertical: spacing.sm }, pointer: { position: "absolute", top: -5, width: 0, height: 0, borderLeftWidth: 13, borderRightWidth: 13, borderTopWidth: 28, borderLeftColor: "transparent", borderRightColor: "transparent", borderTopColor: "#132835" },
   winner: { alignItems: "center", gap: 3, paddingVertical: spacing.sm }, winnerTitle: { color: colors.text, fontSize: 22, fontWeight: "900" },
   options: { gap: spacing.sm }, label: { color: colors.text, fontSize: 13, fontWeight: "700" }, input: { minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, paddingHorizontal: spacing.md, color: colors.text, backgroundColor: colors.surface },
-  addGuest: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  cutoffRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   categoryRow: { flexDirection: "row", gap: 6, width: "100%" },
   categoryChip: { flex: 1, minHeight: 32, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, backgroundColor: colors.surface, paddingHorizontal: 2 },
   categoryChipActive: { backgroundColor: colors.brandBlue, borderColor: colors.brandBlue },

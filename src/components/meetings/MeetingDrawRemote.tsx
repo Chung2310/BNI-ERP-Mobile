@@ -10,6 +10,7 @@ import { meetingService, meetingVersion, type LuckyDrawWinner, type Meeting } fr
 import { colors, radius, spacing } from "@/theme/tokens";
 import type { UserProfile } from "@/types";
 import { WHEEL_SELECTION_NAME } from "@/data/wheel-selection";
+import { DEFAULT_DRAW_CUTOFF_TIME } from "@/utils/earlyCheckIn";
 
 export function MeetingDrawRemote({
   id,
@@ -199,7 +200,7 @@ export function MeetingDrawRemote({
           <Text style={styles.rulesLinkText}>Xem hướng dẫn vòng quay</Text>
         </Pressable>
         {!displayOpen ? <Text style={styles.meta}>Mở chế độ màn hình trình chiếu trên web để điều khiển vòng quay.</Text> : null}
-        <Text style={styles.meta}>Chỉ quay thành viên có mặt, check-in đến hết 07:00.</Text>
+        <Text style={styles.meta}>Chỉ quay thành viên có mặt, check-in đến hết {meeting.luckyDraw?.checkInCutoffTime || DEFAULT_DRAW_CUTOFF_TIME}.</Text>
         <View style={styles.participantBar}>
           <View style={styles.participantIconWrap}>
             <Users color={colors.primaryDark} size={18} />

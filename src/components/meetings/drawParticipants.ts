@@ -1,6 +1,6 @@
 import type { DrawFilter, Meeting } from "@/services/meeting";
 import type { UserProfile } from "@/types";
-import { checkedInBeforeSeven } from "@/utils/earlyCheckIn";
+import { checkedInByCutoff } from "@/utils/earlyCheckIn";
 
 export type DrawParticipant = {
   id: string;
@@ -11,7 +11,7 @@ export type DrawParticipant = {
 
 export function drawParticipants(meeting: Meeting, users: UserProfile[]): DrawParticipant[] {
   return meeting.speakers
-    .filter((speaker) => !speaker.deletedAccount && !!speaker.userId && checkedInBeforeSeven(speaker.checkedInAt))
+    .filter((speaker) => !speaker.deletedAccount && !!speaker.userId && checkedInByCutoff(speaker.checkedInAt, meeting.luckyDraw?.checkInCutoffTime))
     .map((speaker) => {
       const member = users.find((user) => user.uid === speaker.userId && user.isActive !== false);
       return {
