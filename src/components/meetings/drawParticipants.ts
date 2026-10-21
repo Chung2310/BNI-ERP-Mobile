@@ -1,6 +1,5 @@
 import type { DrawFilter, Meeting } from "@/services/meeting";
 import type { UserProfile } from "@/types";
-import { checkedInBeforeSeven } from "@/utils/earlyCheckIn";
 
 export type DrawParticipant = {
   id: string;
@@ -10,9 +9,6 @@ export type DrawParticipant = {
 };
 
 export function drawParticipants(meeting: Meeting, users: UserProfile[]): DrawParticipant[] {
-  const onTimeIds = new Set(meeting.speakers
-    .filter((speaker) => !speaker.deletedAccount && checkedInBeforeSeven(speaker.checkedInAt))
-    .map((speaker) => speaker.id));
   const matched = new Set<string>();
   const members: DrawParticipant[] = users
     .filter((user) => user.uid && user.isActive !== false && (!meeting.companyCode || !user.companyCode || user.companyCode === meeting.companyCode))
@@ -40,7 +36,7 @@ export function drawParticipants(meeting: Meeting, users: UserProfile[]): DrawPa
       photoURL: speaker.photoURL,
       kind: speaker.userId ? "member_present" : "guest",
     }));
-  return [...members, ...others].filter((person) => onTimeIds.has(person.id));
+  return [...members, ...others];
 }
 
 export function matchesDrawFilter(person: DrawParticipant, filter: DrawFilter) {
