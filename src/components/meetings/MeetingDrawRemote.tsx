@@ -281,6 +281,7 @@ export function MeetingDrawRemote({
           <Text style={styles.rulesLinkText}>Xem hướng dẫn vòng quay</Text>
         </Pressable>
         {!displayOpen ? <Text style={styles.meta}>Mở chế độ màn hình trình chiếu trên web để điều khiển vòng quay.</Text> : null}
+        <Text style={styles.meta}>Chỉ người check-in đến hết 07:00 được tham gia vòng quay.</Text>
         <View style={styles.filters}>
           {filters.map(({ value, label }) => (
             <Pressable
