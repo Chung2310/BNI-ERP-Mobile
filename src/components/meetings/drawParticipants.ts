@@ -1,5 +1,6 @@
 import type { DrawFilter, Meeting } from "@/services/meeting";
 import type { UserProfile } from "@/types";
+import { checkedInByCutoff } from "@/utils/earlyCheckIn";
 
 export type DrawParticipant = {
   id: string;
@@ -9,42 +10,21 @@ export type DrawParticipant = {
 };
 
 export function drawParticipants(meeting: Meeting, users: UserProfile[]): DrawParticipant[] {
-  const matched = new Set<string>();
-  const members: DrawParticipant[] = users
-    .filter((user) => user.uid && user.isActive !== false && (!meeting.companyCode || !user.companyCode || user.companyCode === meeting.companyCode))
-    .map((user) => {
-      const name = user.displayName?.trim() || user.email?.split("@")[0] || "Thành viên";
-      const speaker = meeting.speakers.find(
-        (item) =>
-          item.userId === user.uid ||
-          (user.email && item.email?.toLowerCase() === user.email.toLowerCase()) ||
-          item.name.trim().toLocaleLowerCase("vi") === name.toLocaleLowerCase("vi")
-      );
-      if (speaker) matched.add(speaker.id);
+  return meeting.speakers
+    .filter((speaker) => !speaker.deletedAccount && !!speaker.userId && checkedInByCutoff(speaker.checkedInAt, meeting.luckyDraw?.checkInCutoffTime))
+    .map((speaker) => {
+      const member = users.find((user) => user.uid === speaker.userId && user.isActive !== false);
       return {
-        id: speaker?.id || user.uid,
-        name,
-        photoURL: user.photoURL || speaker?.photoURL,
-        kind: speaker ? "member_present" : "member_absent",
+        id: speaker.id,
+        name: member?.displayName?.trim() || speaker.name,
+        photoURL: member?.photoURL || speaker.photoURL,
+        kind: "member_present" as const,
       };
     });
-  const others: DrawParticipant[] = meeting.speakers
-    .filter((speaker) => !speaker.deletedAccount && !matched.has(speaker.id))
-    .map((speaker) => ({
-      id: speaker.id,
-      name: speaker.name,
-      photoURL: speaker.photoURL,
-      kind: speaker.userId ? "member_present" : "guest",
-    }));
-  return [...members, ...others];
 }
 
-export function matchesDrawFilter(person: DrawParticipant, filter: DrawFilter) {
-  if (filter === "all") return true;
-  if (filter === "all_members") return person.kind !== "guest";
-  if (filter === "present_members") return person.kind !== "member_absent";
-  if (filter === "absent_members") return person.kind === "member_absent";
-  return person.kind === "guest";
+export function matchesDrawFilter(person: DrawParticipant, _filter: DrawFilter) {
+  return person.kind === "member_present";
 }
 
 export function excludedDrawWinnerIds(meeting: Meeting) {
@@ -61,7 +41,6 @@ export function excludedDrawWinnerIds(meeting: Meeting) {
 }
 
 export function projectedDrawParticipants(meeting: Meeting, users: UserProfile[]) {
-  const filter = meeting.presentation?.drawFilter || "all";
   const projectedIds = meeting.presentation?.drawParticipantIds;
   const excluded = excludedDrawWinnerIds(meeting);
   const visibleWinner = meeting.presentation?.drawResultVisible !== false
@@ -70,7 +49,7 @@ export function projectedDrawParticipants(meeting: Meeting, users: UserProfile[]
     : undefined;
   return drawParticipants(meeting, users).filter(
     (person) =>
-      matchesDrawFilter(person, filter) &&
+      matchesDrawFilter(person, "present_members") &&
       (!excluded.has(person.id) || person.id === visibleWinner?.winnerId || person.id === visibleWinner?.userId) &&
       (projectedIds == null || projectedIds.includes(person.id))
   );

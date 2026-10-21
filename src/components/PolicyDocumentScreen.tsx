@@ -3,6 +3,7 @@ import { ChevronLeft } from "lucide-react-native";
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Alert } from "@/components/AppAlert";
+import { useAuth } from "@/context/AuthContext";
 import { colors, spacing } from "@/theme/tokens";
 
 export type PolicyDocumentSection = {
@@ -26,9 +27,10 @@ const sectionTitle = (title: string) => title.replace(/^\d+\.\s*/, "");
 
 export function PolicyDocumentScreen({ title, intro, updatedAt, sections, related, publicUrl }: Props) {
   const insets = useSafeAreaInsets();
+  const { token } = useAuth();
   const goBack = () => {
     if (router.canGoBack()) router.back();
-    else router.replace("/login");
+    else router.replace(token ? "/(tabs)" : "/login");
   };
   const openExternal = async (url: string, fallback: string) => {
     try { await Linking.openURL(url); }

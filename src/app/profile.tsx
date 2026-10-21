@@ -250,7 +250,7 @@ export default function ProfileScreen() {
       { text: "Hủy", style: "cancel" },
       { text: "Đăng xuất", style: "destructive", onPress: () => {
         setBusy(true);
-        void signOut().catch(() => undefined).finally(() => router.replace("/login"));
+        void signOut().catch(() => undefined);
       } },
     ]);
   };

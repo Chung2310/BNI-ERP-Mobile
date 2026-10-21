@@ -197,7 +197,7 @@ function CreateMeetingForm() {
     <Screen scroll={false} style={styles.screenContainer}>
       {/* Tiêu đề đầu trang */}
       <View style={styles.headerWrapper}>
-        <BackHeader title="Tạo cuộc họp" subtitle="Thiết lập đầy đủ như hệ thống web" compact />
+        <BackHeader title="Tạo cuộc họp" compact />
       </View>
 
       {/* Vùng nội dung form có thể cuộn lên xuống mượt mà */}
@@ -233,7 +233,7 @@ function CreateMeetingForm() {
 
         <FormSection title="Địa điểm và check-in">
           <Field label="Địa điểm / Link họp" value={location} onChangeText={setLocation} placeholder="Khách sạn New World / Zoom" maxLength={500} />
-          <Button icon={MapPin} tone="secondary" fullWidth disabled={locating} onPress={locate} style={styles.actionBtn}>{locating ? "Đang lấy vị trí…" : "Lấy vị trí hiện tại"}</Button>
+          <Button icon={MapPin} iconColor="#FF0000" tone="secondary" fullWidth disabled={locating} onPress={locate} style={styles.actionBtn}>{locating ? "Đang lấy vị trí…" : "Lấy vị trí hiện tại"}</Button>
           <View style={styles.twoColumns}>
             <View style={styles.column}><Field label="Vĩ độ" value={latitude} onChangeText={setLatitude} placeholder="10.776" keyboardType="decimal-pad" /></View>
             <View style={styles.column}><Field label="Kinh độ" value={longitude} onChangeText={setLongitude} placeholder="106.700" keyboardType="decimal-pad" /></View>
