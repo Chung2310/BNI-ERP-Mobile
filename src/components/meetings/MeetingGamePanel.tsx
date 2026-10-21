@@ -9,7 +9,7 @@ import { Avatar, Button, Card, ErrorState, LoadingState, Screen, SectionTitle } 
 import { useAuth } from "@/context/AuthContext";
 import { meetingService, meetingVersion, type GameWinnerInput, type LuckyDrawWinner, type Meeting } from "@/services/meeting";
 import { userService } from "@/services/users";
-import { WHEEL_SELECTION_NAME } from "@/data/wheel-selection";
+import { WHEEL_SELECTION_NAME, wheelDisplayName } from "@/data/wheel-selection";
 import { colors, radius, spacing } from "@/theme/tokens";
 import type { UserProfile } from "@/types";
 import { hasPermission } from "@/utils/permissions";
@@ -106,7 +106,7 @@ export function MeetingGamePanel({ id, embedded = false }: { id: string; embedde
           const config = await meetingService.savePrize(id, { name: prizeName.trim() || "Lượt chọn", quantity: Math.max(100, candidates.length) });
           prize = config.prizes.find((item) => item.name === (prizeName.trim() || "Lượt chọn") && item.winners.length < item.quantity);
         }
-        if (!prize) throw new Error("Không tạo được lượt chọn để trình chiếu.");
+        if (!prize) throw new Error("Không tạo được lượt quay để trình chiếu.");
         const latest = await meetingService.get(id);
         projectedWinner = (await meetingService.presentationDraw(id, prize.id, meetingVersion(latest))).winner;
       }
@@ -149,16 +149,16 @@ export function MeetingGamePanel({ id, embedded = false }: { id: string; embedde
   const rotate = rotation.interpolate({ inputRange: [0, 360], outputRange: ["0deg", "360deg"], extrapolate: "extend" });
 
   const content = <>
-    {!embedded ? <BackHeader title="Quay chọn người" subtitle={meeting?.title} /> : null}
+    {!embedded ? <BackHeader title="Vòng quay may mắn" subtitle={meeting?.title} /> : null}
     {loading && !meeting ? <LoadingState /> : !meeting ? <ErrorState message={error || "Không tìm thấy cuộc họp."} onRetry={() => void refresh()} /> : <>
       {error ? <Card style={styles.error}><Text style={styles.errorText}>{error}</Text><Button tone="secondary" icon={RefreshCw} onPress={() => { setError(""); void refresh(); }}>Làm mới</Button></Card> : null}
       {canManage ? <Card style={styles.options}>
-        <Text style={styles.label}>Tên lượt chọn</Text>
-        <TextInput accessibilityLabel="Tên lượt chọn" value={prizeName} onChangeText={setPrizeName} editable={!busy && !winner} maxLength={200} placeholder="Lượt chọn" style={styles.input} />
-        {meeting.luckyDraw?.prizes.length ? <View style={styles.chips}>{meeting.luckyDraw.prizes.map((prize) => <Pressable key={prize.id} accessibilityRole="button" disabled={busy || !!winner} onPress={() => setPrizeName(prize.name)} style={[styles.chip, prizeName === prize.name && styles.chipActive]}><Text style={styles.chipText}>{prize.name}</Text></Pressable>)}</View> : null}
+        <Text style={styles.label}>Tên lượt quay</Text>
+        <TextInput accessibilityLabel="Tên lượt quay" value={wheelDisplayName(prizeName)} onChangeText={setPrizeName} editable={!busy && !winner} maxLength={200} placeholder="Lượt quay" style={styles.input} />
+        {meeting.luckyDraw?.prizes.length ? <View style={styles.chips}>{meeting.luckyDraw.prizes.map((prize) => <Pressable key={prize.id} accessibilityRole="button" disabled={busy || !!winner} onPress={() => setPrizeName(prize.name)} style={[styles.chip, prizeName === prize.name && styles.chipActive]}><Text style={styles.chipText}>{wheelDisplayName(prize.name)}</Text></Pressable>)}</View> : null}
       </Card> : null}
       <Card style={styles.stage}>
-        <Text style={styles.stageTitle}>Vòng quay chọn người</Text>
+        <Text style={styles.stageTitle}>Vòng quay may mắn</Text>
         <Text style={styles.muted}>{eligible.length} người đang tham gia · 5 giây</Text>
         {canManage ? <Text style={styles.muted}>{canProjectWheel ? "Quay đồng bộ với màn chiếu web" : "Quay trên điện thoại và lưu kết quả."}</Text> : null}
         <Pressable accessibilityRole="button" accessibilityLabel="Chạm vòng quay để quay" disabled={!canManage || busy || !!winner || !eligible.length || !["live", "paused"].includes(meeting.status)} onPress={() => void spin()} style={[styles.gameView, { width: size, height: size }]}>
@@ -175,15 +175,15 @@ export function MeetingGamePanel({ id, embedded = false }: { id: string; embedde
           </Animated.View>
           <View style={styles.pointer} />
         </Pressable>
-        <Text style={styles.muted}>{busy ? "Đang quay..." : canManage ? "Bấm quay để chọn người được chọn" : "Người quản lý cuộc họp có thể bắt đầu quay"}</Text>
+        <Text style={styles.muted}>{busy ? "Đang quay..." : canManage ? "Bấm để quay và chọn người tham gia" : "Người quản lý cuộc họp có thể bắt đầu quay"}</Text>
         {!["live", "paused"].includes(meeting.status) ? <Text style={styles.errorText}>{meeting.status === "scheduled" ? "Hãy bắt đầu cuộc họp trước khi quay." : "Cuộc họp đã đóng, không thể quay tiếp."}</Text> : null}
-        {canManage ? <Button icon={RotateCw} fullWidth disabled={busy || !!winner || !eligible.length || !["live", "paused"].includes(meeting.status)} onPress={() => void spin()}>{busy ? "Đang quay..." : "Quay chọn người"}</Button> : null}
+        {canManage ? <Button icon={RotateCw} fullWidth disabled={busy || !!winner || !eligible.length || !["live", "paused"].includes(meeting.status)} onPress={() => void spin()}>{busy ? "Đang quay..." : "Quay thưởng"}</Button> : null}
         {winner ? <View style={styles.winnerCard}>
           <Users color={colors.primaryDark} size={32} />
           <Text style={styles.modalEyebrow}>NGƯỜI ĐƯỢC CHỌN</Text>
           <Avatar initials={initials(winner.name)} url={winner.photoURL} size={56} />
           <Text style={styles.modalName}>{winner.name}</Text>
-          <Text style={styles.muted}>{winner.prizeName}{winner.ticketNumber ? ` · Số ${winner.ticketNumber}` : ""}</Text>
+          <Text style={styles.muted}>{wheelDisplayName(winner.prizeName)}{winner.ticketNumber ? ` · Số ${winner.ticketNumber}` : ""}</Text>
           <View style={styles.modalActions}>
             <Button tone="danger" icon={UserMinus} style={styles.modalAction} onPress={() => { setExcluded((old) => old.includes(winner.winnerId) ? old : [...old, winner.winnerId]); setWinner(null); }}>Loại khỏi vòng quay</Button>
             <Button tone="secondary" icon={Check} style={styles.modalAction} onPress={() => setWinner(null)}>Giữ lại & Đóng</Button>

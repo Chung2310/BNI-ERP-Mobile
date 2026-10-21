@@ -10,6 +10,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { meetingService, type LuckyDrawWinner, type Meeting } from "@/services/meeting";
 import { colors, spacing } from "@/theme/tokens";
+import { wheelDisplayName } from "@/data/wheel-selection";
 import { DEFAULT_DRAW_CUTOFF_TIME, validDrawCutoffTime } from "@/utils/earlyCheckIn";
 import { hasPermission } from "@/utils/permissions";
 import { friendlyErrorMessage } from "@/utils/userFacingError";
@@ -68,7 +69,7 @@ export default function MeetingGameResultsScreen() {
   };
 
   return <Screen style={styles.screen}>
-    <BackHeader title="Vòng quay chọn người" subtitle={meeting?.title} compact action={<HeaderRefreshAction label="Làm mới vòng quay chọn người" disabled={isLoading} onPress={() => void reload()} />} />
+    <BackHeader title="Vòng quay may mắn" subtitle={meeting?.title} compact action={<HeaderRefreshAction label="Làm mới vòng quay may mắn" disabled={isLoading} onPress={() => void reload()} />} />
     {isLoading && !meeting ? <LoadingState /> : error && !meeting ? <ErrorState message={error} onRetry={reload} /> : !meeting ? null : <>
       {canManage ? <Card style={styles.configCard}>
         <Text style={styles.heading}>Giờ giới hạn tham gia</Text>
@@ -104,7 +105,7 @@ function WinnerRow({ winner }: { winner: LuckyDrawWinner }) {
     {winner.photoURL ? <Avatar initials={initials(name)} url={winner.photoURL} size={36} /> : <View style={styles.icon}><Users color={colors.primaryDark} size={18} /></View>}
     <View style={styles.grow}>
       <Text style={styles.name}>{name}</Text>
-      <Text style={styles.meta}>{winner.prizeName || "Lượt chọn"}{winner.ticketNumber != null ? ` · Số ${winner.ticketNumber}` : ""}</Text>
+      <Text style={styles.meta}>{wheelDisplayName(winner.prizeName)}{winner.ticketNumber != null ? ` · Số ${winner.ticketNumber}` : ""}</Text>
       {winner.wonAt ? <Text style={styles.meta}>{new Date(winner.wonAt).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}</Text> : null}
     </View>
     <CheckCircle2 color={colors.muted} size={16} />
