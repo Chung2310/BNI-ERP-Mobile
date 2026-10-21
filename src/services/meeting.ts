@@ -98,6 +98,7 @@ export type LuckyDrawConfig = {
   drawMode: "attendees" | "numbers";
   numberMin: number;
   numberMax: number;
+  checkInCutoffTime?: string;
   prizes: LuckyDrawPrize[];
 };
 export type LuckyDraw = {

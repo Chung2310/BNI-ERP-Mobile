@@ -13,7 +13,7 @@ import { WHEEL_SELECTION_NAME } from "@/data/wheel-selection";
 import { colors, radius, spacing } from "@/theme/tokens";
 import type { UserProfile } from "@/types";
 import { hasPermission } from "@/utils/permissions";
-import { checkedInBeforeSeven } from "@/utils/earlyCheckIn";
+import { checkedInByCutoff } from "@/utils/earlyCheckIn";
 
 type Player = { id: string; name: string; photoURL?: string };
 const wedgeColors = ["#00ADFC", "#8B5CF6", "#F5B841", "#D97867", "#439B80", "#EC4899"];
@@ -21,7 +21,7 @@ const initials = (name: string) => name.split(" ").filter(Boolean).map((word) =>
 
 function roster(meeting: Meeting, users: UserProfile[]): Player[] {
   return meeting.speakers
-    .filter((speaker) => !speaker.deletedAccount && !!speaker.userId && checkedInBeforeSeven(speaker.checkedInAt))
+    .filter((speaker) => !speaker.deletedAccount && !!speaker.userId && checkedInByCutoff(speaker.checkedInAt, meeting.luckyDraw?.checkInCutoffTime))
     .map((speaker) => {
       const member = users.find((user) => user.uid === speaker.userId && user.isActive !== false);
       return { id: speaker.id, name: member?.displayName?.trim() || speaker.name.trim(), photoURL: member?.photoURL || speaker.photoURL };
@@ -84,7 +84,7 @@ export function MeetingGamePanel({ id, embedded = false }: { id: string; embedde
   const history = (meeting?.gameWinners || []).filter((entry) => entry.source === "wheel").slice().reverse();
   const size = Math.min(300, width - 76);
   const previousProjectedWinners = new Set(meeting?.luckyDraw?.allowRepeatWinners ? [] : meeting?.luckyDraw?.prizes.flatMap((prize) => prize.winners.map((item) => item.winnerId)) || []);
-  const projectedCandidates = meeting?.speakers.filter((speaker) => !speaker.deletedAccount && !!speaker.userId && checkedInBeforeSeven(speaker.checkedInAt) && !previousProjectedWinners.has(speaker.id)) || [];
+  const projectedCandidates = meeting?.speakers.filter((speaker) => !speaker.deletedAccount && !!speaker.userId && checkedInByCutoff(speaker.checkedInAt, meeting.luckyDraw?.checkInCutoffTime) && !previousProjectedWinners.has(speaker.id)) || [];
   const canProjectWheel = !!meeting?.speakers.length && eligible.length === projectedCandidates.length && projectedCandidates.every((speaker) => eligible.some((player) => player.id === speaker.id));
   const spin = async () => {
     if (busyRef.current || winner || !meeting || !canManage || !eligible.length || !["live", "paused"].includes(meeting.status)) return;
@@ -218,7 +218,6 @@ const styles = StyleSheet.create({
   gameView: { alignItems: "center", justifyContent: "center", marginVertical: spacing.sm }, pointer: { position: "absolute", top: -5, width: 0, height: 0, borderLeftWidth: 13, borderRightWidth: 13, borderTopWidth: 28, borderLeftColor: "transparent", borderRightColor: "transparent", borderTopColor: "#132835" },
   winner: { alignItems: "center", gap: 3, paddingVertical: spacing.sm }, winnerTitle: { color: colors.text, fontSize: 22, fontWeight: "900" },
   options: { gap: spacing.sm }, label: { color: colors.text, fontSize: 13, fontWeight: "700" }, input: { minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, paddingHorizontal: spacing.md, color: colors.text, backgroundColor: colors.surface },
-  addGuest: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   categoryRow: { flexDirection: "row", gap: 6, width: "100%" },
   categoryChip: { flex: 1, minHeight: 32, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, backgroundColor: colors.surface, paddingHorizontal: 2 },
   categoryChipActive: { backgroundColor: colors.brandBlue, borderColor: colors.brandBlue },

@@ -110,7 +110,7 @@ export function MeetingRemoteControl({
   const [snapshot, setSnapshot] = useState<MeetingLiveSnapshot | null>(null);
   const [interactionPreview, setInteractionPreview] = useState<MeetingInteraction | null>(null);
   const [drawUsers, setDrawUsers] = useState<UserProfile[]>([]);
-  const [drawUsersLoading, setDrawUsersLoading] = useState(true);
+  const [drawUsersLoading, setDrawUsersLoading] = useState(false);
   const [drawUsersError, setDrawUsersError] = useState("");
   const snapshotRef = useRef<MeetingLiveSnapshot | null>(null);
   const activeRef = useRef(false);
@@ -124,6 +124,15 @@ export function MeetingRemoteControl({
   const [now, setNow] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchCheckin, setSearchCheckin] = useState("");
+  const controlsScrollRef = useRef<ScrollView>(null);
+  const checkinCardYRef = useRef(0);
+  const checkinSearchFocusedRef = useRef(false);
+  const revealCheckinSearch = useCallback(() => {
+    controlsScrollRef.current?.scrollTo({
+      y: Math.max(0, checkinCardYRef.current - spacing.sm),
+      animated: true,
+    });
+  }, []);
   const [viewOverride, setViewOverride] = useState<PresentationView | null>(
     initialPanel === "responses" ? "audienceResponses" : null
   );
@@ -143,7 +152,9 @@ export function MeetingRemoteControl({
       setNow(next.serverNow);
       setSyncError("");
       setLoading(false);
-      setViewOverride(null);
+      setViewOverride((pending) =>
+        pending && next.meeting.presentation?.view !== pending ? pending : null
+      );
     },
     [id]
   );
@@ -233,18 +244,22 @@ export function MeetingRemoteControl({
     }, [id, refresh, token])
   );
 
-  const run = async (task: (meeting: Meeting) => Promise<unknown>) => {
+  const run = async (task: (meeting: Meeting) => Promise<Meeting>) => {
     const current = snapshotRef.current?.meeting;
     if (!canManage || !current || busyRef.current || syncError) return false;
     busyRef.current = true;
     setBusy(true);
     try {
-      await task(current);
-      try {
-        applySnapshot(await meetingService.live(id));
-      } catch {
-        setSyncError("Lệnh đã gửi, nhưng chưa tải được trạng thái mới. Hãy đồng bộ lại.");
+      const updated = await task(current);
+      const cached = snapshotRef.current;
+      if (cached && meetingVersion(updated) >= meetingVersion(cached.meeting)) {
+        applySnapshot({
+          ...cached,
+          meeting: updated,
+          serverNow: now,
+        });
       }
+      void refresh(true);
       return true;
     } catch (cause) {
       Alert.alert("Không thể điều khiển", friendlyErrorMessage(cause, "Vui lòng thử lại."));
@@ -260,6 +275,8 @@ export function MeetingRemoteControl({
     void run((meeting) => meetingService.control(id, action, meetingVersion(meeting)));
 
   const setView = (nextView: PresentationView) => {
+    if (!canManage || !snapshotRef.current || busyRef.current || syncError) return;
+    if (nextView === (viewOverride || snapshotRef.current.meeting.presentation?.view)) return;
     setViewOverride(nextView);
     void run((meeting) =>
       meetingService.presentationState(
@@ -271,7 +288,9 @@ export function MeetingRemoteControl({
           : { view: nextView },
         meetingVersion(meeting)
       )
-    );
+    ).then((saved) => {
+      if (!saved) setViewOverride((pending) => pending === nextView ? null : pending);
+    });
   };
 
   const setAudienceResponsePanel = (panel: "questions" | "prepare" | "qr" | "results") =>
@@ -406,11 +425,10 @@ export function MeetingRemoteControl({
         <View style={styles.previewCard}>
           <StagePreview
             snapshot={snapshot}
+            viewOverride={viewOverride}
             now={now}
             interaction={interactionPreview}
             drawUsers={drawUsers}
-            drawUsersLoading={drawUsersLoading}
-            drawUsersError={drawUsersError}
           />
           <Pressable
             accessibilityRole="button"
@@ -426,6 +444,7 @@ export function MeetingRemoteControl({
         </View>
 
         <ScrollView
+          ref={controlsScrollRef}
           style={styles.controls}
           contentContainerStyle={[
             styles.controlsContent,
@@ -433,6 +452,11 @@ export function MeetingRemoteControl({
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          onLayout={() => {
+            if (checkinSearchFocusedRef.current) {
+              requestAnimationFrame(revealCheckinSearch);
+            }
+          }}
         >
           {/* HÀNG 6 NÚT CHUYỂN MÀN HÌNH: 3 NÚT MỖI HÀNG (TỔNG 6 NÚT) */}
           <Text style={styles.inlineLabel}>Chế độ trình chiếu</Text>
@@ -453,9 +477,7 @@ export function MeetingRemoteControl({
                     disabled && styles.disabled,
                   ]}
                 >
-                  <View style={[styles.modeIconCircle, active && styles.modeIconCircleActive]}>
-                    <Icon color={active ? "#FFFFFF" : brandBlue} size={18} />
-                  </View>
+                  <Icon color={active ? "#FFFFFF" : brandBlue} size={22} />
                   <Text numberOfLines={1} style={[styles.modeLabel, active && styles.modeLabelActive]}>
                     {label}
                   </Text>
@@ -468,7 +490,12 @@ export function MeetingRemoteControl({
 
           {/* 1. MẶC ĐỊNH HOẶC KHI CHỌN QR CHECK-IN: HIỂN THỊ DS ĐÃ CHECK-IN */}
           {view === "checkin" ? (
-            <Card style={styles.checkinCard}>
+            <View
+              onLayout={(event) => {
+                checkinCardYRef.current = event.nativeEvent.layout.y;
+              }}
+            >
+              <Card style={styles.checkinCard}>
               <View style={styles.checkinHeaderRow}>
                 <View style={styles.row}>
                   <QrCode color={colors.primaryDark} size={20} />
@@ -483,6 +510,13 @@ export function MeetingRemoteControl({
                 <TextInput
                   value={searchCheckin}
                   onChangeText={setSearchCheckin}
+                  onFocus={() => {
+                    checkinSearchFocusedRef.current = true;
+                    requestAnimationFrame(revealCheckinSearch);
+                  }}
+                  onBlur={() => {
+                    checkinSearchFocusedRef.current = false;
+                  }}
                   placeholder="Tìm thành viên hoặc khách mời..."
                   placeholderTextColor={colors.muted}
                   style={styles.searchInput}
@@ -610,7 +644,8 @@ export function MeetingRemoteControl({
                   })}
                 </View>
               )}
-            </Card>
+              </Card>
+            </View>
           ) : null}
 
           {/* 2. CHẾ ĐỘ PHÁT BIỂU */}
@@ -1178,22 +1213,20 @@ function RemoteInteractionPanel({
 
 function StagePreview({
   snapshot,
+  viewOverride,
   now,
   interaction,
   drawUsers,
-  drawUsersLoading,
-  drawUsersError,
 }: {
   snapshot: MeetingLiveSnapshot;
+  viewOverride: PresentationView | null;
   now: number;
   interaction: MeetingInteraction | null;
   drawUsers: UserProfile[];
-  drawUsersLoading: boolean;
-  drawUsersError: string;
 }) {
   const { width: screenWidth } = useWindowDimensions();
   const meeting = snapshot.meeting;
-  const view = meeting.presentation?.view || "checkin";
+  const view = viewOverride || meeting.presentation?.view || "checkin";
   const speaker = meeting.speakers[meeting.currentIndex];
   const slide = snapshot.slides.find((item) => item.id === speaker?.id);
   const elapsed =
@@ -1310,15 +1343,13 @@ function StagePreview({
             compact
           />
         ) : (
-          <Text style={styles.stageCompany}>Tạo câu hỏi trong mục Thu ý kiến của cuộc họp</Text>
+          <Text style={styles.responsePreviewEmpty}>Tạo câu hỏi trong mục Thu ý kiến của cuộc họp</Text>
         )}
       </View>
     );
   }
 
   if (view === "luckyDraw") {
-    if (drawUsersLoading) return <View style={styles.stage}><LoadingState label="Đang tải người tham gia quay..." /></View>;
-    if (drawUsersError) return <View style={styles.stage}><Text style={styles.stageSub}>{drawUsersError}</Text></View>;
     return <MeetingWheelPreview meeting={meeting} now={now} users={drawUsers} fullscreen />;
   }
   if (view === "activeMembers") return <StageRankingPreview meeting={meeting} />;
@@ -1431,7 +1462,7 @@ function CompactAction({
         pressed && styles.compactPressed,
       ]}
     >
-      <Icon color={primary ? "#FFFFFF" : brandBlue} size={18} />
+      <Icon color={primary ? "#FFFFFF" : brandBlue} size={22} />
       <Text
         numberOfLines={1}
         style={[styles.compactActionText, primary && styles.compactPrimaryText]}
@@ -1653,7 +1684,7 @@ const styles = StyleSheet.create({
   },
   finishText: { color: colors.danger, fontSize: 13, fontWeight: "700" },
   inlineLabel: {
-    color: colors.muted,
+    color: "#000000",
     fontSize: 12,
     fontWeight: "700",
     paddingHorizontal: spacing.xs,
@@ -1669,7 +1700,7 @@ const styles = StyleSheet.create({
   },
   modeCard: {
     width: "31.8%",
-    minHeight: 56,
+    minHeight: 72,
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
@@ -1682,29 +1713,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   modeCardActive: {
-    borderColor: colors.primaryDark,
-    backgroundColor: colors.primarySoft,
-  },
-  modeIconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: radius.pill,
-    backgroundColor: brandSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modeIconCircleActive: {
+    borderColor: colors.brandBlue,
     backgroundColor: colors.brandBlue,
   },
   modeLabel: {
     color: colors.text,
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 12,
+    fontWeight: "400",
     textAlign: "center",
   },
   modeLabelActive: {
-    color: colors.primaryDark,
-    fontWeight: "800",
+    color: "#FFFFFF",
   },
 
   disabled: { opacity: 0.65 },
@@ -1893,7 +1912,7 @@ const styles = StyleSheet.create({
 
   compactGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   compactAction: {
-    minHeight: 50,
+    minHeight: 68,
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
@@ -1909,10 +1928,10 @@ const styles = StyleSheet.create({
   compactActionText: {
     color: colors.text,
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "400",
     textAlign: "center",
   },
-  compactPrimaryText: { color: "#FFFFFF", fontWeight: "800" },
+  compactPrimaryText: { color: "#FFFFFF" },
   compactPressed: { opacity: 0.78 },
 
   people: { gap: spacing.xs },
