@@ -93,9 +93,9 @@ export const userService = {
   },
   create: async (data: {
     displayName: string;
-    email?: string;
-    password?: string;
-    role?: UserRole;
+    email: string;
+    password: string;
+    role: UserRole;
     phone?: string;
     companyName?: string;
     company?: string;
@@ -109,9 +109,10 @@ export const userService = {
     address?: string;
     birthDate?: string;
   }): Promise<UserProfile> => {
-    const res = await apiRequest<any>("/api/v1/crud/users", {
+    const { company, coverUrl, ...fields } = data;
+    const res = await apiRequest<any>("/api/v1/auth/register-user", {
       method: "POST",
-      body: JSON.stringify(data),
+      body: JSON.stringify({ ...fields, coverImage: fields.coverImage ?? coverUrl }),
     });
     fallbackDirectory = null;
     return normalize(res?.data || res);
@@ -136,15 +137,20 @@ export const userService = {
       birthDate?: string;
     }
   ): Promise<UserProfile> => {
-    const res = await apiRequest<any>(`/api/v1/crud/users/${encodeURIComponent(id)}`, {
-      method: "PUT",
-      body: JSON.stringify(data),
+    const { company, coverUrl, ...fields } = data;
+    const res = await apiRequest<any>(`/api/v1/auth/users/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        ...fields,
+        coverImage: fields.coverImage ?? coverUrl,
+        birthDate: fields.birthDate?.slice(0, 10),
+      }),
     });
     fallbackDirectory = null;
     return normalize(res?.data || res);
   },
   delete: async (id: string): Promise<void> => {
-    await apiRequest<any>(`/api/v1/crud/users/${encodeURIComponent(id)}`, {
+    await apiRequest<any>(`/api/v1/auth/users/${encodeURIComponent(id)}`, {
       method: "DELETE",
     });
     fallbackDirectory = null;

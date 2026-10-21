@@ -6,19 +6,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Check, ChevronRight, RotateCw, RefreshCw, List, UserMinus, Users, X } from "lucide-react-native";
 import { Alert } from "@/components/AppAlert";
 import { Avatar, Badge, Button, Card, LoadingState } from "@/components/ui";
-import { drawParticipants, excludedDrawWinnerIds, matchesDrawFilter } from "@/components/meetings/drawParticipants";
-import { meetingService, meetingVersion, type DrawFilter, type LuckyDrawWinner, type Meeting } from "@/services/meeting";
+import { drawParticipants, excludedDrawWinnerIds } from "@/components/meetings/drawParticipants";
+import { meetingService, meetingVersion, type LuckyDrawWinner, type Meeting } from "@/services/meeting";
 import { colors, radius, spacing, touchTarget } from "@/theme/tokens";
 import type { UserProfile } from "@/types";
 import { WHEEL_SELECTION_NAME } from "@/data/wheel-selection";
-
-const filters: { value: DrawFilter; label: string }[] = [
-  { value: "present_members", label: "Có mặt" },
-  { value: "all", label: "Tất cả" },
-  { value: "all_members", label: "Tất cả TV" },
-  { value: "absent_members", label: "Vắng mặt" },
-  { value: "guests", label: "Khách mời" },
-];
 
 export function MeetingDrawRemote({
   id,
@@ -72,10 +64,9 @@ export function MeetingDrawRemote({
   );
 
   const roster = useMemo(() => drawParticipants(meeting, users), [meeting, users]);
-  const filter = meeting.presentation?.drawFilter || "all";
   const drawPanel = meeting.presentation?.drawPanel || "participants";
   const winnerCount = meeting.luckyDraw?.prizes.reduce((total, prize) => total + prize.winners.length, 0) || 0;
-  const filtered = roster.filter((person) => matchesDrawFilter(person, filter));
+  const filtered = roster;
   const excludedWinnerIds = excludedDrawWinnerIds(meeting);
   const eligible = filtered.filter((person) => !excludedWinnerIds.has(person.id));
   const projectedIds = meeting.presentation?.drawParticipantIds;
@@ -106,28 +97,6 @@ export function MeetingDrawRemote({
     setSheetOpen(true);
   };
 
-  const changeFilter = async (nextFilter: DrawFilter) => {
-    if (!displayOpen || disabled || busy || activeWinner || nextFilter === filter) return;
-    setBusy(true);
-    setError("");
-    try {
-      await ensureDisplayOpen();
-      const current = await meetingService.get(id);
-      await meetingService.presentationState(
-        id,
-        { drawFilter: nextFilter, drawParticipantIds: null, drawPanel: "participants" },
-        meetingVersion(current)
-      );
-      setUnselected([]);
-      await onRefresh();
-    } catch (cause) {
-      setError(friendlyErrorMessage(cause, "Không thể đổi bộ lọc trên màn chiếu."));
-      void onRefresh();
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const toggleWinnerList = async () => {
     if (!displayOpen || disabled || busy || activeWinner) return;
     setBusy(true);
@@ -151,7 +120,7 @@ export function MeetingDrawRemote({
     if (!canProject) {
       Alert.alert(
         "Chưa thể quay trên màn chiếu",
-        "Hãy chọn ít nhất một người trong bộ lọc trước khi quay."
+        "Hãy chọn ít nhất một thành viên có mặt trước khi quay."
       );
       return;
     }
@@ -177,7 +146,7 @@ export function MeetingDrawRemote({
       }
       if (!prize) throw new Error("Không tạo được lượt chọn để quay.");
       await ensureDisplayOpen();
-      const result = await meetingService.presentationDraw(id, prize.id, meetingVersion(current), filter, selected.map((person) => person.id));
+      const result = await meetingService.presentationDraw(id, prize.id, meetingVersion(current), "present_members", selected.map((person) => person.id));
       setWinner(result.winner);
       void onRefresh();
     } catch (cause) {
@@ -234,7 +203,7 @@ export function MeetingDrawRemote({
       const current = await meetingService.get(id);
       await meetingService.presentationState(
         id,
-        { drawFilter: filter, drawParticipantIds: selected.map((person) => person.id), drawPanel: "participants" },
+        { drawFilter: "present_members", drawParticipantIds: selected.map((person) => person.id), drawPanel: "participants" },
         meetingVersion(current)
       );
       await onRefresh();
@@ -246,8 +215,7 @@ export function MeetingDrawRemote({
     }
   };
 
-  const currentFilterLabel =
-    filters.find((f) => f.value === filter)?.label || "Tất cả";
+  const currentFilterLabel = "Thành viên có mặt";
 
   return (
     <View style={styles.container}>
@@ -281,20 +249,7 @@ export function MeetingDrawRemote({
           <Text style={styles.rulesLinkText}>Xem hướng dẫn vòng quay</Text>
         </Pressable>
         {!displayOpen ? <Text style={styles.meta}>Mở chế độ màn hình trình chiếu trên web để điều khiển vòng quay.</Text> : null}
-        <View style={styles.filters}>
-          {filters.map(({ value, label }) => (
-            <Pressable
-              key={value}
-              accessibilityRole="button"
-              accessibilityState={{ selected: filter === value, disabled: !displayOpen || loadingUsers || !!usersError || disabled || busy || !!activeWinner }}
-              disabled={!displayOpen || loadingUsers || !!usersError || disabled || busy || !!activeWinner}
-              onPress={() => void changeFilter(value)}
-              style={[styles.filterChip, filter === value && styles.filterChipActive]}
-            >
-              <Text numberOfLines={1} style={[styles.filterChipText, filter === value && styles.filterChipTextActive]}>{label}</Text>
-            </Pressable>
-          ))}
-        </View>
+        <Text style={styles.meta}>Chỉ quay thành viên có mặt, check-in đến hết 07:00.</Text>
         {!canProject && eligible.length > 0 ? <Text style={styles.meta}>Chọn ít nhất một người để quay.</Text> : null}
 
         {/* NÚT MỞ BOTTOM SHEET ĐỂ CHỌN NGƯỜI THAM GIA */}
@@ -410,33 +365,7 @@ export function MeetingDrawRemote({
               </Pressable>
             </View>
 
-            {/* Filter Chips trong Bottom Sheet: 4 thẻ trên cùng 1 hàng, cân đối 100% */}
-            <View style={styles.filters}>
-              {filters.map(({ value, label }) => {
-                const count = roster.filter((person) => matchesDrawFilter(person, value)).length;
-                const isActive = filter === value;
-                return (
-                  <Pressable
-                    key={value}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: isActive }}
-                    disabled={!displayOpen || disabled || busy || !!activeWinner}
-                    onPress={() => void changeFilter(value)}
-                    style={[styles.filterChip, isActive && styles.filterChipActive]}
-                  >
-                    <Text
-                      numberOfLines={1}
-                      style={[
-                        styles.filterChipText,
-                        isActive && styles.filterChipTextActive,
-                      ]}
-                    >
-                      {label} ({count})
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+            <Text style={styles.meta}>Thành viên có mặt ({roster.length})</Text>
 
             {/* Quick Actions (Chọn tất cả / Bỏ chọn) */}
             <View style={styles.sheetMetaRow}>
