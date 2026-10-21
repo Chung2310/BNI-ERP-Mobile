@@ -262,7 +262,15 @@ export function MeetingRemoteControl({
   const setView = (nextView: PresentationView) => {
     setViewOverride(nextView);
     void run((meeting) =>
-      meetingService.presentationState(id, nextView === "audienceResponses" && meeting.presentation?.view !== "audienceResponses" ? { view: nextView, audienceResponsePanel: "questions" } : { view: nextView }, meetingVersion(meeting))
+      meetingService.presentationState(
+        id,
+        nextView === "audienceResponses" && meeting.presentation?.view !== "audienceResponses"
+          ? { view: nextView, audienceResponsePanel: "questions" }
+          : nextView === "luckyDraw"
+          ? { view: nextView, drawFilter: "present_members", drawParticipantIds: null, drawPanel: "participants" }
+          : { view: nextView },
+        meetingVersion(meeting)
+      )
     );
   };
 
@@ -419,7 +427,10 @@ export function MeetingRemoteControl({
 
         <ScrollView
           style={styles.controls}
-          contentContainerStyle={styles.controlsContent}
+          contentContainerStyle={[
+            styles.controlsContent,
+            { paddingBottom: Math.max(insets.bottom, spacing.lg) + touchTarget },
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
