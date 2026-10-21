@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useLocalSearchParams } from "expo-router";
-import { CheckCircle2, Users } from "lucide-react-native";
-import { StyleSheet, Text, TextInput, View } from "react-native";
+import { Check, CheckCircle2, Users } from "lucide-react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { BackHeader } from "@/components/BackHeader";
 import { HeaderRefreshAction } from "@/components/HeaderRefreshAction";
-import { Avatar, Button, Card, EmptyState, ErrorState, LoadingState, Screen } from "@/components/ui";
+import { MeetingCutoffTimePicker } from "@/components/MeetingCutoffTimePicker";
+import { Avatar, Card, EmptyState, ErrorState, LoadingState, Screen } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { meetingService, type LuckyDrawWinner, type Meeting } from "@/services/meeting";
@@ -43,12 +44,14 @@ export default function MeetingGameResultsScreen() {
   const [cutoffError, setCutoffError] = useState("");
   const currentCutoff = meeting?.luckyDraw?.checkInCutoffTime || DEFAULT_DRAW_CUTOFF_TIME;
   const cutoffValue = cutoffDraft ?? currentCutoff;
+  const cutoffLocked = savingCutoff || meeting?.status === "ended" || meeting?.status === "cancelled";
+  const saveDisabled = cutoffLocked || !validDrawCutoffTime(cutoffValue) || cutoffValue === currentCutoff;
   const winners = getWheelWinners(meeting);
 
   const saveCutoff = async () => {
     if (!meeting || !canManage || savingCutoff || meeting.status === "ended" || meeting.status === "cancelled") return;
     if (!validDrawCutoffTime(cutoffValue)) {
-      setCutoffError("Nhập giờ theo dạng HH:mm, ví dụ 07:00.");
+      setCutoffError("Vui lòng chọn một giờ hợp lệ.");
       return;
     }
     setSavingCutoff(true);
@@ -69,25 +72,23 @@ export default function MeetingGameResultsScreen() {
     {isLoading && !meeting ? <LoadingState /> : error && !meeting ? <ErrorState message={error} onRetry={reload} /> : !meeting ? null : <>
       {canManage ? <Card style={styles.configCard}>
         <Text style={styles.heading}>Giờ giới hạn tham gia</Text>
-        <Text style={styles.description}>Thành viên check-in đến hết giờ này được tham gia vòng quay. Nhập theo giờ Việt Nam dạng HH:mm; mặc định 07:00.</Text>
+        <Text style={styles.description}>Thành viên check-in đến hết giờ đã chọn được tham gia vòng quay. Mặc định 7 giờ sáng, theo giờ Việt Nam.</Text>
         <View style={styles.cutoffRow}>
-          <TextInput
-            accessibilityLabel="Giờ giới hạn tham gia vòng quay"
+          <MeetingCutoffTimePicker
             value={cutoffValue}
-            onChangeText={(value) => { setCutoffDraft(value); setCutoffError(""); }}
-            editable={!savingCutoff && meeting.status !== "ended" && meeting.status !== "cancelled"}
-            autoCorrect={false}
-            maxLength={5}
-            placeholder="07:00"
-            style={styles.cutoffInput}
+            onChange={(value) => { setCutoffDraft(value); setCutoffError(""); }}
+            disabled={cutoffLocked}
           />
-          <Button
-            tone="secondary"
-            disabled={savingCutoff || !validDrawCutoffTime(cutoffValue) || cutoffValue === currentCutoff || meeting.status === "ended" || meeting.status === "cancelled"}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Lưu giờ tham gia vòng quay"
+            accessibilityState={{ disabled: saveDisabled }}
+            disabled={saveDisabled}
             onPress={() => void saveCutoff()}
-          >{savingCutoff ? "Đang lưu…" : "Lưu giờ"}</Button>
+            style={({ pressed }) => [styles.saveButton, saveDisabled && styles.saveButtonDisabled, pressed && styles.saveButtonPressed]}
+          >{savingCutoff ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Check color="#FFFFFF" size={22} strokeWidth={2.5} />}</Pressable>
         </View>
-        {cutoffValue.length > 0 && !validDrawCutoffTime(cutoffValue) ? <Text style={styles.errorText}>Nhập giờ theo dạng HH:mm, ví dụ 07:00.</Text> : cutoffError ? <Text style={styles.errorText}>{cutoffError}</Text> : null}
+        {cutoffError ? <Text style={styles.errorText}>{cutoffError}</Text> : null}
       </Card> : <Text style={styles.description}>Thành viên check-in đến hết {currentCutoff} được tham gia vòng quay.</Text>}
       <Text style={styles.heading}>Kết quả · {winners.length} người được chọn</Text>
       {winners.length ? <Card style={styles.list}>{winners.map((winner) => <WinnerRow key={winner.id} winner={winner} />)}</Card>
@@ -115,7 +116,9 @@ const styles = StyleSheet.create({
   configCard: { gap: spacing.sm },
   description: { color: colors.muted, fontSize: 12, lineHeight: 18 },
   cutoffRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  cutoffInput: { flex: 1, minWidth: 0, minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: spacing.md, color: colors.text, backgroundColor: colors.surface },
+  saveButton: { minWidth: 60, minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: 999, backgroundColor: colors.brandBlue },
+  saveButtonDisabled: { opacity: 0.45 },
+  saveButtonPressed: { opacity: 0.75 },
   errorText: { color: colors.danger, fontSize: 12 },
   list: { paddingVertical: 0 },
   row: { minHeight: 58, flexDirection: "row", alignItems: "center", gap: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, paddingVertical: spacing.sm },
