@@ -84,9 +84,10 @@ export default function MeetingGameResultsScreen() {
             accessibilityLabel="Lưu giờ tham gia vòng quay"
             accessibilityState={{ disabled: saveDisabled }}
             disabled={saveDisabled}
+            hitSlop={4}
             onPress={() => void saveCutoff()}
             style={({ pressed }) => [styles.saveButton, saveDisabled && styles.saveButtonDisabled, pressed && styles.saveButtonPressed]}
-          >{savingCutoff ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Check color="#FFFFFF" size={22} strokeWidth={2.5} />}</Pressable>
+          >{savingCutoff ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Check color="#FFFFFF" size={18} strokeWidth={2.5} />}</Pressable>
         </View>
         {cutoffError ? <Text style={styles.errorText}>{cutoffError}</Text> : null}
       </Card> : <Text style={styles.description}>Thành viên check-in đến hết {currentCutoff} được tham gia vòng quay.</Text>}
@@ -116,7 +117,7 @@ const styles = StyleSheet.create({
   configCard: { gap: spacing.sm },
   description: { color: colors.muted, fontSize: 12, lineHeight: 18 },
   cutoffRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  saveButton: { minWidth: 60, minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: 999, backgroundColor: colors.brandBlue },
+  saveButton: { width: 48, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 999, backgroundColor: colors.brandBlue },
   saveButtonDisabled: { opacity: 0.45 },
   saveButtonPressed: { opacity: 0.75 },
   errorText: { color: colors.danger, fontSize: 12 },
