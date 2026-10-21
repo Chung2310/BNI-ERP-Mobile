@@ -209,7 +209,7 @@ export function MeetingWheelPreview({
     extrapolate: "extend",
   });
 
-  // Render Vòng quay chọn người xịn xò
+  // Render Vòng quay may mắn xịn xò
   const renderWheel = () => (
     <View style={[styles.wheelContainer, { width: wheelSize, height: wheelSize }]}>
       {/* Vành vàng tĩnh với đèn LED xung quanh */}
@@ -264,7 +264,7 @@ export function MeetingWheelPreview({
         </Svg>
       </Animated.View>
 
-      {/* Mũi tên kim loại 3D chỉ lượt chọn ở đỉnh */}
+      {/* Mũi tên kim loại 3D chỉ lượt quay ở đỉnh */}
       <View style={[styles.pointerWrap, { left: wheelSize / 2 - 13 }]}>
         <Svg width={26} height={32} viewBox="0 0 26 32">
           <Path
@@ -286,7 +286,7 @@ export function MeetingWheelPreview({
         <View style={styles.fullscreenLeft}>{renderWheel()}</View>
         <View style={styles.fullscreenRight}>
           <Badge tone={spinning ? "danger" : "warning"}>
-            {spinning ? "⚡ ĐANG QUAY CHỌN NGƯỜI..." : "VÒNG QUAY CHỌN NGƯỜI"}
+            {spinning ? "⚡ ĐANG QUAY THƯỞNG..." : "VÒNG QUAY MAY MẮN"}
           </Badge>
           {(() => {
             const prizeTitle = (winner?.prizeName || selectedPrize?.name || "").trim();
@@ -334,7 +334,7 @@ export function MeetingWheelPreview({
               ) : (
                 <View style={styles.idleBadge}>
                   <Users size={13} color="#D97706" />
-                  <Text style={styles.idleBadgeText}>QUAY CHỌN NGƯỜI</Text>
+                  <Text style={styles.idleBadgeText}>QUAY THƯỞNG</Text>
                 </View>
               )}
               <Text style={styles.participantCount}>
@@ -497,7 +497,7 @@ export function MeetingWinnersList({ meeting, now }: { meeting: Meeting; now: nu
           <Text style={styles.emptySubtitle}>
             {spinning
               ? "Vòng quay đang xoay để tìm người may mắn..."
-              : "Kết quả được chọn sẽ hiển thị tại đây theo thời gian thực."}
+              : "Kết quả vòng quay sẽ hiển thị tại đây theo thời gian thực."}
           </Text>
         </View>
       )}

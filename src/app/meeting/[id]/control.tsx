@@ -88,7 +88,7 @@ export default function MeetingControlScreen() {
 
   const remove = () => Alert.alert(
     "Xóa cuộc họp?",
-    "Toàn bộ danh sách check-in và dữ liệu quay chọn người của cuộc họp sẽ bị xóa hoàn toàn.",
+    "Toàn bộ danh sách check-in và dữ liệu quay may mắn của cuộc họp sẽ bị xóa hoàn toàn.",
     [
       { text: "Không xóa", style: "cancel" },
       {

@@ -11,11 +11,11 @@ const PUBLIC_RULES_URL = "https://erp.igentechnology.net/lucky-draw-rules";
 
 export default function WheelRulesScreen() {
   return <Screen>
-    <BackHeader title="Vòng quay chọn người" subtitle="Hướng dẫn sử dụng trong cuộc họp" />
+    <BackHeader title="Vòng quay may mắn" subtitle="Hướng dẫn sử dụng trong cuộc họp" />
     <Card style={styles.hero}>
       <View style={styles.heroHeading}>
         <View style={styles.icon}><Users size={22} color={colors.brandBlue} /></View>
-        <Text style={styles.title}>Hướng dẫn vòng quay chọn người</Text>
+        <Text style={styles.title}>Hướng dẫn vòng quay may mắn</Text>
       </View>
       <Text style={styles.updated}>Cập nhật ngày {wheelSelectionGuide.updatedAt}</Text>
       <Text style={styles.intro}>Chọn ngẫu nhiên người phát biểu, trình bày hoặc tham gia hoạt động trong cuộc họp.</Text>
