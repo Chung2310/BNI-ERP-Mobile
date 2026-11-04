@@ -1,0 +1,100 @@
+name: Google Play AAB
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - production
+
+permissions:
+  contents: read
+
+concurrency:
+  group: google-play-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    environment: google-play
+    env:
+      CI: "1"
+      APP_VARIANT: production
+      EXPO_PUBLIC_USE_RN_FETCH: "1"
+      EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
+      ANDROID_GOOGLE_SERVICES_JSON: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON || vars.ANDROID_GOOGLE_SERVICES_JSON || secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 || vars.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Set Android version code
+        run: node tools/set-android-version-code.cjs
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install dependencies
+        run: npm ci
+      - name: Restore Firebase configuration and upload keystore
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const keystorePath = path.join(process.env.RUNNER_TEMP, 'igen-upload.jks');
+          fs.appendFileSync(process.env.GITHUB_ENV, `ANDROID_KEYSTORE_PATH=${keystorePath}\n`);
+          const raw = process.env.ANDROID_GOOGLE_SERVICES_JSON?.trim();
+          if (!raw) throw new Error('Missing ANDROID_GOOGLE_SERVICES_JSON');
+          let config;
+          try { config = JSON.parse(raw); }
+          catch { config = JSON.parse(Buffer.from(raw, 'base64').toString('utf8')); }
+          fs.writeFileSync('google-services.json', JSON.stringify(config), { mode: 0o600 });
+          const key = process.env.ANDROID_KEYSTORE_BASE64;
+          if (!key) throw new Error('Missing ANDROID_KEYSTORE_BASE64');
+          fs.writeFileSync(keystorePath, Buffer.from(key, 'base64'), { mode: 0o600 });
+          NODE
+      - name: Check app and release configuration
+        run: |
+          npm run typecheck
+          npm run lint
+          npm run test:android:play
+          npm run verify:play -- --signing
+      - name: Generate Android project, build and verify signed AAB
+        run: npm run build:android:play
+      - name: Upload Google Play bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: igen-connect-google-play-${{ env.ANDROID_VERSION_CODE }}
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+      - name: Upload R8 mapping
+        uses: actions/upload-artifact@v7
+        with:
+          name: igen-connect-mapping-${{ env.ANDROID_VERSION_CODE }}
+          path: android/app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: error
+          retention-days: 90
+      - name: Write build summary
+        run: |
+          echo '### Google Play AAB' >> "$GITHUB_STEP_SUMMARY"
+          echo "- versionCode: $ANDROID_VERSION_CODE" >> "$GITHUB_STEP_SUMMARY"
+          echo '- Build: Gradle on GitHub Actions' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Signature: verified against the upload keystore' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Download the AAB from this run Artifacts and upload to Play Console internal testing.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove signing material
+        if: always()
+        run: rm -f -- "$RUNNER_TEMP/igen-upload.jks" google-services.json android/app/google-services.json
