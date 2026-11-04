@@ -57,6 +57,4 @@ firebase-service-account*.json
 .env
 .env.*
 !.env.example
-google-play-service-account*.json
-credentials.json
-serviceAccountJson.json
+/gha-creds-*.json
