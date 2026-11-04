@@ -46,7 +46,9 @@ Workflow sẽ:
 5. Chạy `app:bundleRelease`, kiểm tra JavaScript bundle nhúng, chữ ký JAR và certificate khớp upload key. Build thất bại nếu thiếu khóa, dùng certificate Android Debug hoặc chữ ký không hợp lệ.
 6. Lưu AAB và R8 mapping thành hai Artifacts, dọn file khóa trên runner.
 
-Tải artifact `igen-connect-google-play-<versionCode>` (xem versionCode trong build summary), giải nén lấy `app-release.aab`. Artifact mapping dùng giải mã stack trace của bản release. Workflow **chỉ build**, bạn upload AAB trong Play Console ở bước tiếp theo. Workflow APK `android-test-apk.yml` vẫn phục vụ cài thử riêng; cấu hình AAB production dùng bốn ABI và packaging native hiện đại.
+Tải artifact `igen-connect-google-play-<versionCode>` (xem versionCode trong build summary), giải nén lấy `app-release.aab`. Artifact mapping dùng giải mã stack trace của bản release. Workflow **chỉ build**, bạn upload AAB trong Play Console ở bước tiếp theo. Cấu hình AAB production dùng bốn ABI và packaging native hiện đại.
+
+Workflow APK tạm ngừng và được lưu tại `.github/disabled-workflows/android-test-apk.yml`, ngoài thư mục workflow hoạt động. Muốn bật lại, chuyển file đó về `.github/workflows/`. Bước setup Android của AAB chỉ cài `platform-tools`, tránh gói SDK `tools` mà runner không còn tìm được.
 
 ## 3. Build trên máy cá nhân khi cần
 
