@@ -33,18 +33,20 @@ Workflow cũng nhận Firebase client config Base64 qua `ANDROID_GOOGLE_SERVICES
 
 ## 2. Chạy workflow để tạo AAB
 
-Sau khi commit/push các file build vào repository mobile, vào Actions > **Google Play AAB** > Run workflow. Nhập `version_code` là số nguyên dương không vượt `2100000000`, **lớn hơn mọi versionCode từng upload của ứng dụng**, kể cả các track thử nghiệm. Bản đầu có thể dùng `1` nếu package chưa có upload nào. Khi phát hành phiên bản hiển thị mới, sửa thêm `expo.version` trong `app.json`.
+Workflow **Google Play AAB** tự chạy khi push/merge lên nhánh `production`, giống workflow iOS. Merge vào `develop` không chạy build AAB. Khi cần chạy thủ công, vào Actions > **Google Play AAB** > Run workflow và chọn nhánh `production`; các nhánh khác bị bỏ qua.
+
+Không cần nhập `version_code` hoặc tạo thêm variable: CI tự tính `ANDROID_VERSION_CODE = github.run_number * 100 + github.run_attempt`. Lần chạy đầu là `101`, lần chạy mới kế tiếp là `201`; chạy lại lần đầu tạo `102`. Mỗi lần chạy hỗ trợ tối đa 99 attempts. Version code phải lớn hơn mọi bản đã upload lên Play: dùng một lần chạy mới để phát hành bản tiếp theo, không chạy lại build cũ sau khi đã phát hành build mới hơn. Khi phát hành phiên bản hiển thị mới, sửa thêm `expo.version` trong `app.json`.
 
 Workflow sẽ:
 
-1. Cài Node 22, Java 17, Android SDK và dependency.
+1. Cài Node 22, tự sinh version code, cài Java 17, Android SDK và dependency.
 2. Khôi phục Firebase config và upload keystore từ Secrets.
 3. Chạy typecheck, lint, tests build Android và preflight URL API/Firebase/versionCode/khóa ký.
 4. Chạy `expo prebuild --platform android --clean --no-install`, cấu hình release signing bằng config plugin. Mật khẩu chỉ đọc từ environment khi Gradle chạy, không ghi vào mã native hay app config.
 5. Chạy `app:bundleRelease`, kiểm tra JavaScript bundle nhúng, chữ ký JAR và certificate khớp upload key. Build thất bại nếu thiếu khóa, dùng certificate Android Debug hoặc chữ ký không hợp lệ.
 6. Lưu AAB và R8 mapping thành hai Artifacts, dọn file khóa trên runner.
 
-Tải artifact `igen-connect-google-play-<version_code>`, giải nén lấy `app-release.aab`. Artifact mapping dùng giải mã stack trace của bản release. Workflow **chỉ build**, bạn upload AAB trong Play Console ở bước tiếp theo. Workflow APK `android-test-apk.yml` vẫn phục vụ cài thử riêng; cấu hình AAB production dùng bốn ABI và packaging native hiện đại.
+Tải artifact `igen-connect-google-play-<versionCode>` (xem versionCode trong build summary), giải nén lấy `app-release.aab`. Artifact mapping dùng giải mã stack trace của bản release. Workflow **chỉ build**, bạn upload AAB trong Play Console ở bước tiếp theo. Workflow APK `android-test-apk.yml` vẫn phục vụ cài thử riêng; cấu hình AAB production dùng bốn ABI và packaging native hiện đại.
 
 ## 3. Build trên máy cá nhân khi cần
 

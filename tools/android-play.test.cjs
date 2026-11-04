@@ -24,6 +24,26 @@ function check(overrides, args = []) {
   });
 }
 
+test("automatic version codes increase between builds and retries and remain within Play limits", t => {
+  const { androidVersionCode } = require("./set-android-version-code.cjs");
+  assert.equal(androidVersionCode("1", "1"), 101);
+  assert.ok(androidVersionCode("1", "2") > androidVersionCode("1", "1"));
+  assert.ok(androidVersionCode("2", "1") > androidVersionCode("1", "99"));
+  for (const [number, attempt] of [["", "1"], ["0", "1"], ["1.5", "1"], ["1", "0"], ["1", "100"], ["21000000", "1"]]) {
+    assert.throws(() => androidVersionCode(number, attempt), `${number}/${attempt}`);
+  }
+  const directory = fs.mkdtempSync(path.join(temporaryRoot, "igen-play-version-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const githubEnv = path.join(directory, "github-env");
+  const result = spawnSync(process.execPath, [path.join(__dirname, "set-android-version-code.cjs")], {
+    cwd: root,
+    env: { ...process.env, GITHUB_RUN_NUMBER: "12", GITHUB_RUN_ATTEMPT: "2", GITHUB_ENV: githubEnv, ANDROID_VERSION_CODE: "old-value" },
+    encoding: "utf8",
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(fs.readFileSync(githubEnv, "utf8"), "ANDROID_VERSION_CODE=1202\n");
+});
+
 test("Android production config preserves iOS and the standalone APK configuration", () => {
   const config = require("../app.json").expo;
   const evaluate = variant => JSON.parse(execFileSync(process.execPath, ["-e",

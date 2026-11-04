@@ -2,11 +2,9 @@ name: Google Play AAB
 
 on:
   workflow_dispatch:
-    inputs:
-      version_code:
-        description: Android versionCode (integer greater than every previous Play upload)
-        required: true
-        type: string
+  push:
+    branches:
+      - production
 
 permissions:
   contents: read
@@ -17,6 +15,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.ref == 'refs/heads/production'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     environment: google-play
@@ -25,7 +24,6 @@ jobs:
       APP_VARIANT: production
       EXPO_PUBLIC_USE_RN_FETCH: "1"
       EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
-      ANDROID_VERSION_CODE: ${{ inputs.version_code }}
       ANDROID_GOOGLE_SERVICES_JSON: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON || vars.ANDROID_GOOGLE_SERVICES_JSON || secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 || vars.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
       ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -39,6 +37,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Set Android version code
+        run: node tools/set-android-version-code.cjs
       - name: Set up Java
         uses: actions/setup-java@v6
         with:
@@ -76,7 +76,7 @@ jobs:
       - name: Upload Google Play bundle
         uses: actions/upload-artifact@v7
         with:
-          name: igen-connect-google-play-${{ inputs.version_code }}
+          name: igen-connect-google-play-${{ env.ANDROID_VERSION_CODE }}
           path: android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 30
@@ -84,7 +84,7 @@ jobs:
       - name: Upload R8 mapping
         uses: actions/upload-artifact@v7
         with:
-          name: igen-connect-mapping-${{ inputs.version_code }}
+          name: igen-connect-mapping-${{ env.ANDROID_VERSION_CODE }}
           path: android/app/build/outputs/mapping/release/mapping.txt
           if-no-files-found: error
           retention-days: 90

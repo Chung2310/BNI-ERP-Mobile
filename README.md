@@ -34,7 +34,7 @@ Các lệnh kiểm tra:
 
 ## Build Android cho Google Play
 
-Xem [GOOGLE-PLAY-RELEASE.md](docs/GOOGLE-PLAY-RELEASE.md) để cấu hình Firebase, upload keystore và chạy workflow **Google Play AAB**. Workflow build/ký AAB bằng Gradle trên GitHub Actions rồi lưu trong Artifacts để upload thủ công lên Play Console. Android dùng chung repository variable `EXPO_PUBLIC_API_URL` với iOS; không cần Expo/EAS Build hoặc `EXPO_TOKEN`. Luồng push vẫn là FCM trực tiếp trên Android và Expo Push Service trên iOS.
+Xem [GOOGLE-PLAY-RELEASE.md](docs/GOOGLE-PLAY-RELEASE.md) để cấu hình Firebase, upload keystore và chạy workflow **Google Play AAB**. Workflow tự build/ký AAB bằng Gradle trên GitHub Actions khi push/merge lên `production` và tự sinh version code; `develop` không chạy build AAB. File AAB được lưu trong Artifacts để upload thủ công lên Play Console. Android dùng chung repository variable `EXPO_PUBLIC_API_URL` với iOS; không cần Expo/EAS Build hoặc `EXPO_TOKEN`. Luồng push vẫn là FCM trực tiếp trên Android và Expo Push Service trên iOS.
 
 Mã ứng dụng nằm trong `src/app`. Ứng dụng đã kết nối các API BNI-ERP cho đăng nhập/refresh phiên, cuộc họp, QR/GPS check-in, điều hành và quay chọn người, thành viên, chat, thông báo, tài nguyên và phân quyền. Bảng xếp hạng được tổng hợp từ lịch sử check-in/phát biểu của cuộc họp.
 
