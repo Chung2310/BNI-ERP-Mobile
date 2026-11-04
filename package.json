@@ -54,9 +54,12 @@
     "android": "expo start --android --port 8082",
     "ios": "expo start --ios --port 8082",
     "web": "expo start --web --port 8082",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "expo customize tsconfig.json && tsc --noEmit",
     "doctor": "npx expo-doctor",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test:android:play": "node --test tools/android-play.test.cjs",
+    "verify:play": "node tools/check-play-build.cjs",
+    "build:android:play": "node tools/build-android-play.cjs"
   },
   "private": true
 }
