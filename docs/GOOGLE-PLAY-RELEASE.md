@@ -1,6 +1,6 @@
 # Phát hành iGen Connect lên Google Play
 
-Ứng dụng dùng package `com.igen.connect`, version hiển thị lấy từ `app.json` (hiện là `1.0.0`). Workflow **Google Play AAB** build trực tiếp bằng Gradle trên GitHub Actions, ký bằng upload keystore của tổ chức và trả file AAB trong Artifacts. Không dùng EAS Build, Expo Submit, tài khoản Expo, `EXPO_TOKEN` hay `EAS_PROJECT_ID`. Expo SDK vẫn là thư viện của app; Expo CLI chạy tại máy build để sinh Android project và đóng gói JavaScript. [Build Android trực tiếp](https://docs.expo.dev/guides/local-app-production/)
+Ứng dụng dùng package `com.igen.connect`, version hiển thị lấy từ `app.json` (hiện là `1.0.0`). Workflow **Google Play AAB** build trực tiếp bằng Gradle trên GitHub Actions, ký bằng upload keystore của tổ chức, tự upload AAB/mapping vào **Internal testing** dưới dạng **draft**, đồng thời giữ bản sao trong Artifacts. Không dùng EAS Build, Expo Submit, tài khoản Expo, `EXPO_TOKEN` hay `EAS_PROJECT_ID`. Expo SDK vẫn là thư viện của app; Expo CLI chạy tại máy build để sinh Android project và đóng gói JavaScript. [Build Android trực tiếp](https://docs.expo.dev/guides/local-app-production/)
 
 ## 1. Chuẩn bị một lần
 
@@ -24,6 +24,7 @@ Trong **repository mobile** trên GitHub, tạo environment `google-play` dướ
 | Secret | `ANDROID_KEYSTORE_PASSWORD` | Mật khẩu keystore |
 | Secret | `ANDROID_KEY_ALIAS` | Alias khóa, ví dụ `igen-upload` |
 | Secret | `ANDROID_KEY_PASSWORD` | Mật khẩu của khóa |
+| Secret mới cho upload | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Toàn bộ service account JSON gốc được cấp quyền upload cho app trong Play Console; không phải Firebase client config |
 
 Workflow cũng nhận Firebase client config Base64 qua `ANDROID_GOOGLE_SERVICES_JSON_BASE64`, tương thích workflow APK đang có. Các secret Android có thể đặt ở repository hoặc environment `google-play`; Firebase config đã có ở repository có thể dùng lại nếu đúng package và project. Giữ URL dùng chung ở repository như trên; khóa ký Android tách riêng khỏi chứng chỉ/profile iOS. Tạo Base64 keystore bằng PowerShell, lưu vào file để dán vào Secret, rồi xóa file trung gian sau khi lưu an toàn:
 
@@ -31,7 +32,23 @@ Workflow cũng nhận Firebase client config Base64 qua `ANDROID_GOOGLE_SERVICES
 [IO.File]::WriteAllText((Join-Path $env:TEMP 'igen-upload.base64.txt'), [Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path .\igen-upload.jks))))
 ```
 
-## 2. Chạy workflow để tạo AAB
+### Quyền tự upload vào Play Console
+
+Chỉ cần bổ sung một Secret `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`; các biến API/Firebase/keystore giữ nguyên. Không cần thêm Variable hay token Expo.
+
+1. Trong Google Cloud Console, chọn project dùng để quản lý CI và bật **Google Play Android Developer API** (`androidpublisher.googleapis.com`). Có thể dùng project hiện có.
+2. Vào **IAM & Admin > Service Accounts > Create service account**, ví dụ `github-play-upload`. Tài khoản upload không cần role Owner/Editor của Cloud project.
+3. Mở service account > **Keys > Add key > Create new key > JSON**, lưu file JSON vừa tải an toàn. File này có `type: service_account`, `client_email` và `private_key`; khác với `google-services.json` của app Android.
+4. Trong Play Console > **Users and permissions > Invite new users**, nhập `client_email` từ file JSON. Chỉ cấp quyền cho app `com.igen.connect`: **View app information (read-only)** và **Release apps to testing tracks**, rồi lưu lời mời. Workflow chỉ upload vào internal draft nên không cần quyền phát hành production hay tài chính.
+5. Copy toàn bộ nội dung file JSON gốc vào GitHub Secret **`GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`**, ở repository hoặc environment `google-play`. Không chuyển Base64, không đưa private key vào source code/app.
+
+[Thiết lập API/service account](https://developers.google.com/android-publisher/getting_started), [quyền Play Console](https://support.google.com/googleplay/android-developer/answer/9844686?hl=en), [tạo JSON key](https://cloud.google.com/iam/docs/keys-create-delete).
+
+Workflow kiểm tra định dạng JSON/private key trước khi build và đọc package/version từ `app.json`. File credential được tạo trong thư mục tạm của runner rồi dọn ở cuối job. Action upload được ghim theo commit cụ thể. Kiểm tra định dạng không thay thế xác thực API/quyền thật trên Google Play.
+
+App/package phải tồn tại trong Play Console và hoàn tất bước Play App Signing ban đầu. Nếu API báo **Package not found** ở lần đầu, kiểm tra quyền đúng app; nếu package chưa được Play nhận diện, upload AAB đầu tiên qua Console một lần rồi dùng CI cho các bản tiếp theo. Nếu Google báo **Only releases with status draft may be created on draft app**, workflow đã dùng `draft`; hoàn tất các bước setup app trong Console trước khi phát hành thử. Không chỉnh Console cùng lúc job đang upload để tránh xung đột edit.
+
+## 2. Chạy workflow để build và upload AAB
 
 Workflow **Google Play AAB** tự chạy khi push/merge lên nhánh `production`, giống workflow iOS. Merge vào `develop` không chạy build AAB. Khi cần chạy thủ công, vào Actions > **Google Play AAB** > Run workflow và chọn nhánh `production`; các nhánh khác bị bỏ qua.
 
@@ -39,14 +56,15 @@ Không cần nhập `version_code` hoặc tạo thêm variable: CI tự tính `A
 
 Workflow sẽ:
 
-1. Cài Node 22, tự sinh version code, cài Java 17, Android SDK và dependency.
+1. Cài Node 22, tự sinh version code, kiểm tra credential upload, cài Java 17, Android SDK và dependency.
 2. Khôi phục Firebase config và upload keystore từ Secrets.
 3. Chạy typecheck, lint, tests build Android và preflight URL API/Firebase/versionCode/khóa ký.
 4. Chạy `expo prebuild --platform android --clean --no-install`, cấu hình release signing bằng config plugin. Mật khẩu chỉ đọc từ environment khi Gradle chạy, không ghi vào mã native hay app config.
 5. Chạy `app:bundleRelease`, kiểm tra JavaScript bundle nhúng, chữ ký JAR và certificate khớp upload key. Build thất bại nếu thiếu khóa, dùng certificate Android Debug hoặc chữ ký không hợp lệ.
-6. Lưu AAB và R8 mapping thành hai Artifacts, dọn file khóa trên runner.
+6. Lưu AAB và R8 mapping thành hai Artifacts.
+7. Tự upload AAB và mapping vào **Internal testing**, trạng thái **draft**, với release name gồm version và versionCode. Dọn file khóa ký và service account ở cuối job dù upload thành công hay thất bại.
 
-Tải artifact `igen-connect-google-play-<versionCode>` (xem versionCode trong build summary), giải nén lấy `app-release.aab`. Artifact mapping dùng giải mã stack trace của bản release. Workflow **chỉ build**, bạn upload AAB trong Play Console ở bước tiếp theo. Cấu hình AAB production dùng bốn ABI và packaging native hiện đại.
+Build và upload thành công thì vào Play Console để xem bản nháp đã có sẵn, không cần tải AAB rồi upload lại. Hoàn tất tester/setup và phát hành bản nháp khi sẵn sàng; workflow không tự gửi duyệt/phát hành production. Artifact `igen-connect-google-play-<versionCode>` chứa `app-release.aab`; artifact mapping dùng giải mã stack trace và làm bản sao dự phòng khi cần. Cấu hình AAB production dùng bốn ABI và packaging native hiện đại.
 
 Workflow APK tạm ngừng và được lưu tại `.github/disabled-workflows/android-test-apk.yml`, ngoài thư mục workflow hoạt động. Muốn bật lại, chuyển file đó về `.github/workflows/`. Bước setup Android của AAB chỉ cài `platform-tools`, tránh gói SDK `tools` mà runner không còn tìm được.
 
@@ -70,7 +88,7 @@ Kết quả: `android/app/build/outputs/bundle/release/app-release.aab`. Lệnh 
 
 ## 4. Upload và kiểm thử qua Google Play
 
-Hoàn tất xác minh tài khoản tổ chức, website và số điện thoại trong Play Console. Tạo ứng dụng tương ứng package `com.igen.connect`, bật Play App Signing và upload AAB vào **Internal testing**. Hoàn tất bản phát hành thử, thêm tester rồi cài app từ link Google Play.
+Hoàn tất xác minh tài khoản tổ chức, website và số điện thoại trong Play Console. Tạo ứng dụng tương ứng package `com.igen.connect`, bật Play App Signing, rồi mở bản **Internal testing draft** do workflow upload. Hoàn tất bản phát hành thử, thêm tester rồi cài app từ link Google Play.
 
 Kiểm tra đăng ký, duyệt/rời chapter, đổi tài khoản, refresh phiên sau 15 phút và kết nối lại socket. Kiểm tra camera QR, GPS, sinh trắc học, chat/đính kèm, push khi mở app/chạy nền/tắt app và xóa tài khoản trên thiết bị thật. Android lấy native FCM token và backend gửi FCM trực tiếp; không cần Expo Push Service hay EAS project.
 

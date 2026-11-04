@@ -57,7 +57,7 @@
     "typecheck": "expo customize tsconfig.json && tsc --noEmit",
     "doctor": "npx expo-doctor",
     "lint": "expo lint",
-    "test:android:play": "node --test tools/android-play.test.cjs",
+    "test:android:play": "node --test tools/android-play.test.cjs tools/play-upload.test.cjs",
     "verify:play": "node tools/check-play-build.cjs",
     "build:android:play": "node tools/build-android-play.cjs"
   },

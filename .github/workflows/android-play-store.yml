@@ -39,6 +39,11 @@ jobs:
           cache: npm
       - name: Set Android version code
         run: node tools/set-android-version-code.cjs
+      - name: Check Google Play upload credentials
+        id: play_upload
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: node tools/prepare-play-upload.cjs
       - name: Set up Java
         uses: actions/setup-java@v6
         with:
@@ -90,13 +95,24 @@ jobs:
           path: android/app/build/outputs/mapping/release/mapping.txt
           if-no-files-found: error
           retention-days: 90
+      - name: Upload draft to Google Play internal testing
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1
+        with:
+          serviceAccountJson: ${{ runner.temp }}/google-play-service-account.json
+          packageName: ${{ steps.play_upload.outputs.package_name }}
+          releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
+          mappingFile: android/app/build/outputs/mapping/release/mapping.txt
+          tracks: internal
+          status: draft
+          releaseName: ${{ steps.play_upload.outputs.version_name }} (${{ env.ANDROID_VERSION_CODE }})
       - name: Write build summary
         run: |
           echo '### Google Play AAB' >> "$GITHUB_STEP_SUMMARY"
           echo "- versionCode: $ANDROID_VERSION_CODE" >> "$GITHUB_STEP_SUMMARY"
           echo '- Build: Gradle on GitHub Actions' >> "$GITHUB_STEP_SUMMARY"
           echo '- Signature: verified against the upload keystore' >> "$GITHUB_STEP_SUMMARY"
-          echo '- Download the AAB from this run Artifacts and upload to Play Console internal testing.' >> "$GITHUB_STEP_SUMMARY"
-      - name: Remove signing material
+          echo '- Uploaded to Google Play internal testing as a draft release.' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Complete tester setup and publish the draft in Play Console when ready.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove signing and upload credentials
         if: always()
-        run: rm -f -- "$RUNNER_TEMP/igen-upload.jks" google-services.json android/app/google-services.json
+        run: rm -f -- "$RUNNER_TEMP/igen-upload.jks" "$RUNNER_TEMP/google-play-service-account.json" google-services.json android/app/google-services.json
