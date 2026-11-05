@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: google-play-build
@@ -24,6 +25,8 @@ jobs:
       APP_VARIANT: production
       EXPO_PUBLIC_USE_RN_FETCH: "1"
       EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
+      GOOGLE_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GOOGLE_WORKLOAD_IDENTITY_PROVIDER }}
+      GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL: ${{ vars.GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL }}
       ANDROID_GOOGLE_SERVICES_JSON: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON || vars.ANDROID_GOOGLE_SERVICES_JSON || secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 || vars.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
       ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -39,6 +42,9 @@ jobs:
           cache: npm
       - name: Set Android version code
         run: node tools/set-android-version-code.cjs
+      - name: Check Google Play federation configuration
+        id: play_upload
+        run: node tools/prepare-play-wif.cjs
       - name: Set up Java
         uses: actions/setup-java@v6
         with:
@@ -90,13 +96,30 @@ jobs:
           path: android/app/build/outputs/mapping/release/mapping.txt
           if-no-files-found: error
           retention-days: 90
+      - name: Authenticate to Google Cloud with GitHub OIDC
+        id: google_auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ env.GOOGLE_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL }}
+      - name: Upload draft to Google Play internal testing
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1
+        with:
+          serviceAccountJson: ${{ steps.google_auth.outputs.credentials_file_path }}
+          packageName: ${{ steps.play_upload.outputs.package_name }}
+          releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
+          mappingFile: android/app/build/outputs/mapping/release/mapping.txt
+          tracks: internal
+          status: draft
+          releaseName: ${{ steps.play_upload.outputs.version_name }} (${{ env.ANDROID_VERSION_CODE }})
       - name: Write build summary
         run: |
           echo '### Google Play AAB' >> "$GITHUB_STEP_SUMMARY"
           echo "- versionCode: $ANDROID_VERSION_CODE" >> "$GITHUB_STEP_SUMMARY"
           echo '- Build: Gradle on GitHub Actions' >> "$GITHUB_STEP_SUMMARY"
           echo '- Signature: verified against the upload keystore' >> "$GITHUB_STEP_SUMMARY"
-          echo '- Download the AAB from this run Artifacts and upload to Play Console internal testing.' >> "$GITHUB_STEP_SUMMARY"
-      - name: Remove signing material
+          echo '- Uploaded to Google Play internal testing as a draft release.' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Complete tester setup and publish the draft in Play Console when ready.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove signing and upload credentials
         if: always()
         run: rm -f -- "$RUNNER_TEMP/igen-upload.jks" google-services.json android/app/google-services.json
