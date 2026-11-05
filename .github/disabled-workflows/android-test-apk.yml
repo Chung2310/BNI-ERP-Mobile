@@ -1,3 +1,5 @@
+# Paused while Google Play AAB is the release workflow.
+# Move this file back to .github/workflows/ to enable standalone APK builds.
 name: Android standalone APK
 
 on:
